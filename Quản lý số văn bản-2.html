@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet" href="_ds/moreh-design-system-61d9b309-0ba4-4b4d-a84b-cfd7902edb8f/colors_and_type.css">
+      <script src="_ds/moreh-design-system-61d9b309-0ba4-4b4d-a84b-cfd7902edb8f/_ds_bundle.js"></script>
+      <style>
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
+
+        a {
+          color: #CC4600;
+          text-decoration: none;
+        }
+
+        a:hover {
+          color: #FF5700;
+          text-decoration: underline;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="min-height: 100vh; background: #F4F5F6; font-family: var(--font-sans); color: #212121; display: flex; flex-direction: column;">
+
+      <header
+        style="background: #FFFFFF; border-bottom: 1px solid #D8DBDF; padding: 18px 32px; display: flex; align-items: baseline; gap: 16px;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="width: 9px; height: 9px; background: #FF5700; display: inline-block;"></span>
+          <span style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Quản lý số văn
+            bản</span>
+        </div>
+        <span style="font-size: 13px; color: #777777;">{{ orgName }}</span>
+        <span style="margin-left: auto; font-size: 12px; color: #777777; letter-spacing: 0.02em;">Sổ văn bản {{
+          currentYear }}</span>
+      </header>
+
+      <div style="background: #FFFFFF; border-bottom: 1px solid #D8DBDF; padding: 0 32px; display: flex; gap: 28px;">
+        <button type="button" onClick="{{ h.tabDen }}" style="{{ tabDenStyle }}">1. Văn bản đến<span
+            style="margin-left: 8px; font-family: var(--font-mono); font-size: 12px; color: #777777;">{{ countDen
+            }}</span></button>
+        <button type="button" onClick="{{ h.tabDi }}" style="{{ tabDiStyle }}">2. Văn bản đi<span
+            style="margin-left: 8px; font-family: var(--font-mono); font-size: 12px; color: #777777;">{{ countDi
+            }}</span></button>
+        <button type="button" onClick="{{ h.tabSet }}" style="{{ tabSetStyle }}">Cài đặt</button>
+      </div>
+
+      <main style="flex: 1; padding: 24px 32px 48px; display: flex; flex-direction: column; gap: 16px;">
+
+        <sc-if value="{{ pageSo }}" hint-placeholder-val="{{ true }}">
+          <section
+            style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Sổ
+                  năm</span>
+                <select value="{{ bookYear }}" onChange="{{ h.bookYear }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; min-width: 130px;">
+                  <option value="">Tất cả các năm</option>
+                  <sc-for list="{{ yearOptions }}" as="y" hint-placeholder-count="2">
+                    <option value="{{ y.value }}">{{ y.label }}</option>
+                  </sc-for>
+                </select>
+              </label>
+              <label style="flex: 1 1 320px; min-width: 240px; display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tìm
+                  kiếm</span>
+                <input type="text" value="{{ q }}" onChange="{{ h.q }}"
+                  placeholder="Tên văn bản · số · người gửi · ghi chú"
+                  style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;"
+                  style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Độ
+                  bảo mật</span>
+                <select value="{{ secFilter }}" onChange="{{ h.sec }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; min-width: 140px;">
+                  <option value="">Tất cả</option>
+                  <option value="Thường">Thường</option>
+                  <option value="Mật">Mật</option>
+                  <option value="Tối Mật">Tối Mật</option>
+                  <option value="Tuyệt Mật">Tuyệt Mật</option>
+                </select>
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Từ
+                  ngày</span>
+                <input type="date" value="{{ from }}" onChange="{{ h.from }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Đến
+                  ngày</span>
+                <input type="date" value="{{ to }}" onChange="{{ h.to }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+              </label>
+              <button type="button" onClick="{{ h.reset }}"
+                style="height: 40px; padding: 0 14px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;"
+                style-hover="height: 40px; padding: 0 14px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Xóa
+                lọc</button>
+            </div>
+            <div
+              style="display: flex; gap: 10px; align-items: center; border-top: 1px solid #D8DBDF; padding-top: 12px; flex-wrap: wrap;">
+              <span style="font-size: 13px; color: #777777;">{{ resultLabel }}</span>
+              <sc-if value="{{ isPast }}" hint-placeholder-val="{{ false }}">
+                <span
+                  style="display: inline-flex; align-items: center; gap: 10px; padding: 4px 10px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8; font-size: 13px; color: #CC4600;">{{
+                  pastNote }}<button type="button" onClick="{{ h.thisYear }}"
+                    style="border: none; background: none; padding: 0; font-size: 13px; font-weight: 700; color: #CC4600; cursor: pointer; text-decoration: underline;">Về
+                    sổ năm nay</button></span>
+              </sc-if>
+              <div style="margin-left: auto; display: flex; gap: 10px;">
+                <button type="button" onClick="{{ h.add }}"
+                  style="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #37505C; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 16px; border: 1px solid #24434A; background: #F4F5F6; border-radius: 6px; font-size: 14px; font-weight: 700; color: #24434A; cursor: pointer;">{{
+                  addLabel }}</button>
+                <button type="button" onClick="{{ h.layso }}"
+                  style="height: 40px; padding: 0 18px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 18px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">Lấy
+                  số gửi văn bản đi<span
+                    style="margin-left: 10px; font-family: var(--font-mono); font-weight: 600; opacity: 0.85;">{{
+                    nextNumber }}</span></button>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pageSettings }}" hint-placeholder-val="{{ false }}">
+          <section
+            style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;">
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Kiểu
+                tăng số văn bản đi</span>
+              <span style="font-size: 13px; color: #777777;">Thẻ dùng được: <span
+                  style="font-family: var(--font-mono);">{số}</span> · <span
+                  style="font-family: var(--font-mono);">{năm}</span> · <span
+                  style="font-family: var(--font-mono);">{nn}</span> (2 chữ số cuối của năm). Chữ khác giữ
+                nguyên.</span>
+            </div>
+
+            <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+              <label style="flex: 1 1 260px; min-width: 220px; display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Mẫu
+                  số</span>
+                <input type="text" value="{{ cfgPattern }}" onChange="{{ h.cfgPattern }}" placeholder="{số}/P1"
+                  style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121;">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
+                  chữ số</span>
+                <input type="number" min="1" max="6" value="{{ cfgDigits }}" onChange="{{ h.cfgDigits }}"
+                  style="height: 40px; width: 96px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121;">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Bắt
+                  đầu từ</span>
+                <input type="number" min="1" value="{{ cfgStart }}" onChange="{{ h.cfgStart }}"
+                  style="height: 40px; width: 110px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121;">
+              </label>
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Reset
+                  đầu năm</span>
+                <select value="{{ cfgResetValue }}" onChange="{{ h.cfgReset }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; min-width: 280px;">
+                  <option value="yes">Có — reset về 01 mỗi đầu năm</option>
+                  <option value="no">Không — tăng liên tục qua các năm</option>
+                </select>
+              </label>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <span style="font-size: 13px; color: #777777;">Mẫu có sẵn</span>
+              <sc-for list="{{ presets }}" as="p" hint-placeholder-count="5">
+                <button type="button" onClick="{{ p.onPick }}" style="{{ p.style }}">{{ p.label }}</button>
+              </sc-for>
+            </div>
+
+            <div
+              style="border-top: 1px solid #D8DBDF; padding-top: 14px; display: flex; align-items: baseline; gap: 14px;">
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
+                kế tiếp</span>
+              <span style="font-family: var(--font-mono); font-weight: 600; font-size: 26px; color: #CC4600;">{{
+                nextNumber }}</span>
+              <span style="font-size: 13px; color: #777777;">{{ cfgResetLabel }}</span>
+            </div>
+          </section>
+
+          <section
+            style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <div>
+              <div
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                Sổ theo năm</div>
+              <p style="margin: 8px 0 0; font-size: 14px; color: #333333; line-height: 1.55; max-width: 780px;">Văn bản
+                các năm trước vẫn nằm trong hệ thống. Chọn năm ở ô "Sổ năm" trên trang sổ để tra cứu, hoặc bấm vào một
+                dòng dưới đây. Chọn "Tất cả các năm" để tìm xuyên suốt mọi năm.</p>
+            </div>
+            <table style="width: 100%; max-width: 620px; border-collapse: collapse; border: 1px solid #D8DBDF;">
+              <thead>
+                <tr style="background: #F4F5F6;">
+                  <th
+                    style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF;">
+                    Năm</th>
+                  <th
+                    style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF;">
+                    Văn bản đến</th>
+                  <th
+                    style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF;">
+                    Văn bản đi</th>
+                  <th style="border-bottom: 1px solid #D8DBDF;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ statRows }}" as="r" hint-placeholder-count="2">
+                  <tr>
+                    <td style="{{ r.cell }}">{{ r.year }}</td>
+                    <td style="{{ r.cell }}">{{ r.den }}</td>
+                    <td style="{{ r.cell }}">{{ r.di }}</td>
+                    <td style="{{ r.cell }}"><button type="button" onClick="{{ r.onOpen }}"
+                        style="border: none; background: none; padding: 0; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline; font-family: var(--font-sans);">Mở
+                        sổ →</button></td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ pageSo }}" hint-placeholder-val="{{ true }}">
+          <section style="background: #FFFFFF; border: 1px solid #D8DBDF; overflow-x: auto;">
+            <table style="width: 100%; min-width: 1340px; border-collapse: collapse; table-layout: fixed;">
+              <thead>
+                <tr style="border-bottom: 1px solid #D8DBDF; background: #F4F5F6;">
+                  <th
+                    style="width: 100px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Số văn bản</th>
+                  <th
+                    style="width: 92px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Ngày gửi</th>
+                  <th
+                    style="width: 152px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Người gửi</th>
+                  <th
+                    style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Tên văn bản</th>
+                  <th
+                    style="width: 108px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Độ bảo mật</th>
+                  <th
+                    style="width: 132px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Đính kèm</th>
+                  <th
+                    style="width: 184px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                    Ghi chú</th>
+                  <th style="width: 88px; padding: 10px 14px;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ rows }}" as="row" hint-placeholder-count="6">
+                  <tr style="border-bottom: 1px solid #D8DBDF;"
+                    style-hover="border-bottom: 1px solid #D8DBDF; background: #F4F5F6;">
+                    <td style="{{ row.cellNum }}">{{ row.soVanBan }}</td>
+                    <td style="{{ row.cellMono }}">{{ row.ngayHienThi }}</td>
+                    <td style="{{ row.cell }}">{{ row.nguoiGui }}</td>
+                    <td style="{{ row.cellTitle }}">{{ row.tenVanBan }}</td>
+                    <td style="{{ row.cell }}"><span style="{{ row.badge }}">{{ row.doBaoMat }}</span></td>
+                    <td style="{{ row.cellFile }}">{{ row.fileLabel }}</td>
+                    <td style="{{ row.cellNote }}">{{ row.ghiChu }}</td>
+                    <td style="{{ row.cellActions }}">
+                      <button type="button" onClick="{{ row.onEdit }}"
+                        style="border: none; background: none; padding: 4px 6px; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline;">Sửa</button>
+                      <button type="button" onClick="{{ row.onDelete }}"
+                        style="border: none; background: none; padding: 4px 6px; font-size: 13px; color: #CC0000; cursor: pointer; text-decoration: underline;">Xóa</button>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ isEmpty }}">
+              <div style="padding: 56px 24px; text-align: center; color: #777777; font-size: 14px;">Không có văn bản nào
+                khớp với điều kiện lọc.</div>
+            </sc-if>
+          </section>
+
+          <p style="margin: 0; font-size: 12px; color: #9B9D96;">Dữ liệu được lưu trên trình duyệt của máy này · định
+            dạng số: {{ formatLabel }}</p>
+        </sc-if>
+      </main>
+
+      <sc-if value="{{ modalOpen }}">
+        <div
+          style="position: fixed; inset: 0; background: rgba(0,0,0,0.42); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow-y: auto; z-index: 50;">
+          <div
+            style="width: 720px; max-width: 100%; background: #FFFFFF; border: 1px solid #D8DBDF; border-radius: 10px;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid #D8DBDF;">
+              <div
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">
+                {{ modalEyebrow }}</div>
+              <div style="margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">
+                {{ modalTitle }}</div>
+            </div>
+
+            <div style="padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <sc-if value="{{ isReserved }}" hint-placeholder-val="{{ false }}">
+                <div
+                  style="grid-column: 1 / -1; border: 1px solid #FFEAD0; background: #FFEAD0; border-radius: 10px; padding: 16px 18px; display: flex; align-items: baseline; gap: 16px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                    được cấp</span>
+                  <span
+                    style="font-family: var(--font-mono); font-weight: 600; font-size: 30px; color: #CC4600; letter-spacing: -0.01em;">{{
+                    form.soVanBan }}</span>
+                  <span style="margin-left: auto; font-size: 13px; color: #333333;">{{ formatLabel }} — số chỉ được ghi
+                    vào sổ sau khi bạn lưu.</span>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ showSoInput }}" hint-placeholder-val="{{ true }}">
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
+                    văn bản</span>
+                  <input type="text" value="{{ form.soVanBan }}" onChange="{{ h.fSo }}" placeholder="VD: 142/CV-SNV"
+                    style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121;">
+                </label>
+              </sc-if>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Ngày
+                  gửi</span>
+                <input type="date" value="{{ form.ngayGui }}" onChange="{{ h.fNgay }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121;">
+              </label>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">{{
+                  senderLabel }}</span>
+                <input type="text" value="{{ form.nguoiGui }}" onChange="{{ h.fNguoi }}"
+                  placeholder="Đơn vị hoặc cá nhân"
+                  style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121;">
+              </label>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Độ
+                  bảo mật</span>
+                <select value="{{ form.doBaoMat }}" onChange="{{ h.fBaoMat }}"
+                  style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+                  <option value="Thường">Thường</option>
+                  <option value="Mật">Mật</option>
+                  <option value="Tối Mật">Tối Mật</option>
+                  <option value="Tuyệt Mật">Tuyệt Mật</option>
+                </select>
+              </label>
+
+              <label style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên
+                  văn bản</span>
+                <input type="text" value="{{ form.tenVanBan }}" onChange="{{ h.fTen }}"
+                  placeholder="Trích yếu nội dung văn bản"
+                  style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121;">
+              </label>
+
+              <label style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Ghi
+                  chú</span>
+                <textarea rows="3" value="{{ form.ghiChu }}" onChange="{{ h.fGhiChu }}"
+                  placeholder="Nơi nhận, hạn xử lý, ghi chú nội bộ…"
+                  style="padding: 10px 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; resize: vertical; line-height: 1.5;"></textarea>
+              </label>
+
+              <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">File
+                  đính kèm</span>
+                <div
+                  style="display: flex; align-items: center; gap: 12px; border: 1px dashed #D8DBDF; border-radius: 6px; padding: 12px 14px;">
+                  <input type="file" onChange="{{ h.fFile }}" style="font-size: 13px; color: #333333;">
+                  <span style="margin-left: auto; font-size: 13px; color: #777777;">{{ fileHint }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style="padding: 16px 24px; border-top: 1px solid #D8DBDF; display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 13px; color: #CC0000;">{{ formError }}</span>
+              <div style="margin-left: auto; display: flex; gap: 10px;">
+                <button type="button" onClick="{{ h.close }}"
+                  style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Hủy</button>
+                <button type="button" onClick="{{ h.save }}"
+                  style="height: 40px; padding: 0 20px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 20px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">{{
+                  saveLabel }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+  </x-dc>
+  <script type="text/x-dc" data-dc-script
+    data-props="{&quot;orgName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Phòng 1&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;numberPattern&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;{số}/{năm}&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Kiểu tăng số&quot;},&quot;numberDigits&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;min&quot;:1,&quot;max&quot;:6,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Kiểu tăng số&quot;},&quot;resetYearly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Kiểu tăng số&quot;},&quot;startFrom&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;min&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Kiểu tăng số&quot;}}">
+const KEY = 'moreh.vanban.v1';
+const CFGKEY = 'moreh.vanban.cfg.v1';
+const TODAY = new Date().toISOString().slice(0, 10);
+
+function seed() {
+  return {
+    den: [
+      { id: 'd1', soVanBan: '2145/UBND-VP', ngayGui: '2026-09-02', nguoiGui: 'UBND Tỉnh — Văn phòng', tenVanBan: 'Về việc triển khai kế hoạch chuyển đổi số quý IV', doBaoMat: 'Thường', ghiChu: 'Chuyển phòng Kế hoạch xử lý trước 10/09', file: '2145-ubnd-vp.pdf' },
+      { id: 'd2', soVanBan: '87/SNV-TCCB', ngayGui: '2026-08-28', nguoiGui: 'Sở Nội vụ', tenVanBan: 'Hướng dẫn rà soát biên chế năm 2026', doBaoMat: 'Mật', ghiChu: 'Đã trình lãnh đạo ngày 29/08', file: '87-snv.pdf' },
+      { id: 'd3', soVanBan: '19/CA-PA03', ngayGui: '2026-08-21', nguoiGui: 'Công an Tỉnh — PA03', tenVanBan: 'Yêu cầu phối hợp bảo đảm an ninh mạng nội bộ', doBaoMat: 'Tối Mật', ghiChu: 'Lưu tủ hồ sơ mật, không sao chụp', file: '' },
+      { id: 'd4', soVanBan: '3312/BTC-NSNN', ngayGui: '2026-08-14', nguoiGui: 'Bộ Tài chính', tenVanBan: 'Thông báo phân bổ dự toán ngân sách bổ sung', doBaoMat: 'Thường', ghiChu: '', file: '3312-btc.pdf' },
+      { id: 'd5', soVanBan: '05/TTr-TCT', ngayGui: '2026-07-30', nguoiGui: 'Công ty CP Xây dựng Thành Đạt', tenVanBan: 'Tờ trình đề nghị nghiệm thu hạng mục nhà điều hành', doBaoMat: 'Thường', ghiChu: 'Kèm hồ sơ hoàn công 4 tập', file: 'to-trinh-thanh-dat.pdf' },
+      { id: 'd6', soVanBan: '4120/UBND-KT', ngayGui: '2025-12-09', nguoiGui: 'UBND Tỉnh — Phòng Kinh tế', tenVanBan: 'Về việc quyết toán kinh phí hoạt động năm 2025', doBaoMat: 'Thường', ghiChu: 'Sổ 2025 — đã lưu hồ sơ quyết toán', file: '4120-ubnd-kt.pdf' },
+      { id: 'd7', soVanBan: '66/SNV-VP', ngayGui: '2025-10-15', nguoiGui: 'Sở Nội vụ', tenVanBan: 'Hướng dẫn lập hồ sơ và nộp lưu tài liệu năm 2025', doBaoMat: 'Mật', ghiChu: 'Áp dụng cho kỳ nộp lưu quý I/2026', file: '' }
+    ],
+    di: [
+      { id: 'x1', seq: 6, year: 2026, soVanBan: '06/2026', ngayGui: '2026-09-05', nguoiGui: 'Nguyễn Thị Hà — Văn thư', tenVanBan: 'Báo cáo kết quả thực hiện nhiệm vụ tháng 8/2026', doBaoMat: 'Thường', ghiChu: 'Gửi UBND Tỉnh, bản giấy + bản điện tử', file: 'bc-thang-08.pdf' },
+      { id: 'x2', seq: 5, year: 2026, soVanBan: '05/2026', ngayGui: '2026-08-27', nguoiGui: 'Trần Văn Minh — Phó Chánh VP', tenVanBan: 'Công văn trả lời Sở Nội vụ về rà soát biên chế', doBaoMat: 'Mật', ghiChu: 'Phúc đáp văn bản đến 87/SNV-TCCB', file: 'cv-tra-loi-snv.pdf' },
+      { id: 'x3', seq: 4, year: 2026, soVanBan: '04/2026', ngayGui: '2026-08-12', nguoiGui: 'Nguyễn Thị Hà — Văn thư', tenVanBan: 'Giấy mời họp giao ban quý III', doBaoMat: 'Thường', ghiChu: 'Gửi 14 đơn vị trực thuộc', file: '' },
+      { id: 'x4', seq: 3, year: 2026, soVanBan: '03/2026', ngayGui: '2026-07-19', nguoiGui: 'Lê Quốc Bảo — Chánh Văn phòng', tenVanBan: 'Kế hoạch bảo vệ bí mật nhà nước năm 2026', doBaoMat: 'Tuyệt Mật', ghiChu: 'Chỉ phát hành 03 bản có đánh số', file: '' },
+      { id: 'x5', seq: 42, year: 2025, soVanBan: '42/2025', ngayGui: '2025-12-18', nguoiGui: 'Lê Quốc Bảo — Chánh Văn phòng', tenVanBan: 'Báo cáo tổng kết công tác văn thư lưu trữ năm 2025', doBaoMat: 'Thường', ghiChu: 'Sổ 2025 — đã đóng sổ ngày 31/12/2025', file: 'bc-tong-ket-2025.pdf' },
+      { id: 'x6', seq: 41, year: 2025, soVanBan: '41/2025', ngayGui: '2025-11-04', nguoiGui: 'Nguyễn Thị Hà — Văn thư', tenVanBan: 'Công văn đề nghị cấp bổ sung trang thiết bị lưu trữ', doBaoMat: 'Thường', ghiChu: 'Gửi Sở Tài chính', file: '' }
+    ]
+  };
+}
+
+function strip(s) {
+  return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+function pad(n) { return n < 10 ? '0' + n : String(n); }
+function viDate(iso) {
+  if (!iso) return '—';
+  const p = iso.split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+}
+const SEC = {
+  'Thường':    { fg: '#37505C', bg: '#F4F5F6', bd: '#D8DBDF' },
+  'Mật':       { fg: '#2C4F6A', bg: '#EAF0F5', bd: '#C3D3DF' },
+  'Tối Mật':   { fg: '#CC4600', bg: '#FFEAD0', bd: '#FFD3A8' },
+  'Tuyệt Mật': { fg: '#CC0000', bg: '#FBE9E9', bd: '#F0C7C7' }
+};
+
+class Component extends DCLogic {
+  state = {
+    page: 'so',
+    bookYear: String(new Date().getFullYear()),
+    tab: 'den',
+    q: '', secFilter: '', from: '', to: '',
+    docs: seed(),
+    cfg: {},
+    cfgOpen: false,
+    modal: null,
+    form: null,
+    error: ''
+  };
+
+  componentDidMount() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.den && parsed.di) this.setState({ docs: parsed });
+      }
+      const rawCfg = localStorage.getItem(CFGKEY);
+      if (rawCfg) {
+        const c = JSON.parse(rawCfg);
+        if (c && typeof c === 'object') this.setState({ cfg: c });
+      }
+    } catch (e) {}
+  }
+
+  persist(docs) {
+    this.setState({ docs });
+    try { localStorage.setItem(KEY, JSON.stringify(docs)); } catch (e) {}
+  }
+
+cfg() {
+    const c = this.state.cfg;
+    return {
+      pattern: c.pattern != null ? c.pattern : (this.props.numberPattern ?? '{số}/{năm}'),
+      digits: c.digits != null ? c.digits : (this.props.numberDigits ?? 2),
+      resetYearly: c.resetYearly != null ? c.resetYearly : (this.props.resetYearly ?? true),
+      start: c.start != null ? c.start : (this.props.startFrom ?? 1)
+    };
+  }
+
+  buildNumber(seq, year) {
+    const c = this.cfg();
+    const s = String(seq);
+    const num = s.length >= c.digits ? s : new Array(c.digits - s.length + 1).join('0') + s;
+    return c.pattern
+      .replace(/\{s(ố|o)\}/gi, num)
+      .replace(/\{n(ă|a)m\}/gi, String(year))
+      .replace(/\{nn\}/gi, String(year).slice(2));
+  }
+
+  nextNumber() {
+    const c = this.cfg();
+    const year = new Date().getFullYear();
+    const di = this.state.docs.di;
+    const pool = c.resetYearly ? di.filter(d => d.year === year) : di;
+    const max = pool.reduce((m, d) => Math.max(m, d.seq || 0), 0);
+    const seq = Math.max(max + 1, c.start);
+    return { seq, year, text: this.buildNumber(seq, year) };
+  }
+
+  setCfg(k, v) {
+    const cfg = Object.assign({}, this.cfg(), { [k]: v });
+    this.setState({ cfg });
+    try { localStorage.setItem(CFGKEY, JSON.stringify(cfg)); } catch (e) {}
+  }
+
+  blank(tab, reserved) {
+    const n = reserved ? this.nextNumber() : null;
+    return {
+      id: null, tab,
+      soVanBan: n ? n.text : '',
+      seq: n ? n.seq : null,
+      year: n ? n.year : null,
+      reserved: !!reserved,
+      ngayGui: TODAY,
+      nguoiGui: '',
+      tenVanBan: '',
+      doBaoMat: 'Thường',
+      ghiChu: '',
+      file: ''
+    };
+  }
+
+  set(k, v) { this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }), error: '' })); }
+
+  save = () => {
+    const f = this.state.form;
+    if (!f) return;
+    if (!f.tenVanBan.trim()) { this.setState({ error: 'Chưa nhập tên văn bản.' }); return; }
+    if (!f.reserved && !f.soVanBan.trim()) { this.setState({ error: 'Chưa nhập số văn bản.' }); return; }
+    const docs = { den: this.state.docs.den.slice(), di: this.state.docs.di.slice() };
+    const list = docs[f.tab];
+    const rec = {
+      id: f.id || 'v' + Date.now(),
+      soVanBan: f.soVanBan.trim(), seq: f.seq, year: f.year,
+      ngayGui: f.ngayGui, nguoiGui: f.nguoiGui.trim(),
+      tenVanBan: f.tenVanBan.trim(), doBaoMat: f.doBaoMat,
+      ghiChu: f.ghiChu.trim(), file: f.file
+    };
+    const i = list.findIndex(d => d.id === rec.id);
+    if (i >= 0) list[i] = rec; else list.unshift(rec);
+    this.setState({ modal: null, form: null, error: '', tab: f.tab });
+    this.persist(docs);
+  };
+
+  remove(tab, id) {
+    if (!window.confirm('Xóa văn bản này khỏi sổ?')) return;
+    const docs = { den: this.state.docs.den.slice(), di: this.state.docs.di.slice() };
+    docs[tab] = docs[tab].filter(d => d.id !== id);
+    this.persist(docs);
+  }
+
+  edit(tab, doc) {
+    this.setState({ modal: 'edit', error: '', form: Object.assign({}, doc, { tab, reserved: false }) });
+  }
+
+  tabStyle(active) {
+    return 'appearance: none; border: none; background: none; padding: 16px 0 13px; font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: -0.01em; color: ' +
+      (active ? '#000000' : '#777777') + '; border-bottom: 3px solid ' + (active ? '#FF5700' : 'transparent') + ';';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const tab = s.tab;
+    const nn = this.nextNumber();
+    const cfg = this.cfg();
+    const cellBase = 'padding: 13px 14px; font-size: 14px; color: #212121; vertical-align: top; line-height: 1.45;';
+
+    const years = {};
+    s.docs.den.concat(s.docs.di).forEach(d => { if (d.ngayGui) years[d.ngayGui.slice(0, 4)] = true; });
+    years[String(nn.year)] = true;
+    const yearList = Object.keys(years).sort().reverse();
+
+    const nq = strip(s.q);
+    const inBook = s.docs[tab].filter(d => !s.bookYear || (d.ngayGui || '').slice(0, 4) === s.bookYear);
+    const list = inBook.filter(d => {
+      if (s.secFilter && d.doBaoMat !== s.secFilter) return false;
+      if (s.from && d.ngayGui < s.from) return false;
+      if (s.to && d.ngayGui > s.to) return false;
+      if (!nq) return true;
+      return strip([d.soVanBan, d.nguoiGui, d.tenVanBan, d.ghiChu, d.doBaoMat, viDate(d.ngayGui)].join(' ')).indexOf(nq) >= 0;
+    }).sort((a, b) => (a.ngayGui < b.ngayGui ? 1 : a.ngayGui > b.ngayGui ? -1 : 0));
+
+    const rows = list.map(d => {
+      const c = SEC[d.doBaoMat] || SEC['Thường'];
+      return {
+        soVanBan: d.soVanBan, ngayHienThi: viDate(d.ngayGui), nguoiGui: d.nguoiGui || '—',
+        tenVanBan: d.tenVanBan, doBaoMat: d.doBaoMat, ghiChu: d.ghiChu || '—',
+        fileLabel: d.file || '— chưa có —',
+        cell: cellBase,
+        cellNum: cellBase + ' font-family: var(--font-mono); font-weight: 600; color: #000000;',
+        cellMono: cellBase + ' font-family: var(--font-mono); color: #333333;',
+        cellTitle: cellBase + ' font-weight: 700; color: #000000;',
+        cellNote: cellBase + ' color: #777777; font-size: 13px;',
+        cellFile: cellBase + ' font-size: 13px; color: ' + (d.file ? '#CC4600' : '#9B9D96') + '; word-break: break-all;',
+        cellActions: cellBase + ' text-align: right; white-space: nowrap;',
+        badge: 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; color: ' + c.fg + '; background: ' + c.bg + '; border: 1px solid ' + c.bd + ';',
+        onEdit: () => this.edit(tab, d),
+        onDelete: () => this.remove(tab, d.id)
+      };
+    });
+
+    const f = s.form;
+    return {
+      orgName: this.props.orgName ?? 'Phòng 1',
+      currentYear: nn.year,
+      countDen: s.docs.den.length,
+      countDi: s.docs.di.length,
+      tabDenStyle: this.tabStyle(tab === 'den' && s.page === 'so'),
+      tabDiStyle: this.tabStyle(tab === 'di' && s.page === 'so'),
+      q: s.q, secFilter: s.secFilter, from: s.from, to: s.to,
+      rows, isEmpty: rows.length === 0,
+      resultLabel: 'Hiển thị ' + rows.length + ' / ' + inBook.length + (tab === 'den' ? ' văn bản đến' : ' văn bản đi') + ' · ' + (s.bookYear ? 'sổ ' + s.bookYear : 'tất cả các năm'),
+      bookYear: s.bookYear,
+      yearOptions: yearList.map(y => ({ value: y, label: 'Sổ ' + y })),
+      isPast: !!(s.bookYear && s.bookYear !== String(nn.year)),
+      pastNote: 'Bạn đang xem sổ ' + s.bookYear + '. Số cấp mới vẫn thuộc sổ ' + nn.year + '.',
+      pageSo: s.page === 'so',
+      pageSettings: s.page === 'settings',
+      tabSetStyle: this.tabStyle(s.page === 'settings'),
+      statRows: yearList.map(y => ({
+        year: y,
+        den: s.docs.den.filter(d => (d.ngayGui || '').slice(0, 4) === y).length,
+        di: s.docs.di.filter(d => (d.ngayGui || '').slice(0, 4) === y).length,
+        cell: 'padding: 11px 14px; font-size: 14px; border-bottom: 1px solid #D8DBDF; font-family: var(--font-mono); color: #212121;',
+        onOpen: () => this.setState({ page: 'so', bookYear: y })
+      })),
+      addLabel: tab === 'den' ? '+ Ghi văn bản đến' : '+ Ghi thủ công',
+      nextNumber: nn.text,
+      formatLabel: (cfg.resetYearly ? 'Số tự tăng theo năm, reset đầu năm' : 'Số tự tăng liên tục, không reset') + ' · mẫu ' + cfg.pattern,
+      cfgOpen: s.cfgOpen,
+      cfgToggleStyle: 'height: 40px; padding: 0 14px; border: 1px solid ' + (s.cfgOpen ? '#37505C' : '#D8DBDF') + '; background: ' + (s.cfgOpen ? '#F4F5F6' : '#FFFFFF') + '; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;',
+      cfgPattern: cfg.pattern,
+      cfgDigits: cfg.digits,
+      cfgStart: cfg.start,
+      cfgResetValue: cfg.resetYearly ? 'yes' : 'no',
+      cfgResetLabel: cfg.resetYearly ? 'Có — reset về 01 mỗi đầu năm' : 'Không — tăng liên tục qua các năm',
+      presets: ['{số}/{năm}', '{số}/P1', '{số}/{năm}/P1', '{số}-CV', 'CV-{số}/{năm}', '{số}'].map(p => ({
+        label: p,
+        style: 'padding: 6px 11px; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); cursor: pointer; border: 1px solid ' + (p === cfg.pattern ? '#FF5700' : '#D8DBDF') + '; background: ' + (p === cfg.pattern ? '#FFEAD0' : '#FFFFFF') + '; color: ' + (p === cfg.pattern ? '#CC4600' : '#333333') + ';',
+        onPick: () => this.setCfg('pattern', p)
+      })),
+      modalOpen: !!s.modal,
+      isReserved: !!(f && f.reserved),
+      showSoInput: !!(f && !f.reserved),
+      senderLabel: f && f.tab === 'di' ? 'Người gửi (người ký / trình)' : 'Người gửi (nơi gửi đến)',
+      modalEyebrow: !f ? '' : f.reserved ? 'Lấy số văn bản đi' : f.tab === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi',
+      modalTitle: !f ? '' : f.id ? 'Sửa thông tin văn bản' : f.reserved ? 'Cấp số cho văn bản gửi đi' : 'Ghi văn bản vào sổ',
+      saveLabel: f && f.reserved ? 'Cấp số & lưu vào sổ' : 'Lưu',
+      fileHint: f && f.file ? 'Đã đính kèm: ' + f.file : 'Chấp nhận PDF, DOC, DOCX, ảnh scan',
+      formError: s.error,
+      form: f || { soVanBan: '', ngayGui: '', nguoiGui: '', tenVanBan: '', ghiChu: '', doBaoMat: 'Thường' },
+      h: {
+        tabDen: () => this.setState({ page: 'so', tab: 'den' }),
+        tabDi: () => this.setState({ page: 'so', tab: 'di' }),
+        tabSet: () => this.setState({ page: 'settings' }),
+        bookYear: e => this.setState({ bookYear: e.target.value }),
+        thisYear: () => this.setState({ bookYear: String(new Date().getFullYear()) }),
+        q: e => this.setState({ q: e.target.value }),
+        sec: e => this.setState({ secFilter: e.target.value }),
+        from: e => this.setState({ from: e.target.value }),
+        to: e => this.setState({ to: e.target.value }),
+        reset: () => this.setState({ q: '', secFilter: '', from: '', to: '' }),
+        cfgToggle: () => this.setState(st => ({ cfgOpen: !st.cfgOpen })),
+        cfgPattern: e => this.setCfg('pattern', e.target.value),
+        cfgDigits: e => this.setCfg('digits', Math.max(1, Math.min(6, parseInt(e.target.value, 10) || 1))),
+        cfgStart: e => this.setCfg('start', Math.max(1, parseInt(e.target.value, 10) || 1)),
+        cfgReset: e => this.setCfg('resetYearly', e.target.value === 'yes'),
+        add: () => this.setState({ modal: 'add', error: '', form: this.blank(tab, false) }),
+        layso: () => this.setState({ tab: 'di', modal: 'add', error: '', form: this.blank('di', true) }),
+        close: () => this.setState({ modal: null, form: null, error: '' }),
+        save: this.save,
+        fSo: e => this.set('soVanBan', e.target.value),
+        fNgay: e => this.set('ngayGui', e.target.value),
+        fNguoi: e => this.set('nguoiGui', e.target.value),
+        fBaoMat: e => this.set('doBaoMat', e.target.value),
+        fTen: e => this.set('tenVanBan', e.target.value),
+        fGhiChu: e => this.set('ghiChu', e.target.value),
+        fFile: e => this.set('file', e.target.files && e.target.files[0] ? e.target.files[0].name : '')
+      }
+    };
+  }
+}
+</script>
+</body>
+
+</html>

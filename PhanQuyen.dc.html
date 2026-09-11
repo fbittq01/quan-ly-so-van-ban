@@ -1,0 +1,205 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
+      <style>
+        :root {
+          --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+          --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
+
+        a {
+          color: #CC4600;
+          text-decoration: none;
+        }
+
+        a:hover {
+          color: #FF5700;
+          text-decoration: underline;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="min-height: 560px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; display: flex; flex-direction: column;">
+
+      <div
+        style="background: #F4F5F6; border-bottom: 1px solid #D8DBDF; padding: 11px 28px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <span
+          style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Thử
+          vai trò</span>
+        <div style="display: flex; gap: 6px;">
+          <sc-for list="{{ roleTabs }}" as="r" hint-placeholder-count="3">
+            <button type="button" onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.label }}</button>
+          </sc-for>
+        </div>
+        <span style="margin-left: auto; font-size: 12px; color: #777777;">Tab “Cài đặt” chỉ hiện với vai trò Quản
+          trị</span>
+      </div>
+
+      <header
+        style="background: #FFFFFF; border-bottom: 1px solid #D8DBDF; padding: 18px 28px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="width: 9px; height: 9px; background: #FF5700; display: inline-block;"></span>
+          <span style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Quản lý số văn
+            bản</span>
+        </div>
+        <span style="font-size: 13px; color: #777777;">Phòng 1</span>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 13px; color: #333333;">{{ userName }}</span>
+          <span style="{{ userBadge }}">{{ userRole }}</span>
+          <button type="button"
+            style="height: 32px; padding: 0 12px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 13px; color: #333333; cursor: pointer;"
+            style-hover="height: 32px; padding: 0 12px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 13px; color: #333333; cursor: pointer;">Đăng
+            xuất</button>
+        </div>
+      </header>
+
+      <div style="background: #FFFFFF; border-bottom: 1px solid #D8DBDF; padding: 0 28px; display: flex; gap: 28px;">
+        <span
+          style="appearance: none; padding: 16px 0 13px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: #777777; border-bottom: 3px solid transparent;">1.
+          Văn bản đến</span>
+        <span
+          style="appearance: none; padding: 16px 0 13px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: #777777; border-bottom: 3px solid transparent;">2.
+          Văn bản đi</span>
+        <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+          <span
+            style="appearance: none; padding: 16px 0 13px; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: #000000; border-bottom: 3px solid #FF5700; display: inline-flex; align-items: center; gap: 7px;">
+            Cài đặt
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+            </svg>
+          </span>
+        </sc-if>
+      </div>
+
+      <main style="flex: 1; padding: 24px 28px 32px; display: flex; align-items: flex-start;">
+
+        <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+          <section
+            style="width: 100%; background: #FFFFFF; border: 1px solid #FFD3A8; padding: 22px 24px; display: flex; gap: 14px; align-items: flex-start;">
+            <span
+              style="width: 34px; height: 34px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              </svg>
+            </span>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <span style="font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: #000000;">Cài đặt đã mở
+                khóa</span>
+              <p style="margin: 0; font-size: 14px; color: #333333; line-height: 1.6; max-width: 660px;">Vai trò Quản
+                trị vào được hai trang cài đặt: <strong style="font-weight: 700;">Lấy số</strong> (cấu trúc số, bắt đầu
+                từ, reset đầu năm, bộ đếm) và <strong style="font-weight: 700;">Tài khoản</strong> (thêm người dùng, đặt
+                vai trò, khóa tài khoản).</p>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 2px;">
+                <span
+                  style="height: 36px; padding: 0 14px; border: 1px solid #37505C; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #37505C; display: inline-flex; align-items: center;">Lấy
+                  số</span>
+                <span
+                  style="height: 36px; padding: 0 14px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; display: inline-flex; align-items: center;">Tài
+                  khoản</span>
+                <span
+                  style="height: 36px; padding: 0 14px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; display: inline-flex; align-items: center;">Sổ
+                  theo năm</span>
+              </div>
+            </div>
+          </section>
+        </sc-if>
+
+        <sc-if value="{{ notAdmin }}" hint-placeholder-val="{{ false }}">
+          <section
+            style="width: 100%; background: #FFFFFF; border: 1px solid #D8DBDF; padding: 34px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center;">
+            <span
+              style="width: 46px; height: 46px; border-radius: 50%; background: #F4F5F6; border: 1px solid #D8DBDF; display: flex; align-items: center; justify-content: center;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#37505C" stroke-width="1.9"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                <path d="M12 14v2"></path>
+              </svg>
+            </span>
+            <div style="display: flex; flex-direction: column; gap: 9px; align-items: center;">
+              <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.01em; color: #000000;">Trang Cài đặt
+                lấy số chỉ dành cho Quản trị</span>
+              <p style="margin: 0; font-size: 14px; color: #333333; line-height: 1.6; max-width: 560px;">Vai trò <strong
+                  style="font-weight: 700;">{{ userRole }}</strong> không đổi được cấu trúc số, bộ đếm hay tài khoản.
+                Bạn vẫn dùng bình thường hai sổ văn bản.</p>
+              <p style="margin: 0; font-size: 13px; color: #777777; line-height: 1.6; max-width: 560px;">{{ askWho }}
+              </p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
+              <span
+                style="height: 40px; padding: 0 18px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; display: inline-flex; align-items: center;">Về
+                sổ văn bản</span>
+              <span
+                style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; display: inline-flex; align-items: center;">Gửi
+                yêu cầu tới quản trị</span>
+            </div>
+          </section>
+        </sc-if>
+
+      </main>
+    </div>
+  </x-dc>
+  <script data-dc-script data-props='{"$preview":{"width":1000,"height":560}}'>
+    const ROLE = {
+      admin: { label: 'Quản trị', fg: '#CC4600', bg: '#FFEAD0', bd: '#FFD3A8', name: 'Lê Quốc Bảo' },
+      vanthu: { label: 'Văn thư', fg: '#2C4F6A', bg: '#EAF0F5', bd: '#C3D3DF', name: 'Nguyễn Thị Hà' },
+      xem: { label: 'Chỉ xem', fg: '#37505C', bg: '#F4F5F6', bd: '#D8DBDF', name: 'Trần Văn Minh' }
+    };
+
+    class Component extends DCLogic {
+      state = { role: 'vanthu' };
+
+      renderVals() {
+        const r = this.state.role;
+        const c = ROLE[r];
+        return {
+          isAdmin: r === 'admin',
+          notAdmin: r !== 'admin',
+          userName: c.name,
+          userRole: c.label,
+          userBadge: 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; color: ' + c.fg + '; background: ' + c.bg + '; border: 1px solid ' + c.bd + ';',
+          askWho: r === 'xem'
+            ? 'Vai trò Chỉ xem cũng không lấy được số văn bản đi — đề nghị quản trị nâng lên Văn thư nếu bạn cần ghi sổ.'
+            : 'Cần đổi cấu trúc số? Đề nghị Chánh Văn phòng (tài khoản Quản trị) thực hiện.',
+          roleTabs: ['admin', 'vanthu', 'xem'].map(k => ({
+            label: ROLE[k].label,
+            style: 'height: 32px; padding: 0 13px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; border: 1px solid ' +
+              (r === k ? '#FF5700' : '#D8DBDF') + '; background: ' + (r === k ? '#FF5700' : '#FFFFFF') + '; color: ' + (r === k ? '#FFFFFF' : '#37505C') + ';',
+            onPick: () => this.setState({ role: k })
+          }))
+        };
+      }
+    }
+  </script>
+</body>
+
+</html>

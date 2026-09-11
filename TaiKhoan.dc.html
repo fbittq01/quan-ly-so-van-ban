@@ -1,0 +1,324 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
+<style>
+  :root {
+    --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  body { margin: 0; background: #F4F5F6; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  input, select, textarea, button { font-family: inherit; }
+  a { color: #CC4600; text-decoration: none; }
+  a:hover { color: #FF5700; text-decoration: underline; }
+</style>
+</helmet>
+
+<div style="position: relative; min-height: 920px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; padding: 24px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+
+  <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+    <div style="display: flex; flex-direction: column; gap: 7px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Tài khoản</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="1.5"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Chỉ quản trị viên</span>
+        </span>
+      </div>
+      <span style="font-size: 14px; color: #777777;">Người dùng không tự đăng ký. Quản trị viên tạo tài khoản, đặt vai trò và cấp mật khẩu tạm thời.</span>
+    </div>
+    <button type="button" onClick="{{ h.openAdd }}" style="margin-left: auto; height: 40px; padding: 0 18px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" style-hover="margin-left: auto; height: 40px; padding: 0 18px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+      Thêm tài khoản
+    </button>
+  </div>
+
+  <sc-if value="{{ hasFlash }}" hint-placeholder-val="{{ false }}">
+    <div style="border: 1px solid #FFD3A8; background: #FFEAD0; padding: 13px 16px; display: flex; align-items: center; gap: 10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto;"><path d="M20 6 9 17l-5-5"></path></svg>
+      <span style="font-size: 13px; color: #CC4600;">{{ flash }}</span>
+      <button type="button" onClick="{{ h.clearFlash }}" style="margin-left: auto; border: none; background: none; padding: 0; font-size: 13px; color: #CC4600; cursor: pointer; text-decoration: underline;">Ẩn</button>
+    </div>
+  </sc-if>
+
+  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; overflow-x: auto;">
+    <table style="width: 100%; min-width: 1060px; border-collapse: collapse; table-layout: fixed;">
+      <thead>
+        <tr style="background: #F4F5F6; border-bottom: 1px solid #D8DBDF;">
+          <th style="width: 132px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên đăng nhập</th>
+          <th style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Họ tên · chức vụ</th>
+          <th style="width: 116px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Vai trò</th>
+          <th style="width: 132px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Trạng thái</th>
+          <th style="width: 150px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Đăng nhập gần nhất</th>
+          <th style="width: 244px; padding: 10px 14px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+          <tr style="border-bottom: 1px solid #D8DBDF;" style-hover="border-bottom: 1px solid #D8DBDF; background: #F4F5F6;">
+            <td style="{{ r.cellUser }}">{{ r.user }}</td>
+            <td style="{{ r.cell }}">
+              <div style="font-weight: 700; color: #000000;">{{ r.name }}</div>
+              <div style="font-size: 13px; color: #777777; margin-top: 3px;">{{ r.title }}</div>
+            </td>
+            <td style="{{ r.cell }}"><span style="{{ r.roleBadge }}">{{ r.role }}</span></td>
+            <td style="{{ r.cell }}"><span style="{{ r.statusBadge }}">{{ r.status }}</span></td>
+            <td style="{{ r.cellMono }}">{{ r.last }}</td>
+            <td style="{{ r.cellActions }}">
+              <button type="button" onClick="{{ r.onPw }}" style="border: none; background: none; padding: 4px 6px; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline;">Đổi mật khẩu</button>
+              <button type="button" onClick="{{ r.onLock }}" style="{{ r.lockStyle }}">{{ r.lockLabel }}</button>
+              <button type="button" onClick="{{ r.onDelete }}" style="{{ r.delStyle }}">{{ r.delLabel }}</button>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+  </section>
+
+  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Vai trò làm được gì</span>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px;">
+      <sc-for list="{{ roleCards }}" as="c" hint-placeholder-count="3">
+        <div style="{{ c.box }}">
+          <span style="{{ c.badge }}">{{ c.label }}</span>
+          <ul style="margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px;">
+            <sc-for list="{{ c.items }}" as="it" hint-placeholder-count="4">
+              <li style="{{ it.style }}">{{ it.text }}</li>
+            </sc-for>
+          </ul>
+        </div>
+      </sc-for>
+    </div>
+    <p style="margin: 0; font-size: 13px; color: #777777; line-height: 1.6;">Không thể tự hạ vai trò của mình, và hệ thống luôn giữ tối thiểu một tài khoản Quản trị đang hoạt động.</p>
+  </section>
+
+  <sc-if value="{{ addOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.42); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; z-index: 50;">
+      <div style="width: 660px; max-width: 100%; background: #FFFFFF; border: 1px solid #D8DBDF; border-radius: 10px;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #D8DBDF;">
+          <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Quản trị · Tài khoản</div>
+          <div style="margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Thêm tài khoản mới</div>
+        </div>
+
+        <div style="padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên đăng nhập</span>
+            <input type="text" value="{{ f.user }}" onChange="{{ h.fUser }}" placeholder="vd: hant" style="{{ userInput }}">
+            <span style="font-size: 12px; color: #9B9D96;">Chữ thường, không dấu, không khoảng trắng</span>
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Họ và tên</span>
+            <input type="text" value="{{ f.name }}" onChange="{{ h.fName }}" placeholder="Nguyễn Thị Hà" style="{{ nameInput }}">
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Chức vụ · đơn vị</span>
+            <input type="text" value="{{ f.title }}" onChange="{{ h.fTitle }}" placeholder="Văn thư — Phòng Hành chính" style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;" style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Email cơ quan</span>
+            <input type="text" value="{{ f.email }}" onChange="{{ h.fEmail }}" placeholder="ha.nt@donvi.gov.vn" style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;" style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+          </label>
+
+          <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Vai trò</span>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <sc-for list="{{ roleChoices }}" as="rc" hint-placeholder-count="3">
+                <button type="button" onClick="{{ rc.onPick }}" style="{{ rc.style }}">
+                  <span style="font-size: 14px; font-weight: 700;">{{ rc.label }}</span>
+                  <span style="font-size: 12px; line-height: 1.45; opacity: 0.85;">{{ rc.hint }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px;">
+            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Mật khẩu tạm thời</span>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <input type="{{ pwType }}" value="{{ f.pw }}" onChange="{{ h.fPw }}" placeholder="Ít nhất 8 ký tự" style="{{ pwInput }}">
+              <button type="button" onClick="{{ h.togglePw }}" style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 13px; font-weight: 600; color: #37505C; cursor: pointer;" style-hover="height: 40px; padding: 0 12px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 13px; font-weight: 600; color: #24434A; cursor: pointer;">{{ pwToggle }}</button>
+              <button type="button" onClick="{{ h.genPw }}" style="height: 40px; padding: 0 14px; border: 1px solid #37505C; background: #FFFFFF; border-radius: 6px; font-size: 13px; font-weight: 700; color: #37505C; cursor: pointer;" style-hover="height: 40px; padding: 0 14px; border: 1px solid #24434A; background: #F4F5F6; border-radius: 6px; font-size: 13px; font-weight: 700; color: #24434A; cursor: pointer;">Tạo tự động</button>
+            </div>
+          </div>
+
+          <label style="grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; cursor: pointer;">
+            <input type="checkbox" checked="{{ f.mustChange }}" onChange="{{ h.fMust }}" style="width: 16px; height: 16px; margin-top: 2px; accent-color: #FF5700; cursor: pointer;">
+            <span style="font-size: 13px; color: #333333; line-height: 1.5;">Bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên</span>
+          </label>
+
+          <label style="grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; cursor: pointer;">
+            <input type="checkbox" checked="{{ f.sendMail }}" onChange="{{ h.fSend }}" style="width: 16px; height: 16px; margin-top: 2px; accent-color: #FF5700; cursor: pointer;">
+            <span style="font-size: 13px; color: #333333; line-height: 1.5;">Gửi thông tin đăng nhập tới email cơ quan</span>
+          </label>
+        </div>
+
+        <div style="padding: 16px 24px; border-top: 1px solid #D8DBDF; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 13px; color: #CC0000; line-height: 1.45;">{{ formError }}</span>
+          <span style="margin-left: auto; display: flex; gap: 10px;">
+            <button type="button" onClick="{{ h.closeAdd }}" style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;" style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Hủy</button>
+            <button type="button" onClick="{{ h.create }}" style="height: 40px; padding: 0 20px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;" style-hover="height: 40px; padding: 0 20px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">Tạo tài khoản</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1180,"height":920}}'>
+const ROLE = {
+  admin:  { label: 'Quản trị', fg: '#CC4600', bg: '#FFEAD0', bd: '#FFD3A8', hint: 'Toàn quyền, gồm Cài đặt lấy số' },
+  vanthu: { label: 'Văn thư',  fg: '#2C4F6A', bg: '#EAF0F5', bd: '#C3D3DF', hint: 'Ghi sổ và lấy số văn bản đi' },
+  xem:    { label: 'Chỉ xem',  fg: '#37505C', bg: '#F4F5F6', bd: '#D8DBDF', hint: 'Chỉ tra cứu, không sửa sổ' }
+};
+
+const ROLE_ITEMS = {
+  admin:  [['Xem và ghi cả hai sổ', 1], ['Lấy số văn bản đi', 1], ['Cài đặt lấy số', 2], ['Thêm và khóa tài khoản', 2]],
+  vanthu: [['Xem và ghi cả hai sổ', 1], ['Lấy số văn bản đi', 1], ['Cài đặt lấy số', 0], ['Thêm và khóa tài khoản', 0]],
+  xem:    [['Xem cả hai sổ', 1], ['Lấy số văn bản đi', 0], ['Cài đặt lấy số', 0], ['Thêm và khóa tài khoản', 0]]
+};
+
+const SEED = [
+  { user: 'admin',  name: 'Lê Quốc Bảo',      title: 'Chánh Văn phòng',            role: 'admin',  locked: false, last: '10/09/2026 08:14' },
+  { user: 'hant',   name: 'Nguyễn Thị Hà',    title: 'Văn thư — Phòng Hành chính', role: 'vanthu', locked: false, last: '09/09/2026 16:40' },
+  { user: 'minhtv', name: 'Trần Văn Minh',    title: 'Phó Chánh Văn phòng',        role: 'xem',    locked: false, last: '05/09/2026 09:02' },
+  { user: 'thuptt', name: 'Phạm Thị Thu',     title: 'Văn thư — Bộ phận một cửa',  role: 'vanthu', locked: true,  last: '21/07/2026 11:25' },
+  { user: 'ktoan',  name: 'Đỗ Thu Trang',     title: 'Kế toán trưởng',             role: 'xem',    locked: false, last: '— chưa đăng nhập' }
+];
+
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+
+function roleBadge(r) {
+  const c = ROLE[r];
+  return 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; color: ' + c.fg + '; background: ' + c.bg + '; border: 1px solid ' + c.bd + ';';
+}
+
+function blankForm() {
+  return { user: '', name: '', title: '', email: '', role: 'vanthu', pw: '', mustChange: true, sendMail: true };
+}
+
+class Component extends DCLogic {
+  state = { list: SEED.slice(), addOpen: false, f: blankForm(), error: '', touched: false, showPw: false, flash: '', confirmDel: '' };
+
+  input(bad) {
+    const bd = bad ? '#F0C7C7' : '#D8DBDF';
+    return 'height: 40px; padding: 0 12px; border: 1px solid ' + bd + '; border-radius: 6px; font-size: 14px; color: #212121; background: ' + (bad ? '#FBE9E9' : '#FFFFFF') + '; outline: none;';
+  }
+
+  create = () => {
+    const f = this.state.f;
+    const user = f.user.trim().toLowerCase();
+    if (!user) { this.setState({ error: 'Chưa nhập tên đăng nhập.', touched: true }); return; }
+    if (!/^[a-z0-9._-]{3,}$/.test(user)) { this.setState({ error: 'Tên đăng nhập chỉ gồm chữ thường, số, dấu . _ - và dài từ 3 ký tự.', touched: true }); return; }
+    if (this.state.list.some(a => a.user === user)) { this.setState({ error: 'Tên đăng nhập “' + user + '” đã tồn tại.', touched: true }); return; }
+    if (!f.name.trim()) { this.setState({ error: 'Chưa nhập họ và tên.', touched: true }); return; }
+    if (f.pw.length < 8) { this.setState({ error: 'Mật khẩu tạm thời cần ít nhất 8 ký tự.', touched: true }); return; }
+    const rec = {
+      user, name: f.name.trim(), title: f.title.trim() || '—',
+      role: f.role, locked: false, last: '— chưa đăng nhập'
+    };
+    this.setState(s => ({
+      list: s.list.concat([rec]),
+      addOpen: false, f: blankForm(), error: '', touched: false, showPw: false,
+      flash: 'Đã tạo tài khoản ' + user + ' · vai trò ' + ROLE[f.role].label + (f.sendMail && f.email.trim() ? ' · đã gửi thông tin tới ' + f.email.trim() : ' · hãy chuyển mật khẩu tạm thời cho người dùng')
+    }));
+  };
+
+  renderVals() {
+    const s = this.state;
+    const f = s.f;
+    const cellBase = 'padding: 13px 14px; font-size: 14px; color: #212121; vertical-align: top; line-height: 1.45;';
+    const adminsActive = s.list.filter(a => a.role === 'admin' && !a.locked).length;
+
+    return {
+      rows: s.list.map(a => {
+        const lastAdmin = a.role === 'admin' && adminsActive <= 1;
+        const pending = s.confirmDel === a.user;
+        return {
+          user: a.user, name: a.name, title: a.title,
+          role: ROLE[a.role].label, roleBadge: roleBadge(a.role),
+          status: a.locked ? 'Đã khóa' : 'Hoạt động',
+          statusBadge: 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; ' +
+            (a.locked ? 'color: #CC0000; background: #FBE9E9; border: 1px solid #F0C7C7;' : 'color: #2C4F6A; background: #EAF0F5; border: 1px solid #C3D3DF;'),
+          last: a.last,
+          cell: cellBase,
+          cellUser: cellBase + ' font-family: var(--font-mono); font-weight: 600; color: #000000;',
+          cellMono: cellBase + ' font-family: var(--font-mono); font-size: 13px; color: #777777;',
+          cellActions: cellBase + ' text-align: right; white-space: nowrap;',
+          lockLabel: a.locked ? 'Mở khóa' : 'Khóa',
+          lockStyle: 'border: none; background: none; padding: 4px 6px; font-size: 13px; text-decoration: underline; color: ' +
+            (lastAdmin && !a.locked ? '#9B9D96' : '#37505C') + '; cursor: ' + (lastAdmin && !a.locked ? 'default' : 'pointer') + ';',
+          delLabel: pending ? 'Chắc chắn xóa?' : 'Xóa',
+          delStyle: 'border: none; background: ' + (pending ? '#FBE9E9' : 'none') + '; padding: 4px 6px; font-size: 13px; text-decoration: underline; border-radius: 4px; font-weight: ' + (pending ? '700' : '400') + '; color: ' +
+            (lastAdmin ? '#9B9D96' : '#CC0000') + '; cursor: ' + (lastAdmin ? 'default' : 'pointer') + ';',
+          onPw: () => this.setState({ flash: 'Đã gửi liên kết đặt lại mật khẩu cho ' + a.name + ' (' + a.user + ').' }),
+          onLock: () => {
+            if (lastAdmin && !a.locked) { this.setState({ flash: 'Không thể khóa tài khoản Quản trị duy nhất đang hoạt động.' }); return; }
+            this.setState(st => ({ list: st.list.map(x => x.user === a.user ? Object.assign({}, x, { locked: !x.locked }) : x), confirmDel: '' }));
+          },
+          onDelete: () => {
+            if (lastAdmin) { this.setState({ flash: 'Không thể xóa tài khoản Quản trị duy nhất.' }); return; }
+            if (!pending) { this.setState({ confirmDel: a.user }); return; }
+            this.setState(st => ({ list: st.list.filter(x => x.user !== a.user), confirmDel: '', flash: 'Đã xóa tài khoản ' + a.user + '.' }));
+          }
+        };
+      }),
+      roleCards: ['admin', 'vanthu', 'xem'].map(k => ({
+        label: ROLE[k].label,
+        badge: roleBadge(k),
+        box: 'border: 1px solid ' + (k === 'admin' ? '#FFD3A8' : '#D8DBDF') + '; background: #FFFFFF; padding: 14px 16px; display: flex; flex-direction: column; gap: 11px;',
+        items: ROLE_ITEMS[k].map(pair => ({
+          text: pair[1] === 0 ? pair[0] + ' — không' : pair[0],
+          style: 'font-size: 13px; line-height: 1.5; color: ' + (pair[1] === 0 ? '#9B9D96' : pair[1] === 2 ? '#CC4600' : '#333333') + '; font-weight: ' + (pair[1] === 2 ? '700' : '400') + ';'
+        }))
+      })),
+      addOpen: s.addOpen,
+      f: { user: f.user, name: f.name, title: f.title, email: f.email, pw: f.pw, mustChange: f.mustChange, sendMail: f.sendMail },
+      userInput: this.input(s.touched && !/^[a-z0-9._-]{3,}$/.test(f.user.trim().toLowerCase())),
+      nameInput: this.input(s.touched && !f.name.trim()),
+      pwInput: 'flex: 1 1 220px; min-width: 180px; ' + this.input(s.touched && f.pw.length < 8).replace('height: 40px;', 'height: 40px; font-family: var(--font-mono);'),
+      pwType: s.showPw ? 'text' : 'password',
+      pwToggle: s.showPw ? 'Ẩn' : 'Hiện',
+      roleChoices: ['admin', 'vanthu', 'xem'].map(k => ({
+        label: ROLE[k].label,
+        hint: ROLE[k].hint,
+        style: 'flex: 1 1 180px; text-align: left; display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; border-radius: 6px; cursor: pointer; border: 1px solid ' +
+          (f.role === k ? '#FF5700' : '#D8DBDF') + '; background: ' + (f.role === k ? '#FFEAD0' : '#FFFFFF') + '; color: ' + (f.role === k ? '#CC4600' : '#333333') + ';',
+        onPick: () => this.setState(st => ({ f: Object.assign({}, st.f, { role: k }), error: '' }))
+      })),
+      formError: s.error,
+      flash: s.flash,
+      hasFlash: !!s.flash,
+      h: {
+        openAdd: () => this.setState({ addOpen: true, f: blankForm(), error: '', touched: false, showPw: false, flash: '' }),
+        closeAdd: () => this.setState({ addOpen: false, error: '', touched: false }),
+        clearFlash: () => this.setState({ flash: '' }),
+        fUser: e => this.setState(st => ({ f: Object.assign({}, st.f, { user: e.target.value }), error: '' })),
+        fName: e => this.setState(st => ({ f: Object.assign({}, st.f, { name: e.target.value }), error: '' })),
+        fTitle: e => this.setState(st => ({ f: Object.assign({}, st.f, { title: e.target.value }) })),
+        fEmail: e => this.setState(st => ({ f: Object.assign({}, st.f, { email: e.target.value }) })),
+        fPw: e => this.setState(st => ({ f: Object.assign({}, st.f, { pw: e.target.value }), error: '' })),
+        fMust: e => this.setState(st => ({ f: Object.assign({}, st.f, { mustChange: e.target.checked }) })),
+        fSend: e => this.setState(st => ({ f: Object.assign({}, st.f, { sendMail: e.target.checked }) })),
+        togglePw: () => this.setState(st => ({ showPw: !st.showPw })),
+        genPw: () => {
+          let out = '';
+          for (let i = 0; i < 12; i++) out += CHARS.charAt(Math.floor(Math.random() * CHARS.length));
+          this.setState(st => ({ f: Object.assign({}, st.f, { pw: out }), showPw: true, error: '' }));
+        },
+        create: this.create
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+{
+  "artboards": [
+    {
+      "file": "Login.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 880,
+      "h": 720,
+      "page": "page-1",
+      "title": "Đăng nhập",
+      "is_interactive": true
+    },
+    {
+      "file": "Main.dc.html",
+      "x": 1000,
+      "y": 0,
+      "w": 1440,
+      "h": 1020,
+      "page": "page-1",
+      "title": "Ứng dụng — sổ & cài đặt",
+      "is_interactive": true
+    },
+    {
+      "file": "PhanQuyen.dc.html",
+      "x": 2560,
+      "y": 0,
+      "w": 1000,
+      "h": 560,
+      "page": "page-1",
+      "title": "Phân quyền theo vai trò",
+      "is_interactive": true
+    },
+    {
+      "file": "CaiDatLaySo.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1060,
+      "h": 1180,
+      "page": "page-2",
+      "title": "Cài đặt lấy số",
+      "is_interactive": true
+    },
+    {
+      "file": "TaiKhoan.dc.html",
+      "x": 1180,
+      "y": 0,
+      "w": 1180,
+      "h": 920,
+      "page": "page-2",
+      "title": "Tài khoản",
+      "is_interactive": true
+    },
+    {
+      "file": "NhatKy.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1180,
+      "h": 1300,
+      "page": "page-3",
+      "title": "Nhật ký — tìm & khôi phục",
+      "is_interactive": true
+    },
+    {
+      "file": "HopThoaiXoa.dc.html",
+      "x": 1300,
+      "y": 0,
+      "w": 760,
+      "h": 620,
+      "page": "page-3",
+      "title": "Hộp thoại xóa — lời văn mới",
+      "is_interactive": true
+    },
+    {
+      "file": "ThungRac.dc.html",
+      "x": 1300,
+      "y": 760,
+      "w": 1180,
+      "h": 760,
+      "page": "page-3",
+      "title": "Thùng rác (tùy chọn)",
+      "is_interactive": true
+    }
+  ],
+  "annotations": [
+    {
+      "id": "flow-note",
+      "x": 0,
+      "y": -230,
+      "w": 460,
+      "page": "page-1",
+      "text": "Luồng: đăng nhập → sổ văn bản.\nTab “Cài đặt” chỉ hiện với vai trò Quản trị.\nMàn hình đăng nhập bên dưới có danh sách tài khoản demo, bấm một dòng là điền sẵn — kể cả tài khoản đã bị khóa để xem trạng thái đó."
+    },
+    {
+      "id": "role-note",
+      "x": 2560,
+      "y": -230,
+      "w": 420,
+      "page": "page-1",
+      "text": "Văn thư và Chỉ xem không thấy tab Cài đặt. Nếu vào bằng URL trực tiếp thì gặp trang chặn quyền này."
+    },
+    {
+      "id": "number-note",
+      "x": 0,
+      "y": -280,
+      "w": 500,
+      "page": "page-2",
+      "text": "Thay đổi chính:\n• Bỏ ô “Số chữ số” — số không còn 0 ở đầu: 6/2026 thay vì 06/2026.\n• Chuỗi token {số}/{năm} thay bằng bộ ghép thành phần có xem trước từng phần.\n• Thêm xem trước 5 số kế tiếp, bộ đếm và nhật ký cập nhật."
+    },
+    {
+      "id": "account-note",
+      "x": 1180,
+      "y": -230,
+      "w": 440,
+      "page": "page-2",
+      "text": "Không có tự đăng ký. Quản trị tạo tài khoản, đặt vai trò, cấp mật khẩu tạm thời và khóa/mở tài khoản."
+    },
+    {
+      "id": "restore-flow-note",
+      "x": 0,
+      "y": -300,
+      "w": 540,
+      "page": "page-3",
+      "text": "Xóa mềm: văn bản không mất, chỉ bị đánh dấu đã xóa — nên khôi phục không bao giờ vỡ vì trùng số.\n\nLuồng: Cài đặt → Nhật ký → tìm dòng “Xóa văn bản” → Khôi phục.\n\nBa trạng thái trong danh sách:\n• còn khôi phục được → có nút\n• đã khôi phục → chip xanh, kèm ai/lúc nào\n• không còn dữ liệu → hai lượt xóa cũ trên bản đang chạy, dữ liệu đã mất thật\n\nGõ thử “thang 8”, “87”, hoặc bật “Chỉ việc xóa văn bản”."
+    },
+    {
+      "id": "delete-copy-note",
+      "x": 1300,
+      "y": -300,
+      "w": 540,
+      "page": "page-3",
+      "text": "Lời văn cũ trong app hiện tại nói sai:\n“File đính kèm cũng bị xóa. Việc này không hoàn lại được, nhưng có ghi vào nhật ký.”\n\nSau khi có khôi phục thì cả ba mệnh đề đều sai: đính kèm được giữ, và việc này hoàn lại được.\n\nBản mới tách làm hai khối: đỏ cho điều không đổi (số đã phát hành không cấp lại), cam cho điều mới (khôi phục được ở đâu, bằng cách nào)."
+    },
+    {
+      "id": "trash-note",
+      "x": 2560,
+      "y": 760,
+      "w": 440,
+      "page": "page-3",
+      "text": "Giai đoạn 5 trong plan — chưa quyết làm hay không.\n\nĐây là chỗ duy nhất giải phóng đĩa: xóa mềm giữ file đính kèm lại mãi.\n\nQuy tắc “bộ đếm không bao giờ lùi”: xóa vĩnh viễn KHÔNG xóa hẳn hàng, mà để lại một dòng trống giữ chỗ số — nội dung và file mất, số thì giữ mãi. Nhờ vậy không có đường nào cấp lại số đã phát hành, kể cả nhập tay.\n\n“Xóa vĩnh viễn” là hành động thật sự không hoàn lại được, nên nó có hộp thoại đỏ riêng."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-3"
+  },
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Luồng chính"
+    },
+    {
+      "id": "page-2",
+      "name": "Trang cài đặt"
+    },
+    {
+      "id": "page-3",
+      "name": "Khôi phục văn bản"
+    }
+  ]
+}

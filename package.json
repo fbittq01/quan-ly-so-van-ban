@@ -1,0 +1,28 @@
+{
+  "name": "quan-ly-so-van-ban",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Quản lý số văn bản — sổ văn bản đến/đi, lấy số tự động, phân quyền",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "init-admin": "node server/bin/init-admin.js",
+    "backup": "node server/bin/backup.js",
+    "seed-demo": "node server/bin/seed-demo.js",
+    "test": "bash test/run.sh"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "express": "^5.2.1",
+    "multer": "^2.3.0"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

@@ -1,0 +1,499 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+      <style>
+        :root {
+          --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+          --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+        }
+
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
+
+        a {
+          color: #CC4600;
+          text-decoration: none;
+        }
+
+        a:hover {
+          color: #FF5700;
+          text-decoration: underline;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="position: relative; min-height: 1300px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; padding: 24px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+
+      <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Nhật ký</span>
+            <span
+              style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              </svg>
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Chỉ
+                quản trị viên</span>
+            </span>
+          </div>
+          <span style="font-size: 14px; color: #777777;">Ai làm gì, lúc nào. Văn bản bị xóa vẫn nằm lại trong nhật ký —
+            tìm ở đây rồi <strong style="color: #333333; font-weight: 700;">khôi phục về sổ</strong>, kèm cả file đính
+            kèm.</span>
+        </div>
+        <div
+          style="margin-left: auto; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 6px; padding: 11px 16px; display: flex; flex-direction: column; gap: 3px; align-items: flex-end;">
+          <span
+            style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Còn
+            khôi phục được</span>
+          <div style="display: flex; align-items: baseline; gap: 7px;">
+            <span
+              style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #CC4600; letter-spacing: -0.01em;">{{
+              nRestorable }}</span>
+            <span style="font-size: 13px; color: #CC4600;">văn bản đã xóa</span>
+          </div>
+        </div>
+      </div>
+
+      <section
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+          <div style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 320px; min-width: 240px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tìm
+              trong nhật ký</span>
+            <div style="position: relative; display: flex;">
+              <span style="position: absolute; left: 11px; top: 11px; display: flex; color: #9B9D96;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <path d="M20 20l-4.35-4.35"></path>
+                </svg>
+              </span>
+              <input type="text" value="{{ q }}" onChange="{{ h.q }}" placeholder="số văn bản, tên văn bản, người làm…"
+                style="flex: 1; height: 40px; padding: 0 12px 0 36px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none; min-width: 0;"
+                style-focus="flex: 1; height: 40px; padding: 0 12px 0 36px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none; min-width: 0;">
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Loại
+              việc</span>
+            <select value="{{ act }}" onChange="{{ h.act }}"
+              style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; min-width: 190px;">
+              <option value="">Tất cả loại việc</option>
+              <option value="xoa_van_ban">Xóa văn bản</option>
+              <option value="khoi_phuc_van_ban">Khôi phục văn bản</option>
+              <option value="cap_so">Cấp số văn bản đi</option>
+              <option value="ghi_so">Ghi văn bản vào sổ</option>
+              <option value="sua_cai_dat_lay_so">Sửa cài đặt lấy số</option>
+              <option value="dang_nhap">Đăng nhập</option>
+            </select>
+          </div>
+          <label
+            style="height: 40px; display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333333; cursor: pointer; white-space: nowrap;">
+            <input type="checkbox" checked="{{ onlyDel }}" onChange="{{ h.onlyDel }}"
+              style="width: 16px; height: 16px; accent-color: #FF5700; cursor: pointer;">
+            Chỉ việc xóa văn bản
+          </label>
+        </div>
+        <div
+          style="display: flex; gap: 10px; align-items: center; border-top: 1px solid #D8DBDF; padding-top: 12px; flex-wrap: wrap;">
+          <span style="font-size: 13px; color: #777777;">Hiện <strong style="color: #212121; font-weight: 700;">{{ shown
+              }}</strong> trong {{ total }} việc gần nhất</span>
+          <sc-if value="{{ hasFilter }}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{ h.clear }}"
+              style="margin-left: auto; border: none; background: none; padding: 4px 6px; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline;">Bỏ
+              lọc</button>
+          </sc-if>
+        </div>
+      </section>
+
+      <section
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 6px 22px 14px; display: flex; flex-direction: column;">
+        <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 56px 24px; text-align: center; color: #777777; font-size: 14px;">Không có việc nào khớp.
+            Thử bỏ lọc hoặc gõ ít chữ hơn.</div>
+        </sc-if>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+          <div
+            style="display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid #D8DBDF; flex-wrap: wrap; align-items: flex-start;">
+            <span
+              style="font-family: var(--font-mono); font-size: 12px; color: #9B9D96; flex: 0 0 132px; padding-top: 2px;">{{
+              r.at }}</span>
+            <span style="font-size: 13px; font-weight: 700; color: #212121; flex: 0 0 96px; padding-top: 1px;">{{ r.who
+              }}</span>
+            <div style="flex: 1 1 380px; min-width: 300px; display: flex; flex-direction: column; gap: 9px;">
+              <span style="{{ r.whatStyle }}">{{ r.what }}</span>
+              <sc-if value="{{ r.hasDoc }}" hint-placeholder-val="{{ true }}">
+                <div
+                  style="border: 1px solid #D8DBDF; border-radius: 6px; background: #F4F5F6; padding: 11px 13px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+                  <span style="{{ r.bookBadge }}">{{ r.bookLabel }}</span>
+                  <span style="font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: #000000;">{{
+                    r.so }}</span>
+                  <div style="display: flex; flex-direction: column; gap: 3px; flex: 1 1 200px; min-width: 170px;">
+                    <span style="font-size: 13px; font-weight: 700; color: #000000;">{{ r.ten }}</span>
+                    <span style="font-size: 12px; color: #777777;">{{ r.meta }}</span>
+                  </div>
+                  <sc-if value="{{ r.canRestore }}" hint-placeholder-val="{{ true }}">
+                    <button type="button" onClick="{{ r.onRestore }}"
+                      style="height: 32px; padding: 0 13px; border: 1px solid #37505C; border-radius: 6px; background: #FFFFFF; font-size: 13px; font-weight: 700; color: #37505C; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;"
+                      style-hover="height: 32px; padding: 0 13px; border: 1px solid #24434A; border-radius: 6px; background: #F4F5F6; font-size: 13px; font-weight: 700; color: #24434A; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                        <path d="M3 4v5h5"></path>
+                      </svg>
+                      Khôi phục
+                    </button>
+                  </sc-if>
+                  <sc-if value="{{ r.isRestored }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+                      <span
+                        style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid #C3D3DF; background: #EAF0F5; color: #2C4F6A;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2C4F6A" stroke-width="2.4"
+                          stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M20 6 9 17l-5-5"></path>
+                        </svg>
+                        Đã khôi phục
+                      </span>
+                      <span style="font-size: 12px; color: #777777; white-space: nowrap;">{{ r.restoredText }}</span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+              <sc-if value="{{ r.isGone }}" hint-placeholder-val="{{ false }}">
+                <div
+                  style="border: 1px dashed #D8DBDF; border-radius: 6px; background: #F4F5F6; padding: 11px 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                  <span
+                    style="display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid #D8DBDF; background: #FFFFFF; color: #777777;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9B9D96" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="9"></circle>
+                      <path d="M5.6 5.6l12.8 12.8"></path>
+                    </svg>
+                    Không còn dữ liệu
+                  </span>
+                  <span style="font-size: 12px; color: #777777; flex: 1 1 220px; min-width: 180px;">Văn bản này bị xóa
+                    trước khi bật tính năng khôi phục — nhật ký chỉ còn dòng mô tả, không còn nội dung để dựng
+                    lại.</span>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ canLoadMore }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: center; gap: 12px; padding-top: 14px; flex-wrap: wrap;">
+            <button type="button" onClick="{{ h.more }}"
+              style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; background: #FFFFFF; font-size: 14px; color: #333333; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;"
+              style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; border-radius: 6px; background: #F4F5F6; font-size: 14px; color: #333333; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9l6 6 6-6"></path>
+              </svg>
+              Xem thêm việc cũ hơn
+            </button>
+            <span style="font-size: 12px; color: #9B9D96;">Nhật ký lưu toàn bộ; màn hình này nạp dần từng đợt 200
+              dòng.</span>
+          </div>
+        </sc-if>
+      </section>
+
+      <sc-if value="{{ dlg.has }}" hint-placeholder-val="{{ false }}">
+        <div
+          style="position: absolute; inset: 0; background: rgba(0,0,0,0.42); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow-y: auto; z-index: 50;">
+          <div
+            style="width: 600px; max-width: 100%; background: #FFFFFF; border: 1px solid #D8DBDF; border-radius: 10px;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid #D8DBDF;">
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">{{
+                dlg.eyebrow }}</span>
+              <div style="margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">
+                Khôi phục văn bản về sổ?</div>
+            </div>
+            <div style="padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+              <div
+                style="border: 1px solid #D8DBDF; border-radius: 6px; padding: 14px 16px; display: flex; flex-direction: column; gap: 9px;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                  <span style="{{ dlg.bookBadge }}">{{ dlg.bookLabel }}</span>
+                  <span style="font-family: var(--font-mono); font-size: 20px; font-weight: 600; color: #000000;">{{
+                    dlg.so }}</span>
+                </div>
+                <span style="font-size: 15px; font-weight: 700; color: #000000; line-height: 1.4;">{{ dlg.ten }}</span>
+                <span style="font-size: 13px; color: #777777;">{{ dlg.meta }}</span>
+                <span style="font-size: 13px; color: #777777;">{{ dlg.deleted }}</span>
+              </div>
+              <div
+                style="display: flex; gap: 9px; align-items: flex-start; padding: 11px 14px; border-radius: 6px; border: 1px solid #FFD3A8; background: #FFEAD0; color: #CC4600; font-size: 13px; line-height: 1.5;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;">
+                  <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                  <path d="M3 4v5h5"></path>
+                </svg>
+                <span>{{ dlg.note }}</span>
+              </div>
+              <span style="font-size: 13px; color: #777777; line-height: 1.5;">Việc khôi phục cũng được ghi vào nhật ký,
+                kèm tên người khôi phục và thời điểm.</span>
+            </div>
+            <div
+              style="padding: 16px 24px; border-top: 1px solid #D8DBDF; display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 13px; color: #9B9D96;">Bộ đếm không đổi.</span>
+              <div style="margin-left: auto; display: flex; gap: 10px;">
+                <button type="button" onClick="{{ h.close }}"
+                  style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; background: #FFFFFF; font-size: 14px; color: #333333; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; border-radius: 6px; background: #F4F5F6; font-size: 14px; color: #333333; cursor: pointer;">Thôi</button>
+                <button type="button" onClick="{{ h.confirm }}"
+                  style="height: 40px; padding: 0 18px; border: 1px solid #FF5700; border-radius: 6px; background: #FF5700; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;"
+                  style-hover="height: 40px; padding: 0 18px; border: 1px solid #CC4600; border-radius: 6px; background: #CC4600; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                    <path d="M3 4v5h5"></path>
+                  </svg>
+                  Khôi phục về sổ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; right: 20px; bottom: 20px; max-width: 420px; z-index: 80;">
+          <div
+            style="background: #FFFFFF; border: 1px solid #D8DBDF; border-left: 3px solid #FF5700; border-radius: 6px; padding: 12px 14px; font-size: 13px; color: #333333; line-height: 1.5; box-shadow: 0 4px 14px rgba(0,0,0,0.1); display: flex; gap: 12px; align-items: flex-start;">
+            <span style="flex: 1 1 auto;">{{ toast }}</span>
+            <button type="button" onClick="{{ h.hideToast }}"
+              style="border: none; background: none; padding: 0; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline; flex: 0 0 auto;">Ẩn</button>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </x-dc>
+  <script data-dc-script data-props='{"$preview":{"width":1180,"height":1300}}'>
+    const LABEL = {
+      xoa_van_ban: 'Xóa văn bản',
+      khoi_phuc_van_ban: 'Khôi phục văn bản',
+      cap_so: 'Cấp số văn bản đi',
+      ghi_so: 'Ghi văn bản vào sổ',
+      sua_van_ban: 'Sửa văn bản',
+      sua_cai_dat_lay_so: 'Sửa cài đặt lấy số',
+      dat_lai_bo_dem: 'Đặt lại bộ đếm',
+      dang_nhap: 'Đăng nhập',
+      sua_tai_khoan: 'Sửa tài khoản',
+    };
+
+    const BADGE = 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid ';
+    const BADGE_DI = BADGE + '#FFD3A8; background: #FFEAD0; color: #CC4600;';
+    const BADGE_DEN = BADGE + '#C3D3DF; background: #EAF0F5; color: #2C4F6A;';
+
+    const ENTRIES = [
+      {
+        id: 'e1', at: '10/09/2026 08:12', who: 'bao', action: 'xoa_van_ban',
+        detail: 'đi · 6/2026 · Báo cáo kết quả thực hiện nhiệm vụ tháng 8/2026',
+        doc: { book: 'di', so: '6/2026', ten: 'Báo cáo kết quả thực hiện nhiệm vụ tháng 8/2026', ngay: '05/09/2026', file: 'bc-thang-08.pdf' },
+        st: 'ok'
+      },
+      { id: 'e2', at: '10/09/2026 08:05', who: 'bao', action: 'dang_nhap', detail: '' },
+      {
+        id: 'e3', at: '09/09/2026 16:40', who: 'hant', action: 'xoa_van_ban',
+        detail: 'đến · 87/SNV-TCCB · Hướng dẫn rà soát biên chế năm 2026',
+        doc: { book: 'den', so: '87/SNV-TCCB', ten: 'Hướng dẫn rà soát biên chế năm 2026', ngay: '28/08/2026', file: '87-snv.pdf' },
+        st: 'ok'
+      },
+      {
+        id: 'e4', at: '09/09/2026 16:38', who: 'hant', action: 'cap_so',
+        detail: 'đi · 6/2026 · Báo cáo kết quả thực hiện nhiệm vụ tháng 8/2026'
+      },
+      {
+        id: 'e5', at: '08/09/2026 14:22', who: 'bao', action: 'sua_cai_dat_lay_so',
+        detail: 'bắt đầu từ 1 · reset đầu năm: có'
+      },
+      {
+        id: 'e6', at: '07/09/2026 09:10', who: 'hant', action: 'xoa_van_ban',
+        detail: 'đi · 4/2026 · Giấy mời họp giao ban quý III',
+        doc: { book: 'di', so: '4/2026', ten: 'Giấy mời họp giao ban quý III', ngay: '12/08/2026', file: '' },
+        st: 'restored', by: 'bao', byAt: '07/09/2026 09:25'
+      },
+      {
+        id: 'e7', at: '02/09/2026 11:03', who: 'bao', action: 'xoa_van_ban',
+        detail: 'đi · 3/2026 · Kế hoạch bảo vệ bí mật nhà nước năm 2026', st: 'gone'
+      },
+      {
+        id: 'e7b', at: '30/08/2026 10:41', who: 'hant', action: 'xoa_van_ban',
+        detail: 'đến · 05/TTr-TCT · Tờ trình đề nghị nghiệm thu hạng mục nhà điều hành', st: 'gone'
+      },
+      { id: 'e8', at: '01/09/2026 08:00', who: 'bao', action: 'dang_nhap', detail: '' },
+    ];
+
+    const OLDER = [
+      {
+        id: 'o1', at: '29/08/2026 15:12', who: 'hant', action: 'ghi_so',
+        detail: 'đến · 3312/BTC-NSNN · Thông báo phân bổ dự toán ngân sách bổ sung'
+      },
+      { id: 'o2', at: '28/08/2026 08:31', who: 'bao', action: 'sua_tai_khoan', detail: 'thuptt · vai trò Văn thư' },
+      { id: 'o3', at: '27/08/2026 16:02', who: 'minhtv', action: 'dang_nhap', detail: '' },
+    ];
+
+    function strip(s) {
+      return (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\u0111/g, 'd').replace(/\u0110/g, 'D').toLowerCase();
+    }
+
+    class Component extends DCLogic {
+      state = {
+        q: '', act: '', onlyDel: false,
+        rows: ENTRIES.map(function (e) { return Object.assign({}, e); }),
+        loadedMore: false, dlg: null, toast: '',
+      };
+
+      h = {
+        q: (e) => this.setState({ q: e.target.value }),
+        act: (e) => this.setState({ act: e.target.value }),
+        onlyDel: (e) => this.setState({ onlyDel: !!e.target.checked }),
+        clear: () => this.setState({ q: '', act: '', onlyDel: false }),
+        more: () => this.setState((s) => ({
+          loadedMore: true,
+          rows: s.rows.concat(OLDER.map(function (e) { return Object.assign({}, e); })),
+        })),
+        close: () => this.setState({ dlg: null }),
+        hideToast: () => this.setState({ toast: '' }),
+        confirm: () => this.setState((s) => {
+          const target = s.rows.filter(function (r) { return r.id === s.dlg; })[0];
+          if (!target) return { dlg: null };
+          const rows = s.rows.map(function (r) {
+            if (r.id !== s.dlg) return r;
+            return Object.assign({}, r, { st: 'restored', by: 'bao', byAt: '10/09/2026 09:34' });
+          });
+          rows.unshift({
+            id: 'k' + target.id, at: '10/09/2026 09:34', who: 'bao',
+            action: 'khoi_phuc_van_ban', detail: target.detail,
+          });
+          if (!target.doc) return { rows: rows, dlg: null, toast: '' };
+          const keptFile = target.doc.file
+            ? ' File đính kèm ' + target.doc.file + ' còn nguyên.'
+            : '';
+          return {
+            rows: rows, dlg: null,
+            toast: 'Đã khôi phục ' + target.doc.so + ' về sổ, giữ đúng số cũ.' + keptFile,
+          };
+        }),
+      };
+
+      match(r) {
+        const s = this.state;
+        if (s.onlyDel && r.action !== 'xoa_van_ban') return false;
+        if (s.act && r.action !== s.act) return false;
+        const nq = strip(s.q);
+        if (!nq) return true;
+        const bits = [r.at, r.who, LABEL[r.action] || r.action, r.detail || ''];
+        if (r.doc) bits.push(r.doc.so, r.doc.ten, r.doc.ngay, r.doc.file || '');
+        return strip(bits.join(' ')).indexOf(nq) >= 0;
+      }
+
+      renderVals() {
+        const s = this.state;
+        const self = this;
+        const all = s.rows;
+        const list = all.filter(function (r) { return self.match(r); });
+
+        const nRestorable = all.filter(function (r) {
+          return r.action === 'xoa_van_ban' && r.st === 'ok' && r.doc;
+        }).length;
+
+        const rows = list.map(function (r) {
+          const isDel = r.action === 'xoa_van_ban';
+          const d = r.doc;
+          const hasDoc = !!(isDel && d);
+          return {
+            key: r.id,
+            at: r.at,
+            who: r.who,
+            what: (LABEL[r.action] || r.action) + (r.detail ? ' · ' + r.detail : ''),
+            whatStyle: isDel
+              ? 'font-size: 13px; font-weight: 700; color: #CC0000; line-height: 1.45;'
+              : (r.action === 'khoi_phuc_van_ban'
+                ? 'font-size: 13px; font-weight: 700; color: #CC4600; line-height: 1.45;'
+                : 'font-size: 13px; color: #333333; line-height: 1.45;'),
+            hasDoc: hasDoc,
+            isGone: !!(isDel && r.st === 'gone'),
+            canRestore: !!(hasDoc && r.st === 'ok'),
+            isRestored: !!(hasDoc && r.st === 'restored'),
+            bookLabel: d ? (d.book === 'di' ? 'Văn bản đi' : 'Văn bản đến') : '',
+            bookBadge: d ? (d.book === 'di' ? BADGE_DI : BADGE_DEN) : BADGE_DEN,
+            so: d ? d.so : '',
+            ten: d ? d.ten : '',
+            meta: d
+              ? ('Ngày gửi ' + d.ngay + ' · ' + (d.file ? 'đính kèm ' + d.file : 'không có đính kèm'))
+              : '',
+            restoredText: r.by ? 'bởi ' + r.by + ' · ' + r.byAt : '',
+            onRestore: function () { self.setState({ dlg: r.id }); },
+          };
+        });
+
+        const target = s.dlg ? all.filter(function (r) { return r.id === s.dlg; })[0] : null;
+        const td = target ? target.doc : null;
+        const dlg = td
+          ? {
+            has: true,
+            eyebrow: td.book === 'di' ? 'Sổ văn bản đi' : 'Sổ văn bản đến',
+            bookLabel: td.book === 'di' ? 'Văn bản đi' : 'Văn bản đến',
+            bookBadge: td.book === 'di' ? BADGE_DI : BADGE_DEN,
+            so: td.so,
+            ten: td.ten,
+            meta: 'Ngày gửi ' + td.ngay + ' · ' + (td.file ? 'đính kèm ' + td.file : 'không có đính kèm'),
+            deleted: 'Xóa lúc ' + target.at + ' bởi ' + target.who,
+            note: td.book === 'di'
+              ? ('Văn bản trở lại sổ với đúng số ' + td.so + ' vì số đó còn trống. Nếu số cũ đã sang tay văn bản khác thì hệ thống cấp số trống kế tiếp và báo rõ số mới.')
+              : ('Văn bản trở lại sổ văn bản đến với đúng số ' + td.so + ' do cơ quan gửi đặt.'),
+          }
+          : { has: false, eyebrow: '', bookLabel: '', bookBadge: BADGE_DI, so: '', ten: '', meta: '', deleted: '', note: '' };
+
+        return {
+          q: s.q,
+          act: s.act,
+          onlyDel: s.onlyDel,
+          rows: rows,
+          isEmpty: rows.length === 0,
+          shown: String(rows.length),
+          total: String(all.length),
+          nRestorable: String(nRestorable),
+          hasFilter: !!(s.q || s.act || s.onlyDel),
+          canLoadMore: !s.loadedMore,
+          dlg: dlg,
+          hasToast: !!s.toast,
+          toast: s.toast,
+          h: this.h,
+        };
+      }
+    }
+  </script>
+</body>
+
+</html>

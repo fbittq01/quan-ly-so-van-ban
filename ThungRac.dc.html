@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+  :root {
+    --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+  body { margin: 0; background: #F4F5F6; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  input, select, textarea, button { font-family: inherit; }
+  a { color: #CC4600; text-decoration: none; }
+  a:hover { color: #FF5700; text-decoration: underline; }
+</style>
+</helmet>
+
+<div style="position: relative; min-height: 760px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; padding: 24px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+
+  <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+    <div style="display: flex; flex-direction: column; gap: 7px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Thùng rác</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="1.5"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Chỉ quản trị viên</span>
+        </span>
+      </div>
+      <span style="font-size: 14px; color: #777777;">Văn bản đã xóa nằm lại đây cùng file đính kèm. Số của nó <strong style="color: #333333; font-weight: 700;">đã được nhả ra từ lúc xóa</strong> — văn bản khác có thể đã lấy mất, và khi đó khôi phục sẽ cấp số mới. “Xóa vĩnh viễn” chỉ giải phóng đĩa và bỏ luôn đường khôi phục.</span>
+    </div>
+    <div style="margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9B9D96;">Đang giữ</span>
+      <span style="font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: #212121;">{{ count }} văn bản · {{ size }}</span>
+      <span style="font-size: 13px; color: #777777;">đính kèm còn trên đĩa</span>
+    </div>
+  </div>
+
+  <sc-if value="{{ hasFlash }}" hint-placeholder-val="{{ false }}">
+    <div style="border: 1px solid #FFD3A8; background: #FFEAD0; padding: 13px 16px; display: flex; align-items: center; gap: 10px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto;"><path d="M20 6 9 17l-5-5"></path></svg>
+      <span style="font-size: 13px; color: #CC4600;">{{ flash }}</span>
+      <button type="button" onClick="{{ h.clearFlash }}" style="margin-left: auto; border: none; background: none; padding: 0; font-size: 13px; color: #CC4600; cursor: pointer; text-decoration: underline;">Ẩn</button>
+    </div>
+  </sc-if>
+
+  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; overflow-x: auto;">
+    <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+    <table style="width: 100%; min-width: 1060px; border-collapse: collapse; table-layout: fixed;">
+      <thead>
+        <tr style="background: #F4F5F6; border-bottom: 1px solid #D8DBDF;">
+          <th style="width: 108px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Sổ</th>
+          <th style="width: 132px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số văn bản</th>
+          <th style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên văn bản</th>
+          <th style="width: 176px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Xóa lúc · bởi</th>
+          <th style="width: 262px; padding: 10px 14px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+          <tr style="border-bottom: 1px solid #D8DBDF;" style-hover="border-bottom: 1px solid #D8DBDF; background: #F4F5F6;">
+            <td style="padding: 13px 14px; vertical-align: top; line-height: 1.45;"><span style="{{ r.bookBadge }}">{{ r.bookLabel }}</span></td>
+            <td style="padding: 13px 14px; vertical-align: top; line-height: 1.45; font-family: var(--font-mono); font-weight: 600; font-size: 14px; color: #000000;">{{ r.so }}</td>
+            <td style="padding: 13px 14px; vertical-align: top; line-height: 1.45;">
+              <div style="font-size: 14px; font-weight: 700; color: #000000;">{{ r.ten }}</div>
+              <div style="font-size: 13px; color: #777777; margin-top: 3px;">{{ r.meta }}</div>
+            </td>
+            <td style="padding: 13px 14px; vertical-align: top; line-height: 1.45;">
+              <div style="font-family: var(--font-mono); font-size: 12px; color: #333333;">{{ r.at }}</div>
+              <div style="font-size: 13px; color: #777777; margin-top: 3px;">{{ r.who }}</div>
+            </td>
+            <td style="padding: 13px 14px; vertical-align: top; text-align: right; white-space: nowrap;">
+              <button type="button" onClick="{{ r.onRestore }}" style="height: 32px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; background: #FFFFFF; font-size: 13px; font-weight: 700; color: #37505C; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" style-hover="height: 32px; padding: 0 12px; border: 1px solid #24434A; border-radius: 6px; background: #F4F5F6; font-size: 13px; font-weight: 700; color: #24434A; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path></svg>
+                Khôi phục
+              </button>
+              <button type="button" onClick="{{ r.onPurge }}" style="margin-left: 8px; height: 32px; padding: 0 12px; border: 1px solid #F0C7C7; border-radius: 6px; background: #FFFFFF; font-size: 13px; font-weight: 700; color: #CC0000; cursor: pointer;" style-hover="margin-left: 8px; height: 32px; padding: 0 12px; border: 1px solid #CC0000; border-radius: 6px; background: #FBE9E9; font-size: 13px; font-weight: 700; color: #CC0000; cursor: pointer;">Xóa vĩnh viễn</button>
+            </td>
+          </tr>
+        </sc-for>
+      </tbody>
+    </table>
+    </sc-if>
+    <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 56px 24px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center;">
+        <span style="font-size: 14px; color: #777777;">Thùng rác trống — không có văn bản nào đã xóa.</span>
+        <button type="button" onClick="{{ h.reload }}" style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; background: #FFFFFF; font-size: 14px; color: #333333; cursor: pointer;" style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; border-radius: 6px; background: #F4F5F6; font-size: 14px; color: #333333; cursor: pointer;">Nạp lại danh sách mẫu</button>
+      </div>
+    </sc-if>
+  </section>
+
+  <div style="display: flex; gap: 9px; align-items: flex-start; padding: 11px 14px; border-radius: 6px; border: 1px solid #D8DBDF; background: #FFFFFF; color: #777777; font-size: 13px; line-height: 1.5;">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9B9D96" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v.01"></path><path d="M12 11v5"></path></svg>
+    <span>Văn bản bị xóa <strong style="color: #333333; font-weight: 700;">trước khi bật tính năng này</strong> không có trong thùng rác — dữ liệu của chúng đã mất hẳn, nhật ký chỉ còn dòng mô tả.</span>
+  </div>
+
+  <sc-if value="{{ ask.has }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.42); display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; overflow-y: auto; z-index: 60;">
+      <div style="width: 600px; max-width: 100%; background: #FFFFFF; border: 1px solid #D8DBDF; border-radius: 10px;">
+        <div style="padding: 20px 24px; border-bottom: 1px solid #D8DBDF;">
+          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC0000;">Không hoàn lại được</span>
+          <div style="margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Xóa vĩnh viễn văn bản này?</div>
+        </div>
+        <div style="padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+          <span style="font-size: 14px; color: #333333; line-height: 1.55;">Xóa hẳn <strong style="color: #000000; font-weight: 700;">{{ ask.so }} — {{ ask.ten }}</strong> cùng file đính kèm. Sau bước này <strong style="color: #CC0000; font-weight: 700;">không còn cách nào khôi phục</strong>.</span>
+          <div style="display: flex; gap: 9px; align-items: flex-start; padding: 11px 14px; border-radius: 6px; border: 1px solid #F0C7C7; background: #FBE9E9; color: #CC0000; font-size: 13px; line-height: 1.5;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;"><path d="M12 9v5"></path><path d="M12 17h.01"></path><circle cx="12" cy="12" r="9"></circle></svg>
+            <span>{{ ask.note }}</span>
+          </div>
+        </div>
+        <div style="padding: 16px 24px; border-top: 1px solid #D8DBDF; display: flex; align-items: center; gap: 12px;">
+          <div style="margin-left: auto; display: flex; gap: 10px;">
+            <button type="button" onClick="{{ h.closeAsk }}" style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; background: #FFFFFF; font-size: 14px; color: #333333; cursor: pointer;" style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; border-radius: 6px; background: #F4F5F6; font-size: 14px; color: #333333; cursor: pointer;">Thôi</button>
+            <button type="button" onClick="{{ h.doPurge }}" style="height: 40px; padding: 0 18px; border: 1px solid #CC0000; border-radius: 6px; background: #CC0000; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;" style-hover="height: 40px; padding: 0 18px; border: 1px solid #CC0000; border-radius: 6px; background: #FBE9E9; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;">Xóa vĩnh viễn</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1180,"height":760}}'>
+const BADGE = 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; border: 1px solid ';
+const BADGE_DI = BADGE + '#FFD3A8; background: #FFEAD0; color: #CC4600;';
+const BADGE_DEN = BADGE + '#C3D3DF; background: #EAF0F5; color: #2C4F6A;';
+
+const TRASH = [
+  { id: 't1', book: 'di', so: '6/2026', ten: 'Báo cáo kết quả thực hiện nhiệm vụ tháng 8/2026',
+    ngay: '05/09/2026', file: 'bc-thang-08.pdf', kb: 820,
+    at: '10/09/2026 08:12', who: 'bao' },
+  { id: 't2', book: 'den', so: '87/SNV-TCCB', ten: 'Hướng dẫn rà soát biên chế năm 2026',
+    ngay: '28/08/2026', file: '87-snv.pdf', kb: 410,
+    at: '09/09/2026 16:40', who: 'hant' },
+  { id: 't3', book: 'di', so: '4/2026', ten: 'Giấy mời họp giao ban quý III',
+    ngay: '12/08/2026', file: '', kb: 0,
+    at: '07/09/2026 09:10', who: 'hant' },
+];
+
+class Component extends DCLogic {
+  state = {
+    rows: TRASH.map(function (r) { return Object.assign({}, r); }),
+    ask: null, flash: '',
+  };
+
+  h = {
+    clearFlash: () => this.setState({ flash: '' }),
+    closeAsk: () => this.setState({ ask: null }),
+    reload: () => this.setState({
+      rows: TRASH.map(function (r) { return Object.assign({}, r); }),
+      flash: '',
+    }),
+    doPurge: () => this.setState((s) => {
+      const t = s.rows.filter(function (r) { return r.id === s.ask; })[0];
+      if (!t) return { ask: null };
+      return {
+        rows: s.rows.filter(function (r) { return r.id !== s.ask; }),
+        ask: null,
+        flash: 'Đã xóa vĩnh viễn nội dung và file của ' + t.so + '. Số này đã được nhả ra từ lúc xóa khỏi sổ.',
+      };
+    }),
+  };
+
+  renderVals() {
+    const s = this.state;
+    const self = this;
+
+    const rows = s.rows.map(function (r) {
+      return {
+        key: r.id,
+        bookLabel: r.book === 'di' ? 'Văn bản đi' : 'Văn bản đến',
+        bookBadge: r.book === 'di' ? BADGE_DI : BADGE_DEN,
+        so: r.so,
+        ten: r.ten,
+        meta: 'Ngày gửi ' + r.ngay + ' · ' + (r.file ? r.file + ' (' + r.kb + ' KB)' : 'không có đính kèm'),
+        at: r.at,
+        who: r.who,
+        onRestore: function () {
+          self.setState(function (st) {
+            return {
+              rows: st.rows.filter(function (x) { return x.id !== r.id; }),
+              flash: 'Đã khôi phục ' + r.so + ' về sổ, giữ đúng số cũ.',
+            };
+          });
+        },
+        onPurge: function () { self.setState({ ask: r.id }); },
+      };
+    });
+
+    const t = s.ask ? s.rows.filter(function (r) { return r.id === s.ask; })[0] : null;
+    const ask = t
+      ? {
+        has: true, so: t.so, ten: t.ten,
+        note: t.book === 'di'
+          ? ('Số ' + t.so + ' đã được nhả ra từ lúc xóa khỏi sổ, nên việc này không đụng tới số nữa — nó chỉ giải phóng đĩa. Nhật ký giữ dòng đã xóa, nhưng không còn khôi phục được.')
+          : ('Số này do cơ quan gửi đặt nên không liên quan tới bộ đếm. Nhật ký giữ dòng đã xóa, nhưng không còn nội dung để khôi phục.'),
+      }
+      : { has: false, so: '', ten: '', note: '' };
+
+    const totalKb = s.rows.reduce(function (n, r) { return n + (r.kb || 0); }, 0);
+    const sizeText = totalKb >= 1024
+      ? String(Math.round(totalKb / 102.4) / 10).replace('.', ',') + ' MB'
+      : totalKb + ' KB';
+
+    return {
+      rows: rows,
+      isEmpty: rows.length === 0,
+      hasRows: rows.length > 0,
+      count: String(s.rows.length),
+      size: sizeText,
+      ask: ask,
+      hasFlash: !!s.flash,
+      flash: s.flash,
+      h: this.h,
+    };
+  }
+}
+</script>
+</body>
+</html>

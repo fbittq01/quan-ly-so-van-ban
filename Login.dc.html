@@ -1,0 +1,265 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
+      <style>
+        :root {
+          --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+          --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
+
+        a {
+          color: #CC4600;
+          text-decoration: none;
+        }
+
+        a:hover {
+          color: #FF5700;
+          text-decoration: underline;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="min-height: 720px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; display: flex; align-items: center; justify-content: center; padding: 40px 24px; box-sizing: border-box;">
+      <div style="width: 100%; max-width: 424px; display: flex; flex-direction: column; gap: 16px;">
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: baseline; gap: 10px;">
+            <span style="width: 9px; height: 9px; background: #FF5700; display: inline-block;"></span>
+            <span style="font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Quản lý số văn
+              bản</span>
+          </div>
+          <span style="font-size: 13px; color: #777777; padding-left: 19px;">Phòng 1 · Sổ 2026</span>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #D8DBDF; display: flex; flex-direction: column;">
+
+          <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 28px 24px; display: flex; flex-direction: column; gap: 18px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span
+                  style="width: 34px; height: 34px; border-radius: 50%; background: #FFEAD0; border: 1px solid #FFD3A8; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.4"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6 9 17l-5-5"></path>
+                  </svg>
+                </span>
+                <div style="display: flex; flex-direction: column; gap: 2px;">
+                  <span style="font-size: 16px; font-weight: 700; color: #000000;">Đăng nhập thành công</span>
+                  <span style="font-size: 13px; color: #777777;">Đang mở sổ văn bản 2026…</span>
+                </div>
+              </div>
+              <div
+                style="border: 1px solid #D8DBDF; background: #F4F5F6; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;">
+                <span style="font-size: 15px; font-weight: 700; color: #000000;">{{ okName }}</span>
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <span style="{{ okBadge }}">{{ okRole }}</span>
+                  <span style="font-size: 13px; color: #777777;">{{ okScope }}</span>
+                </div>
+              </div>
+              <button type="button" onClick="{{ h.signOut }}"
+                style="align-self: flex-start; border: none; background: none; padding: 0; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline;">Đăng
+                nhập tài khoản khác</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+            <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Đăng
+                nhập hệ thống</span>
+
+              <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+                <div style="{{ errBox }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{ errIconColor }}"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    style="flex: 0 0 auto; margin-top: 1px;">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <path d="M12 8v4"></path>
+                    <path d="M12 16h.01"></path>
+                  </svg>
+                  <span style="{{ errText }}">{{ error }}</span>
+                </div>
+              </sc-if>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên
+                  đăng nhập</span>
+                <input type="text" value="{{ u }}" onChange="{{ h.u }}" onKeyDown="{{ h.key }}" placeholder="vd: hant"
+                  autocomplete="username"
+                  style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;"
+                  style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+              </label>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Mật
+                  khẩu</span>
+                <span style="position: relative; display: flex;">
+                  <input type="{{ pwType }}" value="{{ p }}" onChange="{{ h.p }}" onKeyDown="{{ h.key }}"
+                    placeholder="••••••••" autocomplete="current-password"
+                    style="flex: 1; height: 40px; padding: 0 78px 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;"
+                    style-focus="flex: 1; height: 40px; padding: 0 78px 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+                  <button type="button" onClick="{{ h.toggle }}"
+                    style="position: absolute; right: 6px; top: 6px; height: 28px; padding: 0 10px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 4px; font-size: 12px; font-weight: 600; color: #37505C; cursor: pointer;"
+                    style-hover="position: absolute; right: 6px; top: 6px; height: 28px; padding: 0 10px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 4px; font-size: 12px; font-weight: 600; color: #24434A; cursor: pointer;">{{
+                    pwToggle }}</button>
+                </span>
+              </label>
+
+              <label style="display: flex; align-items: center; gap: 9px; cursor: pointer;">
+                <input type="checkbox" checked="{{ remember }}" onChange="{{ h.remember }}"
+                  style="width: 16px; height: 16px; accent-color: #FF5700; cursor: pointer;">
+                <span style="font-size: 13px; color: #333333;">Ghi nhớ đăng nhập trên máy này</span>
+              </label>
+
+              <button type="button" onClick="{{ h.submit }}"
+                style="height: 44px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 15px; font-weight: 700; color: #FFFFFF; cursor: pointer; letter-spacing: -0.01em;"
+                style-hover="height: 44px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 15px; font-weight: 700; color: #FFFFFF; cursor: pointer; letter-spacing: -0.01em;">Đăng
+                nhập</button>
+            </div>
+
+            <div
+              style="border-top: 1px solid #D8DBDF; background: #F4F5F6; padding: 16px 24px; display: flex; gap: 10px; align-items: flex-start;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#37505C" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 2px;">
+                <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              </svg>
+              <p style="margin: 0; font-size: 13px; color: #333333; line-height: 1.55;">Hệ thống không cho tự đăng ký.
+                Tài khoản do <strong style="font-weight: 700;">quản trị viên</strong> cấp — liên hệ Chánh Văn phòng để
+                được mở tài khoản hoặc cấp lại mật khẩu.</p>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+          <div
+            style="background: #FFFFFF; border: 1px dashed #D8DBDF; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9B9D96;">Tài
+              khoản demo — bấm để điền</span>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <sc-for list="{{ demos }}" as="d" hint-placeholder-count="4">
+                <button type="button" onClick="{{ d.onPick }}" style="{{ d.style }}">
+                  <span
+                    style="font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: #000000; width: 74px; text-align: left; flex: 0 0 auto;">{{
+                    d.user }}</span>
+                  <span style="font-size: 13px; color: #333333; text-align: left; flex: 1;">{{ d.name }}</span>
+                  <span style="{{ d.badge }}">{{ d.role }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </x-dc>
+  <script data-dc-script data-props='{"$preview":{"width":880,"height":720}}'>
+    const ROLE = {
+      admin: { label: 'Quản trị', fg: '#CC4600', bg: '#FFEAD0', bd: '#FFD3A8', scope: 'Toàn quyền · gồm Cài đặt lấy số và Tài khoản' },
+      vanthu: { label: 'Văn thư', fg: '#2C4F6A', bg: '#EAF0F5', bd: '#C3D3DF', scope: 'Ghi sổ, lấy số, sửa văn bản' },
+      xem: { label: 'Chỉ xem', fg: '#37505C', bg: '#F4F5F6', bd: '#D8DBDF', scope: 'Chỉ tra cứu, không sửa sổ' }
+    };
+
+    const ACCOUNTS = [
+      { user: 'admin', pass: 'admin@2026', name: 'Lê Quốc Bảo — Chánh Văn phòng', role: 'admin', locked: false },
+      { user: 'hant', pass: 'vanthu@123', name: 'Nguyễn Thị Hà — Văn thư', role: 'vanthu', locked: false },
+      { user: 'minhtv', pass: 'xem@123', name: 'Trần Văn Minh — Phó Chánh VP', role: 'xem', locked: false },
+      { user: 'thuptt', pass: 'thu@123', name: 'Phạm Thị Thu — Văn thư', role: 'vanthu', locked: true }
+    ];
+
+    function badge(r) {
+      const c = ROLE[r];
+      return 'display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; white-space: nowrap; color: ' + c.fg + '; background: ' + c.bg + '; border: 1px solid ' + c.bd + ';';
+    }
+
+    class Component extends DCLogic {
+      state = { u: '', p: '', show: false, remember: true, error: '', kind: '', ok: null };
+
+      submit = () => {
+        const u = this.state.u.trim().toLowerCase();
+        const p = this.state.p;
+        if (!u || !p) { this.setState({ error: 'Nhập tên đăng nhập và mật khẩu.', kind: 'warn' }); return; }
+        const acc = ACCOUNTS.find(a => a.user === u);
+        if (!acc || acc.pass !== p) {
+          this.setState({ error: 'Tên đăng nhập hoặc mật khẩu không đúng.', kind: 'error' });
+          return;
+        }
+        if (acc.locked) {
+          this.setState({ error: 'Tài khoản đã bị khóa. Liên hệ quản trị viên để mở lại.', kind: 'error' });
+          return;
+        }
+        this.setState({ ok: acc, error: '', kind: '', p: '' });
+      };
+
+      renderVals() {
+        const s = this.state;
+        const ok = s.ok;
+        const isErr = s.kind === 'error';
+        return {
+          u: s.u, p: s.p,
+          pwType: s.show ? 'text' : 'password',
+          pwToggle: s.show ? 'Ẩn' : 'Hiện',
+          remember: s.remember,
+          error: s.error,
+          hasError: !!s.error,
+          errBox: 'display: flex; gap: 9px; padding: 11px 13px; border-radius: 6px; border: 1px solid ' + (isErr ? '#F0C7C7' : '#FFD3A8') + '; background: ' + (isErr ? '#FBE9E9' : '#FFEAD0') + ';',
+          errIconColor: isErr ? '#CC0000' : '#CC4600',
+          errText: 'font-size: 13px; line-height: 1.5; color: ' + (isErr ? '#CC0000' : '#CC4600') + ';',
+          signedIn: !!ok,
+          signedOut: !ok,
+          okName: ok ? ok.name : '',
+          okRole: ok ? ROLE[ok.role].label : '',
+          okScope: ok ? ROLE[ok.role].scope : '',
+          okBadge: ok ? badge(ok.role) : '',
+          demos: ACCOUNTS.map(a => ({
+            user: a.user,
+            name: a.locked ? a.name + ' (đã khóa)' : a.name,
+            role: ROLE[a.role].label,
+            badge: badge(a.role),
+            style: 'display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 9px; border: 1px solid ' + (s.u.trim().toLowerCase() === a.user ? '#37505C' : '#D8DBDF') + '; background: ' + (s.u.trim().toLowerCase() === a.user ? '#F4F5F6' : '#FFFFFF') + '; border-radius: 6px; cursor: pointer;',
+            onPick: () => this.setState({ u: a.user, p: a.pass, error: '', kind: '' })
+          })),
+          h: {
+            u: e => this.setState({ u: e.target.value, error: '' }),
+            p: e => this.setState({ p: e.target.value, error: '' }),
+            toggle: () => this.setState(st => ({ show: !st.show })),
+            remember: e => this.setState({ remember: e.target.checked }),
+            key: e => { if (e.key === 'Enter') this.submit(); },
+            submit: this.submit,
+            signOut: () => this.setState({ ok: null, u: '', p: '', error: '', kind: '' })
+          }
+        };
+      }
+    }
+  </script>
+</body>
+
+</html>

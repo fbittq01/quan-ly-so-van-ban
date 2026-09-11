@@ -1,0 +1,17 @@
+pdf.js (pdfjs-dist) 4.10.38 — bản legacy, đã rút gọn
+Nguồn: npm pdfjs-dist@4.10.38, lấy từ legacy/build/ và standard_fonts/
+Giấy phép: Apache-2.0 (Mozilla)
+
+Vì sao tự chứa thay vì gọi CDN:
+  - CSP của ứng dụng là script-src 'self', link CDN bị chặn im lặng.
+  - Sổ văn bản phải chạy được trong mạng nội bộ không có Internet.
+
+Vì sao có thư mục này thay vì dùng trình xem PDF của trình duyệt:
+  Edge/Chrome có tùy chọn “Always download PDF files” (và chính sách
+  AlwaysOpenPdfExternally trên máy do IT quản lý). Bật lên thì trình duyệt tải
+  PDF về thay vì dựng trong trang, kể cả khi máy chủ đã trả Content-Disposition:
+  inline — khung xem thành trắng. Tự vẽ PDF lên canvas thì không còn phụ thuộc
+  vào cài đặt của từng máy.
+
+KHÔNG lấy cmaps/ (1,7 MB): chỉ cần cho PDF chữ Trung/Nhật/Hàn.
+Muốn nâng cấp: lấy đúng 2 tệp .mjs + standard_fonts/ của bản mới, không sửa tay.
