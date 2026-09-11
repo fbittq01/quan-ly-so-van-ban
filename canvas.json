@@ -31,18 +31,28 @@
       "is_interactive": true
     },
     {
-      "file": "CaiDatLaySo.dc.html",
+      "file": "LaySo.dc.html",
       "x": 0,
       "y": 0,
-      "w": 1060,
-      "h": 1180,
+      "w": 1000,
+      "h": 900,
       "page": "page-2",
-      "title": "Cài đặt lấy số",
+      "title": "Lấy số — hộp thoại cấp số",
+      "is_interactive": true
+    },
+    {
+      "file": "CaiDatLaySo.dc.html",
+      "x": 1120,
+      "y": 0,
+      "w": 1060,
+      "h": 1120,
+      "page": "page-2",
+      "title": "Cài đặt lấy số — mặc định & bộ đếm",
       "is_interactive": true
     },
     {
       "file": "TaiKhoan.dc.html",
-      "x": 1180,
+      "x": 2300,
       "y": 0,
       "w": 1180,
       "h": 920,
@@ -101,14 +111,14 @@
     {
       "id": "number-note",
       "x": 0,
-      "y": -280,
-      "w": 500,
+      "y": -300,
+      "w": 520,
       "page": "page-2",
-      "text": "Thay đổi chính:\n• Bỏ ô “Số chữ số” — số không còn 0 ở đầu: 6/2026 thay vì 06/2026.\n• Chuỗi token {số}/{năm} thay bằng bộ ghép thành phần có xem trước từng phần.\n• Thêm xem trước 5 số kế tiếp, bộ đếm và nhật ký cập nhật."
+      "text": "Thay đổi chính:\n• Số thứ tự chỉ tăng đều 1, 2, 3… — không còn bộ ghép thành phần.\n• Tiền tố và hậu tố đặt lại được ngay ở màn lấy số, mỗi lần một khác.\n• Trang cài đặt thu lại thành giá trị điền sẵn + bộ đếm.\n• Sổ văn bản đi bỏ nút “+ Ghi thủ công”: mọi số đều đi qua đường lấy số."
     },
     {
       "id": "account-note",
-      "x": 1180,
+      "x": 2300,
       "y": -230,
       "w": 440,
       "page": "page-2",
@@ -141,7 +151,7 @@
   ],
   "launch": {
     "view": "canvas",
-    "page": "page-3"
+    "page": "page-2"
   },
   "pages": [
     {
@@ -150,7 +160,7 @@
     },
     {
       "id": "page-2",
-      "name": "Trang cài đặt"
+      "name": "Lấy số & cài đặt"
     },
     {
       "id": "page-3",

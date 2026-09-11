@@ -54,7 +54,7 @@ const DI = [
   [41, '2025-11-04', 'Nguyễn Thị Hà — Văn thư', 'Công văn đề nghị cấp bổ sung trang thiết bị lưu trữ', 'Thường', 'Gửi Sở Tài chính'],
 ];
 
-const CFG = { segments: [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }], start: 1, resetYearly: true };
+const CFG = { prefix: '', suffix: '/' + new Date().getFullYear(), start: 1, resetYearly: true };
 
 function viDate(iso) {
   const p = iso.split('-');
@@ -105,7 +105,9 @@ db.transaction(() => {
   for (const [seq, ngay, nguoi, ten, baoMat, ghiChu] of DI) {
     const year = Number.parseInt(ngay.slice(0, 4), 10);
     const scope = numbering.scopeFor(CFG, year);
-    const so = numbering.buildNumber(CFG.segments, seq, year);
+    // Dữ liệu mẫu trải nhiều năm, nên hậu tố dựng theo năm của chính văn bản
+    // chứ không dùng hậu tố mặc định của năm nay.
+    const so = numbering.buildNumber(CFG.prefix, seq, '/' + year);
     insertDoc.run({
       book: 'di', so, seq, scope, year, ngay, nguoi, ten,
       bao_mat: baoMat, ghi_chu: ghiChu,

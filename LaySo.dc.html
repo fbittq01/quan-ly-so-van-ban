@@ -1,0 +1,360 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
+      <style>
+        :root {
+          --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+          --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
+
+        a {
+          color: #CC4600;
+          text-decoration: none;
+        }
+
+        a:hover {
+          color: #FF5700;
+          text-decoration: underline;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="min-height: 900px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; padding: 28px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Lấy số gửi văn bản
+            đi</span>
+          <span style="font-size: 14px; color: #777777;">Một đường duy nhất để có số: số thứ tự do hệ thống cấp, tiền tố
+            và hậu tố do bạn đặt. Không còn nút ghi số thủ công cho sổ văn bản đi.</span>
+        </div>
+        <div
+          style="margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #FFFFFF; border: 1px solid #D8DBDF; border-radius: 6px;">
+          <span
+            style="width: 30px; height: 30px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: #CC4600;">{{
+            meInitials }}</span>
+          <div style="display: flex; flex-direction: column;">
+            <span style="font-size: 13px; font-weight: 700; color: #000000;">{{ meName }}</span>
+            <span style="font-size: 12px; color: #777777;">{{ meTitle }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; border-radius: 10px; display: flex; flex-direction: column;">
+
+        <div style="padding: 20px 24px; border-bottom: 1px solid #D8DBDF;">
+          <div
+            style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">
+            Lấy số văn bản đi</div>
+          <div style="margin-top: 6px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Cấp
+            số cho văn bản gửi đi</div>
+        </div>
+
+        <div style="padding: 22px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+          <div
+            style="grid-column: 1 / -1; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+            <div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;">
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                sẽ cấp</span>
+              <span
+                style="font-family: var(--font-mono); font-weight: 600; font-size: 34px; line-height: 1.1; letter-spacing: -0.01em; color: #CC4600;">{{
+                soVanBan }}</span>
+              <span style="margin-left: auto; font-size: 13px; color: #333333; text-align: right; max-width: 300px;">Số
+                chốt lúc bạn lưu. Nếu người khác vừa lấy số này, bạn nhận số kế tiếp.</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Tiền
+                  tố</span>
+                <input type="text" value="{{ prefix }}" onChange="{{ h.prefix }}" placeholder="để trống"
+                  style="height: 42px; width: 140px; padding: 0 12px; border: 1px solid #FFD3A8; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;"
+                  style-focus="height: 42px; width: 140px; padding: 0 12px; border: 1px solid #CC4600; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;">
+              </label>
+
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                  thứ tự</span>
+                <div
+                  style="height: 42px; min-width: 84px; padding: 0 16px; border: 1px solid #FFD3A8; background: #FFF6EA; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: #CC4600;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                  </svg>
+                  {{ seq }}
+                </div>
+              </div>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Hậu
+                  tố</span>
+                <input type="text" value="{{ suffix }}" onChange="{{ h.suffix }}" placeholder="để trống"
+                  style="height: 42px; width: 140px; padding: 0 12px; border: 1px solid #FFD3A8; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;"
+                  style-focus="height: 42px; width: 140px; padding: 0 12px; border: 1px solid #CC4600; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;">
+              </label>
+
+            </div>
+
+            <div
+              style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-top: 1px solid #FFD3A8; padding-top: 14px;">
+              <span style="font-size: 13px; color: #333333;">Dùng lại</span>
+              <sc-for list="{{ recent }}" as="r" hint-placeholder-count="4">
+                <button type="button" onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.label }}</button>
+              </sc-for>
+              <button type="button" onClick="{{ h.reset }}"
+                style="margin-left: auto; border: none; background: none; padding: 0; font-size: 13px; color: #CC4600; text-decoration: underline; cursor: pointer;">Về
+                mặc định của phòng</button>
+            </div>
+          </div>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Ngày
+              gửi</span>
+            <input type="date" value="{{ ngayGui }}" onChange="{{ h.ngay }}"
+              style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Người
+              gửi (người ký / trình)</span>
+            <input type="text" value="{{ nguoiGui }}" onChange="{{ h.nguoi }}" placeholder="Đơn vị hoặc cá nhân"
+              style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+            <span style="font-size: 12px; color: #9B9D96;">Điền theo tài khoản đang đăng nhập — sửa được</span>
+          </label>
+
+          <label style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên
+              văn bản</span>
+            <input type="text" value="{{ tenVanBan }}" onChange="{{ h.ten }}"
+              placeholder="Trích yếu nội dung văn bản"
+              style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Độ
+              bảo mật</span>
+            <select value="{{ doBaoMat }}" onChange="{{ h.baoMat }}"
+              style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF;">
+              <option value="Thường">Thường</option>
+              <option value="Mật">Mật</option>
+              <option value="Tối Mật">Tối Mật</option>
+              <option value="Tuyệt Mật">Tuyệt Mật</option>
+            </select>
+          </label>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">File
+              đính kèm</span>
+            <div
+              style="height: 40px; padding: 0 12px; border: 1px dashed #D8DBDF; border-radius: 6px; display: flex; align-items: center; gap: 9px; font-size: 13px; color: #777777;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9B9D96" stroke-width="1.9"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+              Chọn tệp — có thể thêm sau khi lưu
+            </div>
+          </label>
+
+          <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+            <div
+              style="grid-column: 1 / -1; display: flex; gap: 9px; padding: 11px 13px; border-radius: 6px; border: 1px solid #F0C7C7; background: #FBE9E9;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M12 8v4"></path>
+                <path d="M12 16h.01"></path>
+              </svg>
+              <span style="font-size: 13px; line-height: 1.5; color: #CC0000;">{{ error }}</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ hasDone }}" hint-placeholder-val="{{ false }}">
+            <div
+              style="grid-column: 1 / -1; display: flex; gap: 9px; padding: 11px 13px; border-radius: 6px; border: 1px solid #C3D3DF; background: #EAF0F5;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2C4F6A" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;">
+                <path d="M20 6 9 17l-5-5"></path>
+              </svg>
+              <span style="font-size: 13px; line-height: 1.5; color: #2C4F6A;">{{ done }}</span>
+            </div>
+          </sc-if>
+        </div>
+
+        <div
+          style="padding: 16px 24px; border-top: 1px solid #D8DBDF; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+          <span style="font-size: 13px; color: #777777;">Bộ đếm sổ {{ year }} đang ở <strong
+              style="font-family: var(--font-mono); font-weight: 600; color: #333333;">{{ counter }}</strong></span>
+          <span style="margin-left: auto; display: flex; gap: 10px;">
+            <button type="button" onClick="{{ h.cancel }}"
+              style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;"
+              style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Hủy</button>
+            <button type="button" onClick="{{ h.save }}"
+              style="height: 40px; padding: 0 20px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
+              style-hover="height: 40px; padding: 0 20px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">Cấp
+              số &amp; lưu vào sổ</button>
+          </span>
+        </div>
+      </div>
+
+      <div
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 16px 20px; display: flex; gap: 14px; align-items: flex-start;">
+        <span
+          style="width: 30px; height: 30px; border-radius: 6px; background: #F4F5F6; border: 1px solid #D8DBDF; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#37505C" stroke-width="1.9"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 16v-5"></path>
+            <path d="M12 8h.01"></path>
+          </svg>
+        </span>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 14px; font-weight: 700; color: #000000;">Phần nào sửa được, phần nào không</span>
+          <p style="margin: 0; font-size: 13px; color: #333333; line-height: 1.65; max-width: 820px;"><strong
+              style="font-weight: 700;">Số thứ tự</strong> do hệ thống cấp, tăng đều một đơn vị và không sửa được ở màn
+            này — đây là thứ bảo đảm không hai văn bản nào trùng số. <strong style="font-weight: 700;">Tiền tố và hậu
+              tố</strong> đặt lại được cho từng lần lấy số; lần đầu mở ra, hai ô này điền sẵn theo mặc định của phòng
+            trong <em style="font-style: normal; color: #CC4600;">Cài đặt lấy số</em>.</p>
+        </div>
+      </div>
+
+    </div>
+  </x-dc>
+  <script data-dc-script data-props='{"$preview":{"width":1000,"height":900}}'>
+    const YEAR = 2026;
+    const COUNTER = 6;
+    const DEFAULTS = { prefix: '', suffix: '/2026' };
+
+    const ME = { user: 'hant', name: 'Nguyễn Thị Hà', title: 'Văn thư — Phòng Hành chính' };
+
+    const RECENT = [
+      { prefix: '', suffix: '/2026' },
+      { prefix: '', suffix: '/2026/P1' },
+      { prefix: 'CV-', suffix: '/2026' },
+      { prefix: '', suffix: '-TB' }
+    ];
+
+    function build(prefix, seq, suffix) { return (prefix || '') + String(seq) + (suffix || ''); }
+
+    function initials(name) {
+      const parts = (name || '').trim().split(/\s+/);
+      if (!parts.length) return '—';
+      const last = parts[parts.length - 1];
+      return (parts[0].charAt(0) + last.charAt(0)).toUpperCase();
+    }
+
+    class Component extends DCLogic {
+      state = {
+        prefix: DEFAULTS.prefix,
+        suffix: DEFAULTS.suffix,
+        ngayGui: '2026-09-11',
+        nguoiGui: 'Nguyễn Thị Hà — Văn thư — Phòng Hành chính',
+        tenVanBan: '',
+        doBaoMat: 'Thường',
+        error: '',
+        done: ''
+      };
+
+      seq() { return COUNTER + 1; }
+
+      renderVals() {
+        const s = this.state;
+        const seq = this.seq();
+        const me = ME;
+
+        return {
+          year: String(YEAR),
+          counter: String(COUNTER),
+          seq: String(seq),
+          soVanBan: build(s.prefix, seq, s.suffix),
+          prefix: s.prefix,
+          suffix: s.suffix,
+          meName: me.name,
+          meTitle: me.title,
+          meInitials: initials(me.name),
+          recent: RECENT.map(r => {
+            const on = r.prefix === s.prefix && r.suffix === s.suffix;
+            return {
+              label: build(r.prefix, seq, r.suffix),
+              style: 'padding: 6px 11px; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); cursor: pointer; border: 1px solid ' +
+                (on ? '#CC4600' : '#FFD3A8') + '; background: ' + (on ? '#CC4600' : '#FFFFFF') + '; color: ' + (on ? '#FFFFFF' : '#CC4600') + ';',
+              onPick: () => this.setState({ prefix: r.prefix, suffix: r.suffix, error: '', done: '' })
+            };
+          }),
+          ngayGui: s.ngayGui,
+          nguoiGui: s.nguoiGui,
+          tenVanBan: s.tenVanBan,
+          doBaoMat: s.doBaoMat,
+          error: s.error,
+          hasError: !!s.error,
+          done: s.done,
+          hasDone: !!s.done,
+          h: {
+            prefix: e => this.setState({ prefix: e.target.value, error: '', done: '' }),
+            suffix: e => this.setState({ suffix: e.target.value, error: '', done: '' }),
+            reset: () => this.setState({ prefix: DEFAULTS.prefix, suffix: DEFAULTS.suffix, error: '', done: '' }),
+            cancel: () => this.setState({
+              prefix: DEFAULTS.prefix, suffix: DEFAULTS.suffix,
+              ngayGui: '2026-09-11', nguoiGui: ME.name + ' — ' + ME.title,
+              tenVanBan: '', doBaoMat: 'Thường', error: '', done: ''
+            }),
+            ngay: e => this.setState({ ngayGui: e.target.value }),
+            nguoi: e => this.setState({ nguoiGui: e.target.value }),
+            ten: e => this.setState({ tenVanBan: e.target.value, error: '' }),
+            baoMat: e => this.setState({ doBaoMat: e.target.value }),
+            save: () => {
+              const st = this.state;
+              if (!st.tenVanBan.trim()) {
+                this.setState({ error: 'Chưa nhập tên văn bản.', done: '' });
+                return;
+              }
+              this.setState({
+                error: '',
+                done: 'Đã cấp số ' + build(st.prefix, this.seq(), st.suffix) + ' và ghi vào sổ văn bản đi.'
+              });
+            }
+          }
+        };
+      }
+    }
+  </script>
+</body>
+
+</html>

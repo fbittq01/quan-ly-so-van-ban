@@ -231,13 +231,6 @@ const SEC_CLASS = {
   'Tuyệt Mật': 'badge badge-red',
 };
 const ROLE_CLASS = { admin: 'badge badge-orange', vanthu: 'badge badge-blue', xem: 'badge' };
-const SEGMENT_LABELS = [
-  ['seq', 'Số thứ tự'],
-  ['year', 'Năm — 4 chữ số'],
-  ['yy', 'Năm — 2 chữ số'],
-  ['text', 'Ký tự cố định'],
-];
-
 // ---------------------------------------------------------------------- api
 
 class ApiError extends Error {
@@ -372,7 +365,8 @@ async function loadNumbering() {
   const data = await api('GET', '/api/settings/numbering');
   state.numbering = data;
   state.draftNumbering = {
-    segments: data.numbering.segments.map((s) => ({ type: s.type, text: s.text || '' })),
+    prefix: data.numbering.prefix || '',
+    suffix: data.numbering.suffix || '',
     startRaw: String(data.numbering.start),
     resetYearly: data.numbering.resetYearly,
   };
@@ -763,12 +757,16 @@ function renderFilters() {
         : null,
       canWrite()
         ? el('div', { class: 'filters-actions' },
-          el('button', {
-            class: 'btn btn-secondary',
-            type: 'button',
-            onclick: () => openDocDialog({ book: state.book, mode: 'manual' }),
-            text: state.book === 'den' ? '+ Ghi văn bản đến' : '+ Ghi thủ công',
-          }),
+          // Chỉ sổ đến mới ghi tay: số của nó là số cơ quan gửi đặt. Sổ đi chỉ
+          // có một đường vào sổ là “Lấy số gửi văn bản đi”.
+          state.book === 'den'
+            ? el('button', {
+              class: 'btn btn-secondary',
+              type: 'button',
+              onclick: () => openDocDialog({ book: 'den', mode: 'manual' }),
+              text: '+ Ghi văn bản đến',
+            })
+            : null,
           el('button', {
             class: 'btn btn-primary',
             type: 'button',
@@ -877,39 +875,18 @@ function num(raw, fallback) {
 
 /** Bản sao logic ghép số ở phía trình duyệt, chỉ để xem trước tức thời.
     Máy chủ vẫn là nơi quyết định số thật. */
-function buildLocal(segments, seq, year) {
-  return segments
-    .map((s) =>
-      s.type === 'seq' ? String(seq)
-        : s.type === 'year' ? String(year)
-          : s.type === 'yy' ? String(year).slice(2)
-            : s.text || ''
-    )
-    .join('');
+function buildLocal(prefix, seq, suffix) {
+  return (prefix || '') + String(seq) + (suffix || '');
 }
 
-function draftProblem(segments) {
-  const n = segments.filter((s) => s.type === 'seq').length;
-  if (n === 0) return 'Cấu trúc phải có đúng một thành phần “Số thứ tự” — nếu không, mọi văn bản sẽ mang cùng một số.';
-  if (n > 1) return 'Chỉ được một thành phần “Số thứ tự”. Bỏ các thành phần trùng.';
-  if (segments.some((s) => s.type === 'text' && !(s.text || '').trim())) {
-    return 'Có ô “Ký tự cố định” đang để trống — điền dấu phân cách hoặc bỏ thành phần đó.';
-  }
-  return '';
-}
-
-const PRESETS = [
-  [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-  [{ type: 'seq' }, { type: 'text', text: '/P1' }],
-  [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }, { type: 'text', text: '/P1' }],
-  [{ type: 'seq' }, { type: 'text', text: '-CV' }],
-  [{ type: 'text', text: 'CV-' }, { type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-  [{ type: 'seq' }],
+// Mẫu hay dùng cho ô tiền tố / hậu tố. Bấm một cái là điền cả hai ô.
+const AFFIX_PRESETS = (year) => [
+  { prefix: '', suffix: '/' + year },
+  { prefix: '', suffix: '/' + year + '/P1' },
+  { prefix: 'CV-', suffix: '/' + year },
+  { prefix: '', suffix: '-TB' },
+  { prefix: '', suffix: '' },
 ];
-
-const sameSegments = (a, b) =>
-  a.length === b.length &&
-  a.every((s, i) => s.type === b[i].type && (s.text || '') === (b[i].text || ''));
 
 function renderNumberingPage() {
   const snap = state.numbering;
@@ -918,9 +895,9 @@ function renderNumberingPage() {
   const draft = state.draftNumbering;
   const year = snap.year;
   const seq = snap.next.seq;
-  const problem = draftProblem(draft.segments);
   const start = num(draft.startRaw, 1);
-  const dirty = !sameSegments(draft.segments, snap.numbering.segments) ||
+  const dirty = draft.prefix !== snap.numbering.prefix ||
+    draft.suffix !== snap.numbering.suffix ||
     start !== snap.numbering.start ||
     draft.resetYearly !== snap.numbering.resetYearly;
 
@@ -929,67 +906,15 @@ function renderNumberingPage() {
     render();
   };
 
-  const segmentCard = (sg, i) =>
-    el('div', { class: 'segment' + (sg.type === 'seq' ? ' is-seq' : '') },
-      el('div', { class: 'segment-head' },
-        el('span', { class: 'segment-pos', text: String(i + 1) }),
-        el('div', { class: 'segment-tools' },
-          el('button', {
-            class: 'icon-btn', type: 'button', title: 'Chuyển sang trái', disabled: i === 0,
-            onclick: () => {
-              const s = draft.segments;
-              [s[i - 1], s[i]] = [s[i], s[i - 1]];
-              touch();
-            },
-          }, icon('left', 12)),
-          el('button', {
-            class: 'icon-btn', type: 'button', title: 'Chuyển sang phải', disabled: i === draft.segments.length - 1,
-            onclick: () => {
-              const s = draft.segments;
-              [s[i + 1], s[i]] = [s[i], s[i + 1]];
-              touch();
-            },
-          }, icon('right', 12)),
-          el('button', {
-            class: 'icon-btn danger', type: 'button', title: 'Bỏ thành phần',
-            onclick: () => {
-              draft.segments.splice(i, 1);
-              touch();
-            },
-          }, icon('x', 12))
-        )
-      ),
-      el('select', {
-        onchange: (e) => {
-          sg.type = e.target.value;
-          if (sg.type !== 'text') sg.text = '';
-          touch();
-        },
-      }, SEGMENT_LABELS.map(([v, l]) => el('option', { value: v, text: l, selected: sg.type === v }))),
-      sg.type === 'text'
-        ? el('input', {
-          type: 'text', value: sg.text || '', placeholder: '/',
-          fk: 'seg-text-' + i,
-          oninput: (e) => {
-            sg.text = e.target.value;
-            touch();
-          },
-        })
-        : null,
-      el('div', {
-        class: 'segment-preview',
-        text: sg.type === 'seq' ? String(seq)
-          : sg.type === 'year' ? String(year)
-            : sg.type === 'yy' ? String(year).slice(2)
-              : (sg.text || '␣'),
-      })
-    );
-
   const save = async () => {
-    if (problem) return;
     try {
       const data = await api('PUT', '/api/settings/numbering', {
-        numbering: { segments: draft.segments, start, resetYearly: draft.resetYearly },
+        numbering: {
+          prefix: draft.prefix,
+          suffix: draft.suffix,
+          start,
+          resetYearly: draft.resetYearly,
+        },
       });
       state.numbering = data;
       state.numberingSavedAt = viDateTime(new Date().toISOString()).slice(-5);
@@ -1000,6 +925,20 @@ function renderNumberingPage() {
     }
   };
 
+  const affixField = (label, key, placeholder) =>
+    el('label', { class: 'field' },
+      el('span', { class: 'label', text: label }),
+      el('input', {
+        class: 'input mono w160', type: 'text', value: draft[key], placeholder,
+        maxlength: '24',
+        fk: 'cfg-' + key,
+        oninput: (e) => {
+          draft[key] = e.target.value;
+          touch();
+        },
+      })
+    );
+
   const previewRows = [];
   for (let k = 0; k < 5; k += 1) {
     previewRows.push(
@@ -1007,7 +946,7 @@ function renderNumberingPage() {
         el('td', { class: 'label lane' + (k === 0 ? ' label-accent' : ' label-dim'), text: k === 0 ? 'Kế tiếp' : String(k + 1) }),
         el('td', {
           class: 'cell-num ' + (k === 0 ? 'num-next' : 'num-later'),
-          text: problem ? '—' : buildLocal(draft.segments, seq + k, year),
+          text: buildLocal(draft.prefix, seq + k, draft.suffix),
         }),
         el('td', { class: 'muted', text: k === 0 ? 'Cấp khi bấm “Lấy số gửi văn bản đi”' : '' })
       )
@@ -1017,7 +956,7 @@ function renderNumberingPage() {
   previewRows.push(
     el('tr', { class: 'row-turn' },
       el('td', { class: 'label label-dim lane', text: 'Sổ ' + (year + 1) }),
-      el('td', { class: 'cell-num', text: problem ? '—' : buildLocal(draft.segments, nextYearSeq, year + 1) }),
+      el('td', { class: 'cell-num', text: buildLocal(draft.prefix, nextYearSeq, draft.suffix) }),
       el('td', { class: 'muted', text: draft.resetYearly ? 'Bộ đếm về đầu vào 01/01/' + (year + 1) : 'Bộ đếm chạy tiếp qua năm mới' })
     )
   );
@@ -1030,9 +969,9 @@ function renderNumberingPage() {
           el('span', { class: 'admin-chip' }, icon('lock', 12, '#cc4600'), el('span', { text: 'Chỉ quản trị viên' }))
         ),
         el('span', { class: 'muted' },
-          'Quy định cách hệ thống sinh số cho ',
+          'Đặt giá trị điền sẵn và trông bộ đếm của sổ ',
           el('strong', { text: 'văn bản đi' }),
-          '. Thay đổi ở đây không sửa số của văn bản đã ghi vào sổ.'
+          '. Tiền tố và hậu tố do người lấy số đặt lại ở từng văn bản.'
         )
       ),
       el('div', { class: 'push stack ta-right' },
@@ -1044,43 +983,49 @@ function renderNumberingPage() {
 
     el('section', { class: 'section' },
       el('div', { class: 'stack' },
-        el('span', { class: 'label label-accent', text: '1 · Cấu trúc số' }),
-        el('span', { class: 'muted', text: 'Ghép các thành phần theo thứ tự từ trái sang phải. Dùng ô Ký tự cố định cho dấu gạch, mã phòng ban hay chữ viết tắt.' })
+        el('span', { class: 'label label-accent', text: '1 · Mặc định điền sẵn khi lấy số' }),
+        el('span', { class: 'muted', text: 'Ô giữa là số thứ tự do hệ thống cấp — khóa, không sửa được. Hai ô hai bên là phần người lấy số tự đặt cho từng văn bản; ở đây chỉ đặt giá trị mở sẵn cho họ.' })
       ),
-      el('div', { class: 'segments' },
-        draft.segments.map(segmentCard),
+      el('div', { class: 'row-fields affix-row' },
+        affixField('Tiền tố', 'prefix', 'để trống'),
+        el('div', { class: 'field' },
+          el('span', { class: 'label label-accent', text: 'Số thứ tự' }),
+          el('div', { class: 'seq-locked' }, icon('lock', 14, '#cc4600'), el('span', { text: String(seq) }))
+        ),
+        affixField('Hậu tố', 'suffix', 'để trống'),
         el('button', {
-          class: 'segment-add', type: 'button',
+          class: 'btn btn-ghost', type: 'button',
           onclick: () => {
-            draft.segments.push({ type: 'text', text: '' });
+            draft.suffix = '/' + year;
             touch();
           },
-        }, icon('plus', 18), el('span', { text: 'Thêm thành phần' }))
+          text: 'Chèn năm ' + year + ' vào hậu tố',
+        })
       ),
-      problem ? el('div', { class: 'note note-error' }, icon('alert', 16), el('span', { text: problem })) : null,
       el('div', { class: 'next-number' },
         el('span', { class: 'label label-on-tint', text: 'Số kế tiếp' }),
-        el('span', { class: 'next-number-value', text: problem ? '—' : buildLocal(draft.segments, seq, year) }),
-        el('span', { class: 'muted', text: problem ? 'Sửa cấu trúc để xem số kế tiếp' : 'Cấp cho văn bản đi tiếp theo trong sổ ' + year })
+        el('span', { class: 'next-number-value', text: buildLocal(draft.prefix, seq, draft.suffix) }),
+        el('span', { class: 'muted', text: 'Điền sẵn cho văn bản đi tiếp theo trong sổ ' + year + ' — người lấy số sửa được' })
       ),
       el('div', { class: 'presets' },
-        el('span', { class: 'muted', text: 'Mẫu có sẵn' }),
-        PRESETS.map((p) =>
+        el('span', { class: 'muted', text: 'Mẫu hay dùng' }),
+        AFFIX_PRESETS(year).map((p) =>
           el('button', {
-            class: 'preset' + (sameSegments(p, draft.segments) ? ' active' : ''),
+            class: 'preset' + (p.prefix === draft.prefix && p.suffix === draft.suffix ? ' active' : ''),
             type: 'button',
             onclick: () => {
-              draft.segments = p.map((s) => ({ type: s.type, text: s.text || '' }));
+              draft.prefix = p.prefix;
+              draft.suffix = p.suffix;
               touch();
             },
-            text: buildLocal(p, seq, year),
+            text: buildLocal(p.prefix, seq, p.suffix),
           })
         )
       )
     ),
 
     el('section', { class: 'section' },
-      el('span', { class: 'label label-accent', text: '2 · Quy tắc đánh số' }),
+      el('span', { class: 'label label-accent', text: '2 · Bộ đếm' }),
       el('div', { class: 'row-fields' },
         el('label', { class: 'field' },
           el('span', { class: 'label', text: 'Bắt đầu từ' }),
@@ -1113,18 +1058,18 @@ function renderNumberingPage() {
         el('span', { class: 'rule-icon' }, icon('lock', 15, '#37505c')),
         el('div', { class: 'rule-body' },
           el('div', { class: 'rule-title' },
-            el('strong', { text: 'Không có số 0 ở đầu' }),
+            el('strong', { text: 'Số thứ tự tăng đều, không đệm 0' }),
             el('span', { class: 'badge', text: 'Cố định' })
           ),
           el('p', {},
-            'Số thứ tự luôn ở dạng ngắn nhất — ',
+            'Mỗi lần cấp, số thứ tự tăng đúng một đơn vị — ',
             el('span', { class: 'mono', text: '1' }), ', ',
             el('span', { class: 'mono', text: '2' }), ', … ',
             el('span', { class: 'mono', text: '10' }),
             ' — không phải ', el('del', { text: '01' }), ', ', el('del', { text: '02' }),
-            '. Số nhập tay vào sổ văn bản đi cũng được chuẩn hóa khi lưu (',
-            el('del', { text: '06/2026' }), ' → ', el('span', { class: 'mono', text: '6/2026' }),
-            '). Số của ', el('strong', { text: 'văn bản đến' }), ' giữ nguyên như cơ quan gửi ghi.'
+            '. Tiền tố và hậu tố không đổi được phần số này, nên hai văn bản đi ',
+            'không bao giờ trùng số dù ai đặt tiền tố hậu tố thế nào. Số của ',
+            el('strong', { text: 'văn bản đến' }), ' giữ nguyên như cơ quan gửi ghi.'
           )
         )
       )
@@ -1221,18 +1166,18 @@ function renderNumberingPage() {
     el('div', { class: 'section savebar-card' },
       el('div', { class: 'savebar flat' },
         el('span', {
-          class: 'savebar-status' + (problem ? ' blocked' : dirty ? ' dirty' : ''),
+          class: 'savebar-status' + (dirty ? ' dirty' : ''),
           text: state.numberingSavedAt ? 'Đã lưu lúc ' + state.numberingSavedAt
-            : problem ? 'Cấu trúc chưa hợp lệ — chưa thể lưu'
-              : dirty ? 'Có thay đổi chưa lưu'
-                : 'Cài đặt đang khớp với bản đã lưu',
+            : dirty ? 'Có thay đổi chưa lưu'
+              : 'Cài đặt đang khớp với bản đã lưu',
         }),
         el('div', { class: 'savebar-actions' },
           el('button', {
             class: 'btn', type: 'button', disabled: !dirty,
             onclick: () => {
               state.draftNumbering = {
-                segments: snap.numbering.segments.map((s) => ({ type: s.type, text: s.text || '' })),
+                prefix: snap.numbering.prefix || '',
+                suffix: snap.numbering.suffix || '',
                 startRaw: String(snap.numbering.start),
                 resetYearly: snap.numbering.resetYearly,
               };
@@ -1241,7 +1186,7 @@ function renderNumberingPage() {
             },
             text: 'Hủy thay đổi',
           }),
-          el('button', { class: 'btn btn-primary', type: 'button', disabled: !dirty || !!problem, onclick: save, text: 'Lưu cài đặt' })
+          el('button', { class: 'btn btn-primary', type: 'button', disabled: !dirty, onclick: save, text: 'Lưu cài đặt' })
         )
       )
     ),
@@ -1966,7 +1911,12 @@ function openDocDialog({ book, mode, doc }) {
     file: null,
     dropFile: false,
     expected: isIssue && state.nextNumber ? state.nextNumber.soVanBan : '',
+    // Số thứ tự là của hệ thống; hai ô này là phần người lấy số tự đặt cho
+    // từng văn bản, mở ra với mặc định của phòng.
+    seq: isIssue && state.nextNumber ? state.nextNumber.seq : null,
     form: {
+      prefix: isIssue && state.nextNumber ? (state.nextNumber.prefix || '') : '',
+      suffix: isIssue && state.nextNumber ? (state.nextNumber.suffix || '') : '',
       soVanBan: isEdit ? doc.soVanBan : '',
       ngayGui: isEdit ? doc.ngayGui : todayIso(),
       nguoiGui: isEdit ? doc.nguoiGui : '',
@@ -2080,8 +2030,9 @@ function fileField(d) {
 function renderDocDialog(d) {
   const f = d.form;
   const book = d.book;
-  // Số do hệ thống cấp thì không cho sửa: sửa số đã phát hành là sai nghiệp vụ.
-  const numberLocked = d.mode === 'edit' && d.doc && d.doc.seq !== null;
+  // Số của sổ đi không sửa được: sửa số đã phát hành là sai nghiệp vụ, và từ
+  // 11/09/2026 sổ đi không còn đường nhập số tay nào cả.
+  const numberLocked = d.mode === 'edit' && d.doc && d.doc.book === 'di';
 
   const field = (label, key, attrs) =>
     el('label', { class: 'field' + (attrs && attrs.full ? ' full' : '') },
@@ -2100,7 +2051,11 @@ function renderDocDialog(d) {
   const submit = async () => {
     const fd = new FormData();
     fd.set('book', book);
-    if (d.mode === 'issue') fd.set('mode', 'issue');
+    if (d.mode === 'issue') {
+      fd.set('mode', 'issue');
+      fd.set('prefix', f.prefix);
+      fd.set('suffix', f.suffix);
+    }
     if (d.expected) fd.set('expectedSoVanBan', d.expected);
     if (d.mode !== 'issue' && !numberLocked) fd.set('soVanBan', f.soVanBan);
     fd.set('ngayGui', f.ngayGui);
@@ -2134,12 +2089,53 @@ function renderDocDialog(d) {
     }
   };
 
+  // Ô tiền tố / hậu tố của một lượt lấy số. Gõ tới đâu, số dự kiến đổi tới đó;
+  // chỉ vẽ lại khối “Số sẽ cấp” chứ không dựng lại cả hộp thoại, nếu không con
+  // trỏ sẽ nhảy về cuối ô sau mỗi phím.
+  const affixInput = (label, key) =>
+    el('label', { class: 'field' },
+      el('span', { class: 'label label-on-tint', text: label }),
+      el('input', {
+        class: 'input mono w140', type: 'text', value: f[key], placeholder: 'để trống',
+        maxlength: '24',
+        fk: 'doc-' + key,
+        oninput: (e) => {
+          f[key] = e.target.value;
+          d.expected = buildLocal(f.prefix, d.seq, f.suffix);
+          const box = document.querySelector('.issued-value');
+          if (box) box.textContent = d.expected;
+        },
+      })
+    );
+
   const body = [
     d.mode === 'issue'
-      ? el('div', { class: 'issued' },
-        el('span', { class: 'label label-on-tint', text: 'Số dự kiến' }),
-        el('span', { class: 'issued-value', text: d.expected || '—' }),
-        el('span', { class: 'muted push', text: 'Số được chốt lúc bạn lưu. Nếu người khác vừa lấy số đó, bạn sẽ nhận số kế tiếp.' })
+      ? el('div', { class: 'issued issued-compose' },
+        el('div', { class: 'row' },
+          el('span', { class: 'label label-on-tint', text: 'Số sẽ cấp' }),
+          el('span', { class: 'issued-value', text: d.expected || '—' }),
+          el('span', { class: 'muted push', text: 'Số chốt lúc bạn lưu. Nếu người khác vừa lấy số này, bạn nhận số kế tiếp.' })
+        ),
+        el('div', { class: 'row-fields affix-row' },
+          affixInput('Tiền tố', 'prefix'),
+          el('div', { class: 'field' },
+            el('span', { class: 'label label-on-tint', text: 'Số thứ tự' }),
+            el('div', { class: 'seq-locked' }, icon('lock', 14, '#cc4600'),
+              el('span', { text: d.seq == null ? '—' : String(d.seq) }))
+          ),
+          affixInput('Hậu tố', 'suffix'),
+          el('button', {
+            class: 'btn btn-ghost', type: 'button',
+            onclick: () => {
+              const def = state.nextNumber || {};
+              f.prefix = def.prefix || '';
+              f.suffix = def.suffix || '';
+              d.expected = buildLocal(f.prefix, d.seq, f.suffix);
+              renderDialogs();
+            },
+            text: 'Về mặc định của phòng',
+          })
+        )
       )
       : null,
     numberLocked
@@ -2152,8 +2148,8 @@ function renderDocDialog(d) {
         ? null
         : field('Số văn bản', 'soVanBan', {
           mono: true,
-          placeholder: book === 'den' ? 'VD: 2145/UBND-VP' : 'VD: 142/CV-SNV',
-          hint: book === 'di' ? 'Số 0 ở đầu sẽ được bỏ khi lưu' : 'Giữ nguyên số của cơ quan gửi',
+          placeholder: 'VD: 2145/UBND-VP',
+          hint: 'Giữ nguyên số của cơ quan gửi',
         }),
     field('Ngày gửi', 'ngayGui', { type: 'date' }),
     field(book === 'di' ? 'Người gửi (người ký / trình)' : 'Người gửi (nơi gửi đến)', 'nguoiGui', {

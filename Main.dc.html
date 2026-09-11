@@ -224,10 +224,12 @@
                 </sc-if>
                 <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
                   <div style="margin-left: auto; display: flex; gap: 10px;">
-                    <button type="button" onClick="{{ h.add }}"
-                      style="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #37505C; cursor: pointer;"
-                      style-hover="height: 40px; padding: 0 16px; border: 1px solid #24434A; background: #F4F5F6; border-radius: 6px; font-size: 14px; font-weight: 700; color: #24434A; cursor: pointer;">{{
-                      addLabel }}</button>
+                    <sc-if value="{{ showAdd }}" hint-placeholder-val="{{ false }}">
+                      <button type="button" onClick="{{ h.add }}"
+                        style="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #37505C; cursor: pointer;"
+                        style-hover="height: 40px; padding: 0 16px; border: 1px solid #24434A; background: #F4F5F6; border-radius: 6px; font-size: 14px; font-weight: 700; color: #24434A; cursor: pointer;">{{
+                        addLabel }}</button>
+                    </sc-if>
                     <button type="button" onClick="{{ h.layso }}"
                       style="height: 40px; padding: 0 18px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
                       style-hover="height: 40px; padding: 0 18px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">Lấy
@@ -307,8 +309,10 @@
               </sc-if>
             </section>
 
-            <p style="margin: 0; font-size: 12px; color: #9B9D96;">Định dạng số văn bản đi: {{ formatLabel }} · không có
-              0 ở đầu</p>
+            <sc-if value="{{ isDi }}" hint-placeholder-val="{{ false }}">
+              <p style="margin: 0; font-size: 12px; color: #9B9D96;">Định dạng số văn bản đi: {{ formatLabel }} · không
+                có 0 ở đầu</p>
+            </sc-if>
           </sc-if>
 
           <sc-if value="{{ pageSettings }}" hint-placeholder-val="{{ false }}">
@@ -324,80 +328,43 @@
                 <div style="display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap;">
                   <div style="display: flex; flex-direction: column; gap: 5px;">
                     <span
-                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Cấu
-                      trúc số văn bản đi</span>
-                    <span style="font-size: 14px; color: #777777;">Ghép các thành phần từ trái sang phải. Thay đổi không
-                      sửa số của văn bản đã ghi vào sổ.</span>
+                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Mặc
+                      định điền sẵn khi lấy số</span>
+                    <span style="font-size: 14px; color: #777777;">Người lấy số vẫn sửa được tiền tố, hậu tố và tài
+                      khoản cho từng văn bản. Đây chỉ là giá trị điền sẵn.</span>
                   </div>
                   <span style="margin-left: auto; font-size: 13px; color: #9B9D96;">Cập nhật lần cuối 05/09/2026 · Lê
                     Quốc Bảo</span>
                 </div>
 
-                <div style="display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;">
-                  <sc-for list="{{ segs }}" as="sg" hint-placeholder-count="3">
-                    <div style="{{ sg.box }}">
-                      <div style="display: flex; align-items: center; gap: 4px;">
-                        <span
-                          style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #9B9D96;">{{
-                          sg.pos }}</span>
-                        <span style="margin-left: auto; display: flex; gap: 3px;">
-                          <button type="button" onClick="{{ sg.onUp }}" style="{{ sg.arrow }}"><svg width="12"
-                              height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M15 5l-7 7 7 7"></path>
-                            </svg></button>
-                          <button type="button" onClick="{{ sg.onDown }}" style="{{ sg.arrow }}"><svg width="12"
-                              height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M9 5l7 7-7 7"></path>
-                            </svg></button>
-                          <button type="button" onClick="{{ sg.onRemove }}" style="{{ sg.kill }}"><svg width="12"
-                              height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                              stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M6 6l12 12"></path>
-                              <path d="M18 6L6 18"></path>
-                            </svg></button>
-                        </span>
-                      </div>
-                      <select value="{{ sg.type }}" onChange="{{ sg.onType }}"
-                        style="height: 34px; padding: 0 8px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 13px; color: #212121; background: #FFFFFF;">
-                        <option value="seq">Số thứ tự</option>
-                        <option value="year">Năm — 2026</option>
-                        <option value="yy">Năm — 26</option>
-                        <option value="text">Ký tự cố định</option>
-                      </select>
-                      <sc-if value="{{ sg.isText }}" hint-placeholder-val="{{ false }}">
-                        <input type="text" value="{{ sg.text }}" onChange="{{ sg.onText }}" placeholder="/"
-                          style="height: 34px; padding: 0 9px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;"
-                          style-focus="height: 34px; padding: 0 9px; border: 1px solid #37505C; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;">
-                      </sc-if>
-                      <div style="{{ sg.chip }}">{{ sg.preview }}</div>
-                    </div>
-                  </sc-for>
-                  <button type="button" onClick="{{ h.addSeg }}"
-                    style="min-width: 116px; border: 1px dashed #D8DBDF; background: #FFFFFF; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 14px 12px; color: #37505C;"
-                    style-hover="min-width: 116px; border: 1px dashed #37505C; background: #F4F5F6; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 14px 12px; color: #24434A;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-                      stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 5v14"></path>
-                      <path d="M5 12h14"></path>
-                    </svg>
-                    <span style="font-size: 13px; font-weight: 700;">Thêm thành phần</span>
-                  </button>
-                </div>
-
-                <sc-if value="{{ structError }}" hint-placeholder-val="{{ false }}">
-                  <div
-                    style="display: flex; gap: 9px; padding: 11px 13px; border-radius: 6px; border: 1px solid #F0C7C7; background: #FBE9E9;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="2"
-                      stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;">
-                      <circle cx="12" cy="12" r="9"></circle>
-                      <path d="M12 8v4"></path>
-                      <path d="M12 16h.01"></path>
-                    </svg>
-                    <span style="font-size: 13px; line-height: 1.5; color: #CC0000;">{{ structErrorText }}</span>
+                <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                  <label style="display: flex; flex-direction: column; gap: 6px;">
+                    <span
+                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tiền
+                      tố</span>
+                    <input type="text" value="{{ cfgPrefix }}" onChange="{{ h.cfgPrefix }}" placeholder="để trống"
+                      style="height: 40px; width: 150px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+                  </label>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <span
+                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                      thứ tự</span>
+                    <div
+                      style="height: 40px; min-width: 76px; padding: 0 14px; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 600; font-size: 15px; color: #CC4600;">
+                      {{ nextSeq }}</div>
                   </div>
-                </sc-if>
+                  <label style="display: flex; flex-direction: column; gap: 6px;">
+                    <span
+                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Hậu
+                      tố</span>
+                    <input type="text" value="{{ cfgSuffix }}" onChange="{{ h.cfgSuffix }}" placeholder="để trống"
+                      style="height: 40px; width: 150px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+                  </label>
+                  <button type="button" onClick="{{ h.cfgYear }}"
+                    style="height: 40px; padding: 0 14px; border: 1px dashed #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 13px; color: #37505C; cursor: pointer;"
+                    style-hover="height: 40px; padding: 0 14px; border: 1px dashed #37505C; background: #F4F5F6; border-radius: 6px; font-size: 13px; color: #24434A; cursor: pointer;">Chèn
+                    năm {{ currentYear }} vào hậu tố</button>
+                </div>
 
                 <div
                   style="border: 1px solid #FFD3A8; background: #FFEAD0; padding: 16px 18px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;">
@@ -408,13 +375,6 @@
                     style="font-family: var(--font-mono); font-weight: 600; font-size: 30px; letter-spacing: -0.01em; color: #CC4600;">{{
                     nextNumber }}</span>
                   <span style="margin-left: auto; font-size: 13px; color: #333333;">{{ cfgResetLabel }}</span>
-                </div>
-
-                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                  <span style="font-size: 13px; color: #777777;">Mẫu có sẵn</span>
-                  <sc-for list="{{ presets }}" as="p" hint-placeholder-count="6">
-                    <button type="button" onClick="{{ p.onPick }}" style="{{ p.style }}">{{ p.label }}</button>
-                  </sc-for>
                 </div>
 
                 <div
@@ -447,7 +407,8 @@
                     </span>
                     <div style="display: flex; flex-direction: column; gap: 6px;">
                       <div style="display: flex; align-items: center; gap: 9px; height: 28px; margin-top: 14px;">
-                        <span style="font-size: 13px; font-weight: 700; color: #000000;">Không có số 0 ở đầu</span>
+                        <span style="font-size: 13px; font-weight: 700; color: #000000;">Số thứ tự tăng đều, không đệm
+                          0</span>
                         <span
                           style="padding: 2px 8px; border-radius: 6px; background: #F4F5F6; border: 1px solid #D8DBDF; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Cố
                           định</span>
@@ -458,8 +419,7 @@
                           style="font-family: var(--font-mono); font-weight: 600; color: #000000;">10</span> — không
                         phải <span
                           style="font-family: var(--font-mono); color: #9B9D96; text-decoration: line-through;">01</span>.
-                        Số nhập tay vào sổ văn bản đi được chuẩn hóa khi lưu; số của văn bản đến giữ nguyên theo cơ quan
-                        gửi.</p>
+                        Tiền tố và hậu tố không đổi được phần số này. Số của văn bản đến giữ nguyên theo cơ quan gửi.</p>
                     </div>
                   </div>
                 </div>
@@ -602,15 +562,53 @@
             <div style="padding: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
               <sc-if value="{{ isReserved }}" hint-placeholder-val="{{ false }}">
                 <div
-                  style="grid-column: 1 / -1; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 10px; padding: 16px 18px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;">
-                  <span
-                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
-                    được cấp</span>
-                  <span
-                    style="font-family: var(--font-mono); font-weight: 600; font-size: 30px; color: #CC4600; letter-spacing: -0.01em;">{{
-                    form.soVanBan }}</span>
-                  <span style="margin-left: auto; font-size: 13px; color: #333333;">Số chỉ được ghi vào sổ sau khi bạn
-                    lưu.</span>
+                  style="grid-column: 1 / -1; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;">
+                  <div style="display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;">
+                    <span
+                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                      sẽ cấp</span>
+                    <span
+                      style="font-family: var(--font-mono); font-weight: 600; font-size: 30px; color: #CC4600; letter-spacing: -0.01em;">{{
+                      form.soVanBan }}</span>
+                    <span style="margin-left: auto; font-size: 13px; color: #333333;">Số chốt lúc bạn lưu. Nếu người
+                      khác vừa lấy số này, bạn nhận số kế tiếp.</span>
+                  </div>
+                  <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                    <label style="display: flex; flex-direction: column; gap: 6px;">
+                      <span
+                        style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Tiền
+                        tố</span>
+                      <input type="text" value="{{ form.prefix }}" onChange="{{ h.fPrefix }}" placeholder="để trống"
+                        style="height: 40px; width: 132px; padding: 0 12px; border: 1px solid #FFD3A8; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+                    </label>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                      <span
+                        style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                        thứ tự</span>
+                      <div
+                        style="height: 40px; min-width: 72px; padding: 0 14px; border: 1px solid #FFD3A8; background: #FFF6EA; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 7px; font-family: var(--font-mono); font-weight: 600; font-size: 15px; color: #CC4600;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+                          stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                          <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                        </svg>
+                        {{ form.seqText }}
+                      </div>
+                    </div>
+                    <label style="display: flex; flex-direction: column; gap: 6px;">
+                      <span
+                        style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Hậu
+                        tố</span>
+                      <input type="text" value="{{ form.suffix }}" onChange="{{ h.fSuffix }}" placeholder="để trống"
+                        style="height: 40px; width: 132px; padding: 0 12px; border: 1px solid #FFD3A8; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+                    </label>
+                  </div>
+                  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 13px; color: #333333;">Dùng lại</span>
+                    <sc-for list="{{ recentFixes }}" as="r" hint-placeholder-count="4">
+                      <button type="button" onClick="{{ r.onPick }}" style="{{ r.style }}">{{ r.label }}</button>
+                    </sc-for>
+                  </div>
                 </div>
               </sc-if>
               <sc-if value="{{ showSoInput }}" hint-placeholder-val="{{ true }}">
@@ -618,9 +616,26 @@
                   <span
                     style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
                     văn bản</span>
-                  <input type="text" value="{{ form.soVanBan }}" onChange="{{ h.fSo }}" placeholder="VD: 142/CV-SNV"
+                  <input type="text" value="{{ form.soVanBan }}" onChange="{{ h.fSo }}" placeholder="VD: 2145/UBND-VP"
                     style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
                   <span style="font-size: 12px; color: #9B9D96;">{{ soHint }}</span>
+                </label>
+              </sc-if>
+              <sc-if value="{{ showSoLocked }}" hint-placeholder-val="{{ false }}">
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
+                    văn bản</span>
+                  <div
+                    style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; background: #F4F5F6; border-radius: 6px; display: flex; align-items: center; gap: 9px; font-size: 14px; font-family: var(--font-mono); font-weight: 600; color: #333333;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9B9D96" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                    </svg>
+                    {{ form.soVanBan }}
+                  </div>
+                  <span style="font-size: 12px; color: #9B9D96;">Số do hệ thống cấp — không sửa được</span>
                 </label>
               </sc-if>
               <label style="display: flex; flex-direction: column; gap: 6px;">
@@ -789,15 +804,13 @@
         { user: 'thuptt', pass: 'thu@123', name: 'Phạm Thị Thu', title: 'Văn thư — Bộ phận một cửa', role: 'vanthu', locked: true, last: '21/07/2026 11:25' }
       ];
 
-      const SAVED_CFG = { segs: [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }], start: 1, resetYearly: true };
+      const SAVED_CFG = { prefix: '', suffix: '/2026', start: 1, resetYearly: true };
 
-      const PRESETS = [
-        [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-        [{ type: 'seq' }, { type: 'text', text: '/P1' }],
-        [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }, { type: 'text', text: '/P1' }],
-        [{ type: 'seq' }, { type: 'text', text: '-CV' }],
-        [{ type: 'text', text: 'CV-' }, { type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-        [{ type: 'seq' }]
+      const RECENT = [
+        { prefix: '', suffix: '/2026' },
+        { prefix: '', suffix: '/2026/P1' },
+        { prefix: 'CV-', suffix: '/2026' },
+        { prefix: '', suffix: '-TB' }
       ];
 
       const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -841,22 +854,7 @@
       function noLeadZero(s) {
         return String(s || '').replace(/(^|[^0-9])0+(\d)/g, '$1$2');
       }
-      function cloneSegs(segs) { return segs.map(x => ({ type: x.type, text: x.text || '' })); }
-      function build(segs, seq, year) {
-        return segs.map(sg => {
-          if (sg.type === 'seq') return String(seq);
-          if (sg.type === 'year') return String(year);
-          if (sg.type === 'yy') return String(year).slice(2);
-          return sg.text || '';
-        }).join('');
-      }
-      function sameSegs(a, b) {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-          if (a[i].type !== b[i].type || (a[i].text || '') !== (b[i].text || '')) return false;
-        }
-        return true;
-      }
+      function build(prefix, seq, suffix) { return (prefix || '') + String(seq) + (suffix || ''); }
       function blankAcc() { return { user: '', name: '', title: '', role: 'vanthu', pw: '', mustChange: true }; }
 
       class Component extends DCLogic {
@@ -867,7 +865,8 @@
           bookYear: String(YEAR),
           q: '', secFilter: '', from: '', to: '',
           docs: seed(),
-          cfg: { segs: cloneSegs(SAVED_CFG.segs), start: SAVED_CFG.start, resetYearly: SAVED_CFG.resetYearly },
+          cfg: Object.assign({}, SAVED_CFG),
+          savedCfg: Object.assign({}, SAVED_CFG),
           cfgSavedAt: '',
           modal: null, form: null, error: '',
           addOpen: false, nf: blankAcc(), addError: '', flash: ''
@@ -889,46 +888,35 @@
           const pool = c.resetYearly ? di.filter(d => d.year === YEAR) : di;
           const max = pool.reduce((m, d) => Math.max(m, d.seq || 0), 0);
           const seq = Math.max(max + 1, c.start);
-          return { seq, year: YEAR, text: build(c.segs, seq, YEAR) };
-        }
-
-        structProblem(segs) {
-          const n = segs.filter(x => x.type === 'seq').length;
-          if (n === 0) return 'Cấu trúc phải có đúng một thành phần “Số thứ tự” — nếu không, mọi văn bản sẽ mang cùng một số.';
-          if (n > 1) return 'Chỉ được một thành phần “Số thứ tự”. Bỏ các thành phần trùng.';
-          if (segs.some(x => x.type === 'text' && (x.text || '') === '')) return 'Có ô “Ký tự cố định” đang để trống — điền dấu phân cách hoặc bỏ thành phần đó.';
-          return '';
-        }
-
-        patchSeg(i, key, val) {
-          this.setState(s => {
-            const segs = cloneSegs(s.cfg.segs);
-            segs[i][key] = val;
-            if (key === 'type' && val !== 'text') segs[i].text = '';
-            return { cfg: Object.assign({}, s.cfg, { segs }), cfgSavedAt: '' };
-          });
-        }
-
-        moveSeg(i, d) {
-          this.setState(s => {
-            const j = i + d;
-            if (j < 0 || j >= s.cfg.segs.length) return {};
-            const segs = cloneSegs(s.cfg.segs);
-            const t = segs[i]; segs[i] = segs[j]; segs[j] = t;
-            return { cfg: Object.assign({}, s.cfg, { segs }), cfgSavedAt: '' };
-          });
+          return { seq, year: YEAR, text: build(c.prefix, seq, c.suffix) };
         }
 
         blank(tab, reserved) {
           const n = reserved ? this.nextNum() : null;
+          const me = this.state.me;
+          const c = this.state.cfg;
           return {
             id: null, tab,
             soVanBan: n ? n.text : '',
             seq: n ? n.seq : null,
+            seqText: n ? String(n.seq) : '',
             year: n ? n.year : null,
+            prefix: n ? c.prefix : '',
+            suffix: n ? c.suffix : '',
             reserved: !!reserved,
-            ngayGui: TODAY, nguoiGui: '', tenVanBan: '', doBaoMat: 'Thường', ghiChu: '', file: ''
+            ngayGui: TODAY,
+            nguoiGui: n && me ? me.name + ' — ' + me.title : '',
+            tenVanBan: '', doBaoMat: 'Thường', ghiChu: '', file: ''
           };
+        }
+
+        /** Đổi tiền tố / hậu tố thì ghép lại ngay số sẽ cấp — số thứ tự giữ nguyên. */
+        recompose(patch) {
+          this.setState(s => {
+            const f = Object.assign({}, s.form, patch);
+            f.soVanBan = build(f.prefix, f.seq, f.suffix);
+            return { form: f, error: '' };
+          });
         }
 
         set(k, v) { this.setState(s => ({ form: Object.assign({}, s.form, { [k]: v }), error: '' })); }
@@ -937,7 +925,7 @@
           const f = this.state.form;
           if (!f) return;
           if (!f.tenVanBan.trim()) { this.setState({ error: 'Chưa nhập tên văn bản.' }); return; }
-          if (!f.reserved && !f.soVanBan.trim()) { this.setState({ error: 'Chưa nhập số văn bản.' }); return; }
+          if (!f.reserved && f.tab === 'den' && !f.soVanBan.trim()) { this.setState({ error: 'Chưa nhập số văn bản.' }); return; }
           const docs = { den: this.state.docs.den.slice(), di: this.state.docs.di.slice() };
           const list = docs[f.tab];
           const raw = f.soVanBan.trim();
@@ -1019,9 +1007,9 @@
             return strip([d.soVanBan, d.nguoiGui, d.tenVanBan, d.ghiChu, d.doBaoMat, viDate(d.ngayGui)].join(' ')).indexOf(nq) >= 0;
           }).sort((a, b) => (a.ngayGui < b.ngayGui ? 1 : a.ngayGui > b.ngayGui ? -1 : 0));
 
-          const structErrorText = this.structProblem(cfg.segs);
-          const blocked = !!structErrorText;
-          const dirty = !sameSegs(cfg.segs, SAVED_CFG.segs) || cfg.start !== SAVED_CFG.start || cfg.resetYearly !== SAVED_CFG.resetYearly;
+          const sc = s.savedCfg;
+          const dirty = cfg.prefix !== sc.prefix || cfg.suffix !== sc.suffix ||
+            cfg.start !== sc.start || cfg.resetYearly !== sc.resetYearly;
 
           const adminsActive = s.accounts.filter(a => a.role === 'admin' && !a.locked).length;
           const f = s.form;
@@ -1059,9 +1047,11 @@
             isPast: !!(s.bookYear && s.bookYear !== String(YEAR)),
             pastNote: 'Bạn đang xem sổ ' + s.bookYear + '. Số cấp mới vẫn thuộc sổ ' + YEAR + '.',
             resultLabel: 'Hiển thị ' + list.length + ' / ' + inBook.length + (tab === 'den' ? ' văn bản đến' : ' văn bản đi') + ' · ' + (s.bookYear ? 'sổ ' + s.bookYear : 'tất cả các năm'),
-            addLabel: tab === 'den' ? '+ Ghi văn bản đến' : '+ Ghi thủ công',
-            nextNumber: blocked ? '—' : nn.text,
-            formatLabel: (cfg.resetYearly ? 'tự tăng theo năm, reset đầu năm' : 'tự tăng liên tục qua các năm') + ' · mẫu ' + build(cfg.segs, nn.seq, YEAR),
+            addLabel: '+ Ghi văn bản đến',
+            showAdd: tab === 'den',
+            isDi: tab === 'di',
+            nextNumber: nn.text,
+            formatLabel: (cfg.resetYearly ? 'số thứ tự tự tăng, reset đầu năm' : 'số thứ tự tự tăng liên tục qua các năm') + ' · mặc định ' + build(cfg.prefix, nn.seq, cfg.suffix),
             isEmpty: list.length === 0,
             rows: list.map(d => {
               const c = SEC[d.doBaoMat] || SEC['Thường'];
@@ -1093,37 +1083,17 @@
             setTaikhoan: s.setTab === 'taikhoan',
             setSonam: s.setTab === 'sonam',
 
-            segs: cfg.segs.map((sg, i) => ({
-              pos: String(i + 1),
-              type: sg.type,
-              text: sg.text || '',
-              isText: sg.type === 'text',
-              preview: sg.type === 'seq' ? String(nn.seq) : sg.type === 'year' ? String(YEAR) : sg.type === 'yy' ? String(YEAR).slice(2) : ((sg.text || '').length ? sg.text : '␣'),
-              box: 'border: 1px solid ' + (sg.type === 'seq' ? '#FFD3A8' : '#D8DBDF') + '; background: #FFFFFF; border-radius: 6px; padding: 9px 10px; display: flex; flex-direction: column; gap: 7px; min-width: 148px;',
-              chip: 'font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-align: center; padding: 5px 6px; border-radius: 4px; color: ' + (sg.type === 'seq' ? '#CC4600' : '#37505C') + '; background: ' + (sg.type === 'seq' ? '#FFEAD0' : '#F4F5F6') + ';',
-              arrow: 'width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 4px; color: #37505C; cursor: pointer; padding: 0;',
-              kill: 'width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 4px; color: #CC0000; cursor: pointer; padding: 0;',
-              onType: e => this.patchSeg(i, 'type', e.target.value),
-              onText: e => this.patchSeg(i, 'text', e.target.value),
-              onUp: () => this.moveSeg(i, -1),
-              onDown: () => this.moveSeg(i, 1),
-              onRemove: () => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { segs: cloneSegs(st.cfg.segs).filter((x, j) => j !== i) }), cfgSavedAt: '' }))
-            })),
-            structError: blocked,
-            structErrorText,
-            presets: PRESETS.map(p => ({
-              label: build(p, nn.seq, YEAR),
-              style: 'padding: 6px 11px; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); cursor: pointer; border: 1px solid ' + (sameSegs(p, cfg.segs) ? '#FF5700' : '#D8DBDF') + '; background: ' + (sameSegs(p, cfg.segs) ? '#FFEAD0' : '#FFFFFF') + '; color: ' + (sameSegs(p, cfg.segs) ? '#CC4600' : '#333333') + ';',
-              onPick: () => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { segs: cloneSegs(p) }), cfgSavedAt: '' }))
-            })),
+            cfgPrefix: cfg.prefix,
+            cfgSuffix: cfg.suffix,
+            nextSeq: String(nn.seq),
             cfgStart: cfg.start,
             resetYesStyle: this.segBtn(cfg.resetYearly),
             resetNoStyle: this.segBtn(!cfg.resetYearly),
             cfgResetLabel: cfg.resetYearly ? 'Reset về ' + Math.max(1, cfg.start) + ' vào 01/01/' + (YEAR + 1) : 'Tăng liên tục qua các năm',
-            statusText: s.cfgSavedAt ? 'Đã lưu lúc ' + s.cfgSavedAt : blocked ? 'Cấu trúc chưa hợp lệ — chưa thể lưu' : dirty ? 'Có thay đổi chưa lưu' : 'Cài đặt đang khớp với bản đã lưu',
-            statusStyle: 'font-size: 13px; font-weight: ' + (dirty || blocked ? '700' : '400') + '; color: ' + (blocked ? '#CC0000' : dirty ? '#CC4600' : '#777777') + ';',
+            statusText: s.cfgSavedAt ? 'Đã lưu lúc ' + s.cfgSavedAt : dirty ? 'Có thay đổi chưa lưu' : 'Cài đặt đang khớp với bản đã lưu',
+            statusStyle: 'font-size: 13px; font-weight: ' + (dirty ? '700' : '400') + '; color: ' + (dirty ? '#CC4600' : '#777777') + ';',
             discardStyle: 'height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; background: #FFFFFF; cursor: ' + (dirty ? 'pointer' : 'default') + '; color: ' + (dirty ? '#333333' : '#9B9D96') + ';',
-            saveStyle: 'height: 40px; padding: 0 20px; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: ' + (dirty && !blocked ? 'pointer' : 'default') + '; border: 1px solid ' + (dirty && !blocked ? '#FF5700' : '#D8DBDF') + '; background: ' + (dirty && !blocked ? '#FF5700' : '#F4F5F6') + '; color: ' + (dirty && !blocked ? '#FFFFFF' : '#9B9D96') + ';',
+            saveStyle: 'height: 40px; padding: 0 20px; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: ' + (dirty ? 'pointer' : 'default') + '; border: 1px solid ' + (dirty ? '#FF5700' : '#D8DBDF') + '; background: ' + (dirty ? '#FF5700' : '#F4F5F6') + '; color: ' + (dirty ? '#FFFFFF' : '#9B9D96') + ';',
 
             accRows: s.accounts.map(a => {
               const lastAdmin = a.role === 'admin' && adminsActive <= 1;
@@ -1159,14 +1129,24 @@
 
             modalOpen: !!s.modal,
             isReserved: !!(f && f.reserved),
-            showSoInput: !!(f && !f.reserved),
-            soHint: f && f.tab === 'di' ? 'Số 0 ở đầu sẽ được bỏ khi lưu' : 'Giữ nguyên số của cơ quan gửi',
+            showSoInput: !!(f && !f.reserved && f.tab === 'den'),
+            showSoLocked: !!(f && !f.reserved && f.tab === 'di'),
+            soHint: 'Giữ nguyên số của cơ quan gửi',
             senderLabel: f && f.tab === 'di' ? 'Người gửi (người ký / trình)' : 'Người gửi (nơi gửi đến)',
             modalEyebrow: !f ? '' : f.reserved ? 'Lấy số văn bản đi' : f.tab === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi',
             modalTitle: !f ? '' : f.id ? 'Sửa thông tin văn bản' : f.reserved ? 'Cấp số cho văn bản gửi đi' : 'Ghi văn bản vào sổ',
             saveLabel: f && f.reserved ? 'Cấp số & lưu vào sổ' : 'Lưu',
             formError: s.error,
-            form: f || { soVanBan: '', ngayGui: '', nguoiGui: '', tenVanBan: '', ghiChu: '', doBaoMat: 'Thường' },
+            form: f || { soVanBan: '', seqText: '', prefix: '', suffix: '', ngayGui: '', nguoiGui: '', tenVanBan: '', ghiChu: '', doBaoMat: 'Thường' },
+            recentFixes: RECENT.map(r => {
+              const on = !!f && f.prefix === r.prefix && f.suffix === r.suffix;
+              return {
+                label: build(r.prefix, f ? f.seq : nn.seq, r.suffix),
+                style: 'padding: 6px 11px; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); cursor: pointer; border: 1px solid ' +
+                  (on ? '#CC4600' : '#FFD3A8') + '; background: ' + (on ? '#CC4600' : '#FFFFFF') + '; color: ' + (on ? '#FFFFFF' : '#CC4600') + ';',
+                onPick: () => this.recompose({ prefix: r.prefix, suffix: r.suffix })
+              };
+            }),
 
             addOpen: s.addOpen,
             nf: { user: s.nf.user, name: s.nf.name, title: s.nf.title, pw: s.nf.pw, mustChange: s.nf.mustChange },
@@ -1200,18 +1180,22 @@
               close: () => this.setState({ modal: null, form: null, error: '' }),
               save: this.save,
               fSo: e => this.set('soVanBan', e.target.value),
+              fPrefix: e => this.recompose({ prefix: e.target.value }),
+              fSuffix: e => this.recompose({ suffix: e.target.value }),
               fNgay: e => this.set('ngayGui', e.target.value),
               fNguoi: e => this.set('nguoiGui', e.target.value),
               fBaoMat: e => this.set('doBaoMat', e.target.value),
               fTen: e => this.set('tenVanBan', e.target.value),
               fGhiChu: e => this.set('ghiChu', e.target.value),
-              addSeg: () => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { segs: cloneSegs(st.cfg.segs).concat([{ type: 'text', text: '' }]) }), cfgSavedAt: '' })),
+              cfgPrefix: e => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { prefix: e.target.value }), cfgSavedAt: '' })),
+              cfgSuffix: e => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { suffix: e.target.value }), cfgSavedAt: '' })),
+              cfgYear: () => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { suffix: '/' + YEAR }), cfgSavedAt: '' })),
               cfgStart: e => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { start: Math.max(1, parseInt(e.target.value, 10) || 1) }), cfgSavedAt: '' })),
               resetYes: () => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { resetYearly: true }), cfgSavedAt: '' })),
               resetNo: () => this.setState(st => ({ cfg: Object.assign({}, st.cfg, { resetYearly: false }), cfgSavedAt: '' })),
-              cfgDiscard: () => this.setState({ cfg: { segs: cloneSegs(SAVED_CFG.segs), start: SAVED_CFG.start, resetYearly: SAVED_CFG.resetYearly }, cfgSavedAt: '' }),
+              cfgDiscard: () => this.setState(st => ({ cfg: Object.assign({}, st.savedCfg), cfgSavedAt: '' })),
               cfgSave: () => {
-                if (this.structProblem(this.state.cfg.segs)) return;
+                this.setState(st => ({ savedCfg: Object.assign({}, st.cfg) }));
                 const d = new Date();
                 const hh = d.getHours() < 10 ? '0' + d.getHours() : String(d.getHours());
                 const mm = d.getMinutes() < 10 ? '0' + d.getMinutes() : String(d.getMinutes());

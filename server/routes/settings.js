@@ -29,14 +29,14 @@ function snapshot() {
     preview.push({
       offset: k,
       seq: next.seq + k,
-      soVanBan: numbering.buildNumber(cfg.segments, next.seq + k, year),
+      soVanBan: numbering.buildNumber(cfg.prefix, next.seq + k, cfg.suffix),
     });
   }
   const nextYearSeq = cfg.resetYearly ? Math.max(1, cfg.start) : next.seq + 5;
   const nextYear = {
     year: year + 1,
     seq: nextYearSeq,
-    soVanBan: numbering.buildNumber(cfg.segments, nextYearSeq, year + 1),
+    soVanBan: numbering.buildNumber(cfg.prefix, nextYearSeq, cfg.suffix),
   };
 
   const counterRow = db.prepare(`SELECT next_seq FROM counters WHERE scope = ?`).get(scope);
@@ -88,10 +88,10 @@ router.put('/numbering', (req, res, next) => {
   audit(
     req.user,
     'sua_cai_dat_lay_so',
-    'mẫu ' +
-      numbering.buildNumber(before.segments, 1, currentYear()) +
+    'mặc định ' +
+      numbering.buildNumber(before.prefix, 1, before.suffix) +
       ' → ' +
-      numbering.buildNumber(cfg.segments, 1, currentYear()) +
+      numbering.buildNumber(cfg.prefix, 1, cfg.suffix) +
       ' · bắt đầu từ ' + cfg.start +
       ' · reset đầu năm: ' + (cfg.resetYearly ? 'có' : 'không')
   );

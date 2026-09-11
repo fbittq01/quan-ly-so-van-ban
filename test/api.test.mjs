@@ -45,74 +45,92 @@ await login('vanthu', 'hant', 'vanthu@123');
 await login('xem', 'minhtv', 'chixem@123');
 check('ba phiên đăng nhập', jars.size === 3, [...jars.keys()].join(','));
 
-console.log('\n== số 0 ở đầu ==');
+console.log('\n== sổ đi chỉ vào sổ bằng đường lấy số ==');
 {
   const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di',
-    ngayGui: '2026-06-01',
-    tenVanBan: 'Ghi tay số có 0 ở đầu',
-    soVanBan: '099/2026',
+    book: 'di', ngayGui: '2026-06-01', tenVanBan: 'Ghi tay số văn bản đi', soVanBan: '099/2026',
   });
-  check('sổ đi: 099/2026 → 99/2026', r.data?.document?.soVanBan === '99/2026', r.data?.document?.soVanBan);
+  check('sổ đi: chặn ghi số tay', r.status === 400 && r.data?.code === 'manual_disabled',
+    r.status + ' ' + r.data?.error);
 }
 {
   const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'den',
-    ngayGui: '2026-06-02',
-    tenVanBan: 'Số của cơ quan gửi',
-    soVanBan: '05/TTr-ABC',
+    book: 'den', ngayGui: '2026-06-02', tenVanBan: 'Số của cơ quan gửi', soVanBan: '05/TTr-ABC',
   });
-  check('sổ đến: 05/TTr-ABC giữ nguyên', r.data?.document?.soVanBan === '05/TTr-ABC', r.data?.document?.soVanBan);
+  check('sổ đến: 05/TTr-ABC giữ nguyên', r.data?.document?.soVanBan === '05/TTr-ABC',
+    r.data?.document?.soVanBan);
 }
+
+console.log('\n== tiền tố/hậu tố đặt riêng từng lượt ==');
 {
-  const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di',
-    ngayGui: '2026-06-03',
-    tenVanBan: 'Trùng số với 99/2026',
-    soVanBan: '99/2026',
+  const a = await req('vanthu', 'POST', '/api/documents', {
+    book: 'di', mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt có tiền tố riêng',
+    prefix: 'CV-', suffix: '/2026/P1',
   });
-  check('sổ đi: chặn trùng số', r.status === 400 && r.data?.code === 'duplicate', r.status + ' ' + r.data?.error);
+  const b = await req('vanthu', 'POST', '/api/documents', {
+    book: 'di', mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt bỏ trống hai ô',
+    prefix: '', suffix: '',
+  });
+  const c = await req('vanthu', 'POST', '/api/documents', {
+    book: 'di', mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt dùng mặc định của phòng',
+  });
+  const sa = a.data?.document, sb = b.data?.document, sc = c.data?.document;
+  check('tiền tố/hậu tố của lượt được dùng', sa?.soVanBan === 'CV-' + sa?.seq + '/2026/P1', sa?.soVanBan);
+  check('bỏ trống cả hai ô thì số là số trần', sb?.soVanBan === String(sb?.seq), sb?.soVanBan);
+  check('không gửi gì thì lấy mặc định của phòng', sc?.soVanBan === sc?.seq + '/2026', sc?.soVanBan);
+  check('số thứ tự vẫn tăng đều qua ba lượt',
+    sb?.seq === sa?.seq + 1 && sc?.seq === sb?.seq + 1,
+    JSON.stringify([sa?.seq, sb?.seq, sc?.seq]));
 }
+
+console.log('\n== trùng số chỉ xét số thứ tự ==');
 {
-  // 99 đã bị chiếm bằng tay: lấy số phải nhảy qua, không được cấp trùng.
-  const r = await req('admin', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: 99 });
-  check('đặt lại bộ đếm về số đã dùng thì nhảy qua', r.data?.effectiveSeq === 100 && r.data?.adjusted === true,
-    JSON.stringify({ eff: r.data?.effectiveSeq, adj: r.data?.adjusted }));
-  const r2 = await req('vanthu', 'POST', '/api/documents', {
+  // Hai năm sổ khác nhau, cùng hậu tố '/2026' thì ghép ra CHUỖI giống hệt nhau.
+  // Trước 11/09/2026 ca này bị chặn; giờ chuỗi không còn là thứ được bảo đảm
+  // duy nhất, chỉ số thứ tự trong cùng phạm vi đếm mới là.
+  const cu = await req('vanthu', 'POST', '/api/documents', {
+    book: 'di', mode: 'issue', ngayGui: '2025-12-30', tenVanBan: 'Sổ năm cũ, hậu tố 2026',
+    suffix: '/2026',
+  });
+  check('cấp được số cho sổ năm cũ', cu.status === 201, cu.status + ' ' + cu.data?.error);
+  const seqCu = cu.data?.document?.seq;
+  const moi = await req('vanthu', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: seqCu });
+  const same = await req('vanthu', 'GET', '/api/documents?book=di&year=2025');
+  check('chuỗi số trùng nhau qua hai năm sổ vẫn hợp lệ',
+    cu.status === 201 && same.status === 200, String(same.status));
+
+  // Số thứ tự đã có chủ thì bộ đếm phải nhảy qua, không cấp trùng.
+  const mine = await req('vanthu', 'POST', '/api/documents', {
+    book: 'di', mode: 'issue', ngayGui: '2026-06-04', tenVanBan: 'Giữ chỗ số thứ tự',
+  });
+  const seqMine = mine.data?.document?.seq;
+  const reset = await req('admin', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: seqMine });
+  // Số đó đang có văn bản giữ nên bộ đếm không hạ xuống được: hoặc bị sàn chặn
+  // (clamped), hoặc peekNext bò qua (adjusted) — cách nào cũng ra số kế tiếp.
+  check('đặt lại bộ đếm về số đã dùng thì nhảy qua',
+    reset.data?.effectiveSeq === seqMine + 1 &&
+      (reset.data?.adjusted === true || reset.data?.clamped === true),
+    JSON.stringify({ eff: reset.data?.effectiveSeq, adj: reset.data?.adjusted, clamp: reset.data?.clamped }));
+  const after = await req('vanthu', 'POST', '/api/documents', {
     book: 'di', mode: 'issue', ngayGui: '2026-06-04', tenVanBan: 'Sau khi đặt lại',
   });
-  check('số cấp sau khi đặt lại = 100/2026', r2.data?.document?.soVanBan === '100/2026', r2.data?.document?.soVanBan);
+  check('số cấp sau khi đặt lại không trùng số cũ',
+    after.data?.document?.seq === seqMine + 1, String(after.data?.document?.seq));
 }
 
-console.log('\n== ghi tay: số mang năm khác ngày gửi ==');
+console.log('\n== số của sổ đi không sửa được ==');
 {
-  // Số '2999/2026' đề ngày 30/12/2025 rơi vào năm sổ 2025, nên hai unique index
-  // (khóa theo cặp năm+số) không thấy nó trùng với sổ 2026. Chỉ mình kiểm tra
-  // ở tầng ứng dụng bịt được ca này.
-  const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', ngayGui: '2025-12-30', tenVanBan: 'Ghi tay cuối năm', soVanBan: '2999/2026',
+  const made = await req('vanthu', 'POST', '/api/documents', {
+    book: 'di', mode: 'issue', ngayGui: '2026-06-05', tenVanBan: 'Sửa thử số đã cấp',
   });
-  check('ghi tay 2999/2026 ở năm sổ 2025', r.status === 201, r.status + ' ' + r.data?.error);
-
-  const dup = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', ngayGui: '2026-07-01', tenVanBan: 'Trùng số qua năm', soVanBan: '2999/2026',
+  const id = made.data?.document?.id;
+  const so = made.data?.document?.soVanBan;
+  const upd = await req('vanthu', 'PUT', '/api/documents/' + id, {
+    ngayGui: '2026-06-05', tenVanBan: 'Sửa thử số đã cấp (đã sửa)', soVanBan: 'TU-GO-VAO/9999',
   });
-  check('chặn ghi tay trùng số dù khác năm sổ',
-    dup.status === 400 && dup.data?.code === 'duplicate', dup.status + ' ' + dup.data?.error);
-
-  // Sửa chính nó thì không được tự coi là trùng với mình.
-  const self = await req('vanthu', 'PUT', '/api/documents/' + r.data.document.id, {
-    ngayGui: '2025-12-31', tenVanBan: 'Ghi tay cuối năm (sửa)', soVanBan: '2999/2026',
-  });
-  check('sửa văn bản ghi tay mà giữ nguyên số', self.status === 200, self.status + ' ' + self.data?.error);
-
-  // Bộ đếm 2026 cũng phải nhảy qua số đã bị chiếm ở năm sổ khác.
-  await req('admin', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: 2999 });
-  const issued = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-07-02', tenVanBan: 'Cấp sau số ghi tay',
-  });
-  check('cấp số nhảy qua 2999/2026', issued.data?.document?.soVanBan === '3000/2026',
-    issued.data?.document?.soVanBan);
+  check('sửa văn bản đi vẫn được', upd.status === 200, upd.status + ' ' + upd.data?.error);
+  check('số gửi kèm bị bỏ qua, giữ nguyên số đã cấp', upd.data?.document?.soVanBan === so,
+    upd.data?.document?.soVanBan);
 }
 
 console.log('\n== báo khi số cấp lệch số dự kiến ==');
@@ -122,11 +140,11 @@ console.log('\n== báo khi số cấp lệch số dự kiến ==');
 
   // Người khác lấy đúng số đang hiện trên màn hình của mình.
   await req('admin', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-05', tenVanBan: 'Người khác lấy trước',
+    book: 'di', mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Người khác lấy trước',
   });
 
   const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-05', tenVanBan: 'Bị đẩy sang số kế tiếp',
+    book: 'di', mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Bị đẩy sang số kế tiếp',
     expectedSoVanBan: duKien,
   });
   check('số bị người khác lấy → báo lệch', r.data?.numberChange?.reason === 'taken',
@@ -138,7 +156,7 @@ console.log('\n== báo khi số cấp lệch số dự kiến ==');
   // Ghi cho năm sổ khác: số cấp theo sổ năm đó, không theo số dự kiến năm nay.
   const peek2 = await req('vanthu', 'GET', '/api/documents/next-number');
   const r2 = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2025-12-30', tenVanBan: 'Cấp số cho sổ năm cũ',
+    book: 'di', mode: 'issue', ngayGui: '2025-12-31', tenVanBan: 'Cấp số cho sổ năm cũ',
     expectedSoVanBan: peek2.data?.soVanBan,
   });
   check('ghi cho năm khác → báo lệch vì năm', r2.data?.numberChange?.reason === 'year',
@@ -147,7 +165,7 @@ console.log('\n== báo khi số cấp lệch số dự kiến ==');
   // Đúng như dự kiến thì không báo gì.
   const peek3 = await req('vanthu', 'GET', '/api/documents/next-number');
   const r3 = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Đúng số dự kiến',
+    book: 'di', mode: 'issue', ngayGui: '2026-06-07', tenVanBan: 'Đúng số dự kiến',
     expectedSoVanBan: peek3.data?.soVanBan,
   });
   check('số đúng dự kiến thì không báo', r3.data?.numberChange === null && r3.data?.expectedDiffers === false,
@@ -157,36 +175,35 @@ console.log('\n== báo khi số cấp lệch số dự kiến ==');
 console.log('\n== cài đặt lấy số (chỉ quản trị) ==');
 {
   const r = await req('vanthu', 'PUT', '/api/settings/numbering', {
-    numbering: { segments: [{ type: 'seq' }], start: 1, resetYearly: true },
+    numbering: { prefix: '', suffix: '/2026', start: 1, resetYearly: true },
   });
   check('văn thư không sửa được cấu hình', r.status === 403, String(r.status));
 }
 for (const [name, cfg] of [
-  ['thiếu số thứ tự', { segments: [{ type: 'text', text: '/' }], start: 1 }],
-  ['hai số thứ tự', { segments: [{ type: 'seq' }, { type: 'seq' }], start: 1 }],
-  ['ký tự cố định rỗng', { segments: [{ type: 'seq' }, { type: 'text', text: '' }], start: 1 }],
-  ['bắt đầu từ 0', { segments: [{ type: 'seq' }], start: 0 }],
-  ['loại thành phần lạ', { segments: [{ type: 'seq' }, { type: 'thang' }], start: 1 }],
+  ['bắt đầu từ 0', { prefix: '', suffix: '', start: 0 }],
+  ['bắt đầu từ chữ', { prefix: '', suffix: '', start: 'một' }],
+  ['thiếu cấu hình', null],
 ]) {
   const r = await req('admin', 'PUT', '/api/settings/numbering', { numbering: cfg });
   check('chặn cấu hình sai: ' + name, r.status === 400, r.status + ' ' + JSON.stringify(r.data));
 }
 {
   const r = await req('admin', 'PUT', '/api/settings/numbering', {
-    numbering: {
-      segments: [{ type: 'text', text: 'CV-' }, { type: 'seq' }, { type: 'text', text: '/' }, { type: 'yy' }],
-      start: 1,
-      resetYearly: false,
-    },
+    numbering: { prefix: 'CV-', suffix: '/26', start: 1, resetYearly: false },
   });
-  check('đổi mẫu sang CV-<số>/<nn>', r.status === 200 && /^CV-\d+\/26$/.test(r.data?.next?.soVanBan || ''), r.data?.next?.soVanBan);
+  check('đổi mặc định sang CV-<số>/26',
+    r.status === 200 && /^CV-\d+\/26$/.test(r.data?.next?.soVanBan || ''), r.data?.next?.soVanBan);
   check('có ghi ai sửa lần cuối', r.data?.updatedByName === 'Lê Quốc Bảo', r.data?.updatedByName);
   check('xem trước 5 số, không có 0 ở đầu',
-    r.data?.preview?.length === 5 && r.data.preview.every((p) => !/\/0\d|^CV-0/.test(p.soVanBan)),
+    r.data?.preview?.length === 5 && r.data.preview.every((p) => !/^CV-0/.test(p.soVanBan)),
     JSON.stringify(r.data?.preview?.map((p) => p.soVanBan)));
-  // trả lại mẫu ban đầu
+  check('hai ô để trống là hợp lệ',
+    (await req('admin', 'PUT', '/api/settings/numbering', {
+      numbering: { prefix: '', suffix: '', start: 1, resetYearly: true },
+    })).status === 200);
+  // trả lại mặc định ban đầu
   await req('admin', 'PUT', '/api/settings/numbering', {
-    numbering: { segments: [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }], start: 1, resetYearly: true },
+    numbering: { prefix: '', suffix: '/2026', start: 1, resetYearly: true },
   });
 }
 

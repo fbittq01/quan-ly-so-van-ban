@@ -241,15 +241,24 @@ const vt = await session('vanthu');
   check('số ghi trong sổ khớp số đã cấp', soMoi === duKien, soMoi + ' vs ' + duKien);
   await page.screenshot({ path: SHOT + '/05-so-van-ban-di.png', fullPage: true });
 
-  // ghi thủ công số có 0 ở đầu
-  await page.click('button:has-text("+ Ghi thủ công")');
+  // sổ đi không còn đường nhập số tay
+  check('sổ đi không còn nút ghi thủ công',
+    (await page.locator('button:has-text("+ Ghi thủ công")').count()) === 0);
+
+  // tiền tố / hậu tố người lấy số tự đặt cho một lượt
+  await page.click('button:has-text("Lấy số gửi văn bản đi")');
   await page.waitForSelector('.dialog');
-  await page.fill('.dialog input[placeholder="VD: 142/CV-SNV"]', '077/2026');
-  await page.fill('.dialog input[placeholder="Trích yếu nội dung văn bản"]', 'Ghi tay có 0 ở đầu');
-  await page.click('.dialog button:has-text("Lưu")');
+  const soThuTu = (await page.locator('.dialog .seq-locked').innerText()).trim();
+  await page.fill('.dialog input[data-fk="doc-prefix"]', 'CV-');
+  await page.fill('.dialog input[data-fk="doc-suffix"]', '/2026/P1');
+  const duKienTuDat = await page.locator('.issued-value').innerText();
+  check('số xem trước đổi theo tiền tố/hậu tố vừa gõ',
+    duKienTuDat === 'CV-' + soThuTu + '/2026/P1', duKienTuDat + ' (số thứ tự ' + soThuTu + ')');
+  await page.fill('.dialog input[placeholder="Trích yếu nội dung văn bản"]', 'Lượt tự đặt tiền tố');
+  await page.click('.dialog button:has-text("Cấp số & lưu vào sổ")');
   await page.waitForSelector('.dialog', { state: 'detached' });
-  const soTay = await page.locator('tbody tr:has-text("Ghi tay có 0 ở đầu") .cell-num').innerText();
-  check('077/2026 lưu thành 77/2026', soTay === '77/2026', soTay);
+  const soTuDat = await page.locator('tbody tr:has-text("Lượt tự đặt tiền tố") .cell-num').innerText();
+  check('số vào sổ đúng chuỗi đã ghép', soTuDat === duKienTuDat, soTuDat + ' vs ' + duKienTuDat);
 
   // sửa: số hệ thống cấp thì khóa
   await page.click('tbody tr:has-text("Công văn thử qua giao diện") button:has-text("Sửa")');
@@ -317,47 +326,54 @@ const ad = await session('admin');
   await page.waitForSelector('.topbar');
   check('CÓ tab Cài đặt', (await page.locator('.tab:has-text("Cài đặt")').count()) === 1);
   await page.click('.tab:has-text("Cài đặt")');
-  await page.waitForSelector('.segments');
+  await page.waitForSelector('.affix-row');
   check('hiện nhãn chỉ quản trị', await page.locator('.admin-chip').isVisible());
-  check('có 3 thành phần mặc định', (await page.locator('.segment').count()) === 3);
-  check('quy tắc không 0 ở đầu là cố định', (await page.locator('.rule').innerText()).includes('Cố định'));
-  check('không còn ô "Số chữ số"', (await page.locator('text=Số chữ số').count()) === 0);
+  check('có đủ ô tiền tố và hậu tố',
+    (await page.locator('input[data-fk="cfg-prefix"]').count()) === 1 &&
+    (await page.locator('input[data-fk="cfg-suffix"]').count()) === 1);
+  check('ô số thứ tự bị khóa, không gõ được',
+    (await page.locator('.affix-row .seq-locked').count()) === 1 &&
+    (await page.locator('.affix-row input').count()) === 2);
+  check('quy tắc không đệm 0 là cố định', (await page.locator('.rule').innerText()).includes('Cố định'));
+  check('không còn bộ ghép thành phần', (await page.locator('.segment').count()) === 0);
 
   const truoc = await page.locator('.next-number-value').innerText();
-  check('có số kế tiếp', /\d+\/\d{4}/.test(truoc), truoc);
+  check('có số kế tiếp', /^\d+\/\d{4}$/.test(truoc), truoc);
   check('xem trước có 6 dòng', (await page.locator('.section:has-text("3 · Xem trước") tbody tr').count()) === 6);
   await page.screenshot({ path: SHOT + '/07-cai-dat-lay-so.png', fullPage: true });
 
-  // bỏ thành phần "Số thứ tự" -> phải chặn lưu
-  await page.locator('.segment.is-seq .icon-btn.danger').click();
-  await page.waitForSelector('.note-error');
-  check('bỏ Số thứ tự thì báo lỗi', (await page.locator('.note-error').innerText()).includes('đúng một thành phần'));
-  check('nút Lưu bị tắt khi cấu trúc sai', await page.locator('button:has-text("Lưu cài đặt")').isDisabled());
-  check('số kế tiếp thành —', (await page.locator('.next-number-value').innerText()) === '—');
-  await page.screenshot({ path: SHOT + '/08-cau-truc-sai.png' });
+  // đổi hậu tố bằng tay: số kế tiếp đổi theo ngay
+  await page.fill('input[data-fk="cfg-suffix"]', '-CV');
+  await page.waitForTimeout(150);
+  check('trạng thái báo chưa lưu', (await page.locator('.savebar-status').innerText()).includes('chưa lưu'));
+  check('số kế tiếp đổi theo hậu tố vừa gõ',
+    /^\d+-CV$/.test(await page.locator('.next-number-value').innerText()),
+    await page.locator('.next-number-value').innerText());
+  await page.screenshot({ path: SHOT + '/08-doi-hau-to.png' });
 
   await page.click('button:has-text("Hủy thay đổi")');
   await page.waitForTimeout(200);
-  check('hủy thay đổi trả lại 3 thành phần', (await page.locator('.segment').count()) === 3);
+  check('hủy thay đổi trả lại số cũ',
+    (await page.locator('.next-number-value').innerText()) === truoc, truoc);
 
-  // đổi mẫu bằng preset rồi lưu
-  await page.click('.preset:has-text("-CV")');
+  // đổi bằng mẫu có sẵn rồi lưu
+  await page.click('.preset:has-text("-TB")');
   await page.waitForTimeout(150);
-  check('trạng thái báo chưa lưu', (await page.locator('.savebar-status').innerText()).includes('chưa lưu'));
   await page.click('button:has-text("Lưu cài đặt")');
   await page.waitForSelector('.toast');
   const tt = await page.locator('.toast').first().innerText();
   check('lưu cài đặt thành công', tt.includes('Đã lưu cài đặt'), tt);
-  check('số kế tiếp theo mẫu mới', /^\d+-CV$/.test(await page.locator('.next-number-value').innerText()),
+  check('số kế tiếp theo mẫu mới', /^\d+-TB$/.test(await page.locator('.next-number-value').innerText()),
     await page.locator('.next-number-value').innerText());
   await page.screenshot({ path: SHOT + '/09-doi-mau-so.png', fullPage: true });
 
-  // trả về mẫu cũ <số>/<năm>
-  await page.locator('.preset').filter({ hasText: /^\d+\/2026$/ }).click();
+  // trả về mặc định <số>/<năm> bằng nút chèn năm
+  await page.click('button:has-text("Chèn năm")');
+  await page.fill('input[data-fk="cfg-prefix"]', '');
   await page.waitForTimeout(150);
   await page.click('button:has-text("Lưu cài đặt")');
   await page.waitForTimeout(500);
-  check('trả lại mẫu <số>/<năm>', /^\d+\/2026$/.test(await page.locator('.next-number-value').innerText()),
+  check('trả lại mặc định <số>/<năm>', /^\d+\/2026$/.test(await page.locator('.next-number-value').innerText()),
     await page.locator('.next-number-value').innerText());
 
   // đặt lại bộ đếm
@@ -377,17 +393,17 @@ const ad = await session('admin');
 console.log('\n== gõ rồi bấm ngay, và giữ focus khi gõ ==');
 {
   const page = ad.page;
-  // Ô "Ký tự cố định": gõ nhiều ký tự liền phải không mất focus giữa chừng.
+  // Ô hậu tố: gõ nhiều ký tự liền phải không mất focus giữa chừng.
   await page.click('.subtab:has-text("Lấy số")');
-  await page.waitForSelector('.segments');
-  await page.locator('.segment input').first().click();
+  await page.waitForSelector('.affix-row');
+  await page.locator('input[data-fk="cfg-suffix"]').click();
   await page.keyboard.type('-ABC');
-  const val = await page.locator('.segment input').first().inputValue();
-  check('gõ liên tục không mất ký tự', val === '/-ABC', JSON.stringify(val));
+  const val = await page.locator('input[data-fk="cfg-suffix"]').inputValue();
+  check('gõ liên tục không mất ký tự', val === '/2026-ABC', JSON.stringify(val));
   const stillFocused = await page.evaluate(() => document.activeElement?.dataset?.fk || null);
-  check('ô vẫn còn focus sau khi gõ', stillFocused === 'seg-text-1', String(stillFocused));
+  check('ô vẫn còn focus sau khi gõ', stillFocused === 'cfg-suffix', String(stillFocused));
   const caret = await page.evaluate(() => document.activeElement.selectionStart);
-  check('con trỏ ở cuối chuỗi vừa gõ', caret === 5, String(caret));
+  check('con trỏ ở cuối chuỗi vừa gõ', caret === 9, String(caret));
   await page.click('button:has-text("Hủy thay đổi")');
   await page.waitForTimeout(200);
 
