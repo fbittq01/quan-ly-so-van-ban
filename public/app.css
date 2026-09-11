@@ -289,84 +289,37 @@ tbody tr:hover { background: var(--bg); }
 .cell-actions { text-align: right; white-space: nowrap; }
 .empty-state { padding: 56px 24px; text-align: center; color: var(--ink-3); }
 
-/* ------------------------------------------------------- cấu trúc số */
+/* --------------------------------------------- tiền tố · số · hậu tố */
 
-.segments { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
-.segment {
-  border: 1px solid var(--line);
-  background: var(--surface);
+/* Hàng ghép số: [tiền tố] [số thứ tự khóa] [hậu tố] [nút]. Khoảng cách hẹp
+   hơn .row-fields thường vì ba ô này đọc như một chuỗi liền. */
+.affix-row { gap: 12px; align-items: flex-end; }
+.affix-row .btn { margin-bottom: 0; }
+
+/* Ô số thứ tự: nhìn ra ngay là ô đọc, không phải ô gõ. */
+.seq-locked {
+  height: var(--control-h);
+  min-width: 92px;
+  padding: 0 16px;
+  border: 1px solid var(--orange-edge);
+  background: var(--orange-tint);
   border-radius: var(--radius);
-  padding: 9px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  min-width: 150px;
-}
-.segment.is-seq { border-color: var(--orange-edge); }
-.segment-head { display: flex; align-items: center; gap: 4px; }
-.segment-pos { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink-4); }
-.segment-tools { margin-left: auto; display: flex; gap: 3px; }
-.icon-btn {
-  width: 24px;
-  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: var(--radius);
-  color: var(--slate);
-  cursor: pointer;
-  padding: 0;
-}
-.icon-btn:hover:not(:disabled) { border-color: var(--slate); background: var(--bg); }
-.icon-btn:disabled { color: var(--line); cursor: default; }
-.icon-btn.danger { color: var(--red); }
-.icon-btn.danger:hover { border-color: var(--red); background: var(--red-tint); }
-.segment select, .segment input {
-  height: 34px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  font-size: 13px;
-  background: var(--surface);
-  color: var(--ink);
-  outline: none;
-}
-.segment input { font-family: var(--font-mono); padding: 0 9px; }
-.segment select:focus, .segment input:focus { border-color: var(--slate); }
-.segment-preview {
-  /* đẩy xuống đáy thẻ để các thành phần cao thấp khác nhau vẫn thẳng hàng */
-  margin-top: auto;
+  gap: 8px;
   font-family: var(--font-mono);
-  font-size: 13px;
   font-weight: 600;
-  text-align: center;
-  padding: 5px 6px;
-  border-radius: 4px;
-  background: var(--bg);
-  color: var(--slate);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 16px;
+  color: var(--orange-dark);
 }
-.segment.is-seq .segment-preview { background: var(--orange-tint); color: var(--orange-dark); }
-.segment-add {
-  min-width: 118px;
-  border: 1px dashed var(--line);
-  background: var(--surface);
-  border-radius: var(--radius);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  padding: 14px 12px;
+
+.btn-ghost {
+  border-style: dashed;
   color: var(--slate);
-  font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
 }
-.segment-add:hover { border-color: var(--slate); background: var(--bg); color: var(--slate-dark); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--slate); background: var(--bg); }
 
 .next-number {
   border: 1px solid var(--orange-edge);
@@ -684,6 +637,13 @@ tbody tr:hover { background: var(--bg); }
 }
 .issued-value { font-family: var(--font-mono); font-weight: 600; font-size: 30px; color: var(--orange-dark); letter-spacing: -0.01em; }
 
+/* Bản có bộ ghép: xếp dọc thành hai hàng, số ở trên, ba ô ở dưới. */
+.issued-compose { flex-direction: column; align-items: stretch; gap: 14px; }
+.issued-compose .row { align-items: baseline; gap: 16px; }
+.issued-compose .affix-row { border-top: 1px solid var(--orange-edge); padding-top: 14px; }
+.issued-compose .input { background: var(--surface); border-color: var(--orange-edge); }
+.issued-compose .input:focus { border-color: var(--orange-dark); }
+
 .num-change {
   display: flex;
   align-items: center;
@@ -877,10 +837,10 @@ tbody tr:hover { background: var(--bg); }
 .w110 { width: 110px; }
 .w118 { width: 118px; }
 .w120 { width: 120px; }
-.w136 { width: 136px; }
 .w140 { width: 140px; }
-.w158 { width: 158px; }
 .w160 { width: 160px; }
+.w136 { width: 136px; }
+.w158 { width: 158px; }
 .w190 { width: 190px; }
 .w270 { width: 270px; }
 .mw640 { max-width: 640px; }

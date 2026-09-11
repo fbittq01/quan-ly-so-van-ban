@@ -1,389 +1,431 @@
 <!doctype html>
 <html>
+
 <head>
-<meta charset="utf-8">
-<script src="./support.js"></script>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
 </head>
+
 <body>
-<x-dc>
-<helmet>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
-<style>
-  :root {
-    --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  body { margin: 0; background: #F4F5F6; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-  input, select, textarea, button { font-family: inherit; }
-  a { color: #CC4600; text-decoration: none; }
-  a:hover { color: #FF5700; text-decoration: underline; }
-</style>
-</helmet>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
+      <style>
+        :root {
+          --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+          --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
 
-<div style="min-height: 1180px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; padding: 24px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
 
-  <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
-    <div style="display: flex; flex-direction: column; gap: 7px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Cài đặt lấy số</span>
-        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8;">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="1.5"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
-          <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Chỉ quản trị viên</span>
-        </span>
-      </div>
-      <span style="font-size: 14px; color: #777777;">Quy định cách hệ thống sinh số cho <strong style="color: #333333; font-weight: 700;">văn bản đi</strong>. Thay đổi ở đây không sửa số của văn bản đã ghi vào sổ.</span>
-    </div>
-    <div style="margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 4px;">
-      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9B9D96;">Cập nhật lần cuối</span>
-      <span style="font-size: 13px; color: #333333;">05/09/2026 · 14:22</span>
-      <span style="font-size: 13px; color: #777777;">Lê Quốc Bảo — Quản trị</span>
-    </div>
-  </div>
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
 
-  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;">
-    <div style="display: flex; flex-direction: column; gap: 5px;">
-      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">1 · Cấu trúc số</span>
-      <span style="font-size: 14px; color: #777777;">Ghép các thành phần theo thứ tự từ trái sang phải. Dùng ô <em style="font-style: normal; color: #333333;">Ký tự cố định</em> cho dấu gạch, mã phòng ban hay chữ viết tắt.</span>
-    </div>
+        a {
+          color: #CC4600;
+          text-decoration: none;
+        }
 
-    <div style="display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap;">
-      <sc-for list="{{ segs }}" as="sg" hint-placeholder-count="3">
-        <div style="{{ sg.box }}">
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <span style="font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #9B9D96;">{{ sg.pos }}</span>
-            <span style="margin-left: auto; display: flex; gap: 3px;">
-              <button type="button" onClick="{{ sg.onUp }}" style="{{ sg.arrow }}" title="Chuyển sang trái">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg>
-              </button>
-              <button type="button" onClick="{{ sg.onDown }}" style="{{ sg.arrow }}" title="Chuyển sang phải">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
-              </button>
-              <button type="button" onClick="{{ sg.onRemove }}" style="{{ sg.kill }}" title="Bỏ thành phần">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
-              </button>
+        a:hover {
+          color: #FF5700;
+          text-decoration: underline;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="min-height: 1120px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; padding: 24px 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+
+      <div style="display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Cài đặt lấy
+              số</span>
+            <span
+              style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 6px; background: #FFEAD0; border: 1px solid #FFD3A8;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              </svg>
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Chỉ
+                quản trị viên</span>
             </span>
           </div>
-          <select value="{{ sg.type }}" onChange="{{ sg.onType }}" style="height: 34px; padding: 0 8px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 13px; color: #212121; background: #FFFFFF;">
-            <option value="seq">Số thứ tự</option>
-            <option value="year">Năm — 2026</option>
-            <option value="yy">Năm — 26</option>
-            <option value="text">Ký tự cố định</option>
-          </select>
-          <sc-if value="{{ sg.isText }}" hint-placeholder-val="{{ false }}">
-            <input type="text" value="{{ sg.text }}" onChange="{{ sg.onText }}" placeholder="/" style="height: 34px; padding: 0 9px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;" style-focus="height: 34px; padding: 0 9px; border: 1px solid #37505C; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;">
-          </sc-if>
-          <div style="{{ sg.chip }}">{{ sg.preview }}</div>
+          <span style="font-size: 14px; color: #777777;">Đặt <strong style="color: #333333; font-weight: 700;">giá trị
+              điền sẵn</strong> và trông bộ đếm của sổ <strong style="color: #333333; font-weight: 700;">văn bản
+              đi</strong>. Tiền tố và hậu tố do người lấy số đặt lại ở từng văn bản.</span>
         </div>
-      </sc-for>
-
-      <button type="button" onClick="{{ h.addSeg }}" style="min-width: 116px; border: 1px dashed #D8DBDF; background: #FFFFFF; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 14px 12px; color: #37505C;" style-hover="min-width: 116px; border: 1px dashed #37505C; background: #F4F5F6; border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; cursor: pointer; padding: 14px 12px; color: #24434A;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-        <span style="font-size: 13px; font-weight: 700;">Thêm thành phần</span>
-      </button>
-    </div>
-
-    <sc-if value="{{ structError }}" hint-placeholder-val="{{ false }}">
-      <div style="display: flex; gap: 9px; padding: 11px 13px; border-radius: 6px; border: 1px solid #F0C7C7; background: #FBE9E9;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 1px;"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>
-        <span style="font-size: 13px; line-height: 1.5; color: #CC0000;">{{ structErrorText }}</span>
-      </div>
-    </sc-if>
-
-    <div style="border: 1px solid #FFD3A8; background: #FFEAD0; padding: 16px 18px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;">
-      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số kế tiếp</span>
-      <span style="font-family: var(--font-mono); font-weight: 600; font-size: 32px; letter-spacing: -0.01em; color: #CC4600;">{{ nextNumber }}</span>
-      <span style="margin-left: auto; font-size: 13px; color: #333333; text-align: right;">{{ nextHint }}</span>
-    </div>
-
-    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-      <span style="font-size: 13px; color: #777777;">Mẫu có sẵn</span>
-      <sc-for list="{{ presets }}" as="p" hint-placeholder-count="6">
-        <button type="button" onClick="{{ p.onPick }}" style="{{ p.style }}">{{ p.label }}</button>
-      </sc-for>
-    </div>
-  </section>
-
-  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;">
-    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">2 · Quy tắc đánh số</span>
-
-    <div style="display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap;">
-      <label style="display: flex; flex-direction: column; gap: 6px;">
-        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Bắt đầu từ</span>
-        <input type="number" min="1" value="{{ start }}" onChange="{{ h.start }}" style="height: 40px; width: 120px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
-        <span style="font-size: 12px; color: #9B9D96;">Số nhỏ nhất được cấp</span>
-      </label>
-
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Reset đầu năm</span>
-        <div style="display: flex; border: 1px solid #D8DBDF; border-radius: 6px; overflow: hidden; width: fit-content;">
-          <button type="button" onClick="{{ h.resetYes }}" style="{{ resetYesStyle }}">Có</button>
-          <button type="button" onClick="{{ h.resetNo }}" style="{{ resetNoStyle }}">Không</button>
+        <div style="margin-left: auto; text-align: right; display: flex; flex-direction: column; gap: 4px;">
+          <span
+            style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9B9D96;">Cập
+            nhật lần cuối</span>
+          <span style="font-size: 13px; color: #333333;">05/09/2026 · 14:22</span>
+          <span style="font-size: 13px; color: #777777;">Lê Quốc Bảo — Quản trị</span>
         </div>
-        <span style="font-size: 12px; color: #9B9D96;">{{ resetHint }}</span>
       </div>
-    </div>
 
-    <div style="border-top: 1px solid #D8DBDF; padding-top: 16px; display: flex; gap: 12px; align-items: flex-start;">
-      <span style="width: 30px; height: 30px; border-radius: 6px; background: #F4F5F6; border: 1px solid #D8DBDF; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#37505C" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="1.5"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
-      </span>
-      <div style="display: flex; flex-direction: column; gap: 7px;">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 14px; font-weight: 700; color: #000000;">Không có số 0 ở đầu</span>
-          <span style="padding: 2px 8px; border-radius: 6px; background: #F4F5F6; border: 1px solid #D8DBDF; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Cố định</span>
+      <section
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <span
+            style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">1
+            · Mặc định điền sẵn khi lấy số</span>
+          <span style="font-size: 14px; color: #777777;">Ô giữa là số thứ tự do hệ thống cấp — khóa, không sửa được. Hai
+            ô hai bên là phần người lấy số tự đặt cho từng văn bản; ở đây chỉ đặt giá trị mở sẵn cho họ.</span>
         </div>
-        <p style="margin: 0; font-size: 13px; color: #333333; line-height: 1.6; max-width: 760px;">Số thứ tự luôn ở dạng ngắn nhất — <span style="font-family: var(--font-mono); font-weight: 600; color: #000000;">1</span>, <span style="font-family: var(--font-mono); font-weight: 600; color: #000000;">2</span>, … <span style="font-family: var(--font-mono); font-weight: 600; color: #000000;">10</span> — không phải <span style="font-family: var(--font-mono); color: #9B9D96; text-decoration: line-through;">01</span>, <span style="font-family: var(--font-mono); color: #9B9D96; text-decoration: line-through;">02</span>. Số nhập tay vào sổ văn bản đi cũng được chuẩn hóa khi lưu (<span style="font-family: var(--font-mono); color: #9B9D96;">06/2026</span> → <span style="font-family: var(--font-mono); font-weight: 600; color: #000000;">6/2026</span>). Số của <strong style="font-weight: 700;">văn bản đến</strong> giữ nguyên như cơ quan gửi ghi.</p>
-      </div>
-    </div>
-  </section>
 
-  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
-    <div style="display: flex; flex-direction: column; gap: 5px;">
-      <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">3 · Xem trước</span>
-      <span style="font-size: 14px; color: #777777;">Các số sẽ được cấp lần lượt nếu giữ cài đặt hiện tại.</span>
-    </div>
-    <table style="width: 100%; max-width: 660px; border-collapse: collapse; border: 1px solid #D8DBDF;">
-      <thead>
-        <tr style="background: #F4F5F6;">
-          <th style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF; width: 96px;">Lần cấp</th>
-          <th style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF; width: 180px;">Số văn bản</th>
-          <th style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF;">Ghi chú</th>
-        </tr>
-      </thead>
-      <tbody>
-        <sc-for list="{{ preview }}" as="r" hint-placeholder-count="6">
-          <tr style="{{ r.row }}">
-            <td style="{{ r.cellDim }}">{{ r.n }}</td>
-            <td style="{{ r.cellNum }}">{{ r.text }}</td>
-            <td style="{{ r.cellNote }}">{{ r.note }}</td>
-          </tr>
-        </sc-for>
-      </tbody>
-    </table>
-  </section>
-
-  <section style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
-    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">4 · Bộ đếm sổ 2026</span>
-    <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-      <div style="display: flex; gap: 26px; align-items: baseline; flex-wrap: wrap;">
-        <span style="font-size: 14px; color: #333333;">Đã ghi <strong style="font-family: var(--font-mono); font-weight: 600; color: #000000;">{{ usedCount }}</strong> văn bản đi</span>
-        <span style="font-size: 14px; color: #333333;">Bộ đếm đang ở <strong style="font-family: var(--font-mono); font-weight: 600; color: #000000;">{{ counterAt }}</strong></span>
-      </div>
-      <sc-if value="{{ resetClosed }}" hint-placeholder-val="{{ true }}">
-        <button type="button" onClick="{{ h.openReset }}" style="margin-left: auto; height: 40px; padding: 0 14px; border: 1px solid #F0C7C7; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;" style-hover="margin-left: auto; height: 40px; padding: 0 14px; border: 1px solid #CC0000; background: #FBE9E9; border-radius: 6px; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;">Đặt lại bộ đếm…</button>
-      </sc-if>
-    </div>
-    <sc-if value="{{ resetOpen }}" hint-placeholder-val="{{ false }}">
-      <div style="border: 1px solid #F0C7C7; background: #FBE9E9; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;">
-        <div style="display: flex; gap: 10px; align-items: flex-start;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 2px;"><path d="M12 4 2.5 20h19L12 4Z"></path><path d="M12 10v4"></path><path d="M12 17h.01"></path></svg>
-          <p style="margin: 0; font-size: 13px; color: #CC0000; line-height: 1.6; max-width: 700px;">Đặt lại bộ đếm không sửa số của văn bản đã ghi vào sổ. Nếu đặt về một giá trị đã dùng, hệ thống sẽ cấp trùng số. Hành động được ghi vào nhật ký kèm tên quản trị viên.</p>
-        </div>
-        <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+        <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
           <label style="display: flex; flex-direction: column; gap: 6px;">
-            <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số kế tiếp sẽ là</span>
-            <input type="number" min="1" value="{{ resetTo }}" onChange="{{ h.resetTo }}" style="height: 40px; width: 130px; padding: 0 12px; border: 1px solid #F0C7C7; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tiền
+              tố</span>
+            <input type="text" value="{{ prefix }}" onChange="{{ h.prefix }}" placeholder="để trống"
+              style="height: 40px; width: 168px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
           </label>
-          <span style="font-size: 13px; color: #333333; padding-bottom: 11px;">→ <span style="font-family: var(--font-mono); font-weight: 600; color: #CC0000;">{{ resetPreview }}</span></span>
-          <span style="margin-left: auto; display: flex; gap: 10px;">
-            <button type="button" onClick="{{ h.closeReset }}" style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;" style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Hủy</button>
-            <button type="button" onClick="{{ h.doReset }}" style="height: 40px; padding: 0 18px; border: 1px solid #CC0000; background: #CC0000; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;" style-hover="height: 40px; padding: 0 18px; border: 1px solid #CC0000; background: #FBE9E9; border-radius: 6px; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;">Xác nhận đặt lại</button>
-          </span>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+              thứ tự</span>
+            <div
+              style="height: 40px; min-width: 96px; padding: 0 16px; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 6px; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: var(--font-mono); font-weight: 600; font-size: 16px; color: #CC4600;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CC4600" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+              </svg>
+              {{ nextSeq }}
+            </div>
+          </div>
+
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Hậu
+              tố</span>
+            <input type="text" value="{{ suffix }}" onChange="{{ h.suffix }}" placeholder="để trống"
+              style="height: 40px; width: 168px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+          </label>
+
+          <button type="button" onClick="{{ h.insertYear }}"
+            style="height: 40px; padding: 0 14px; border: 1px dashed #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 13px; color: #37505C; cursor: pointer;"
+            style-hover="height: 40px; padding: 0 14px; border: 1px dashed #37505C; background: #F4F5F6; border-radius: 6px; font-size: 13px; color: #24434A; cursor: pointer;">Chèn
+            năm {{ year }} vào hậu tố</button>
         </div>
+
+        <div
+          style="border: 1px solid #FFD3A8; background: #FFEAD0; padding: 16px 18px; display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;">
+          <span
+            style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+            kế tiếp</span>
+          <span
+            style="font-family: var(--font-mono); font-weight: 600; font-size: 32px; letter-spacing: -0.01em; color: #CC4600;">{{
+            nextNumber }}</span>
+          <span style="margin-left: auto; font-size: 13px; color: #333333; text-align: right;">{{ nextHint }}</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 13px; color: #777777;">Mẫu hay dùng</span>
+          <sc-for list="{{ presets }}" as="p" hint-placeholder-count="4">
+            <button type="button" onClick="{{ p.onPick }}" style="{{ p.style }}">{{ p.label }}</button>
+          </sc-for>
+        </div>
+      </section>
+
+      <section
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 16px;">
+        <span
+          style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">2
+          · Bộ đếm</span>
+
+        <div style="display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap;">
+          <label style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Bắt
+              đầu từ</span>
+            <input type="number" min="1" value="{{ start }}" onChange="{{ h.start }}"
+              style="height: 40px; width: 120px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+            <span style="font-size: 12px; color: #9B9D96;">Số nhỏ nhất được cấp</span>
+          </label>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span
+              style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Reset
+              đầu năm</span>
+            <div
+              style="display: flex; border: 1px solid #D8DBDF; border-radius: 6px; overflow: hidden; width: fit-content;">
+              <button type="button" onClick="{{ h.resetYes }}" style="{{ resetYesStyle }}">Có</button>
+              <button type="button" onClick="{{ h.resetNo }}" style="{{ resetNoStyle }}">Không</button>
+            </div>
+            <span style="font-size: 12px; color: #9B9D96;">{{ resetHint }}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #D8DBDF; padding-top: 16px; display: flex; gap: 12px; align-items: flex-start;">
+          <span
+            style="width: 30px; height: 30px; border-radius: 6px; background: #F4F5F6; border: 1px solid #D8DBDF; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#37505C" stroke-width="1.9"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+            </svg>
+          </span>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 14px; font-weight: 700; color: #000000;">Số thứ tự tăng đều, không đệm 0</span>
+              <span
+                style="padding: 2px 8px; border-radius: 6px; background: #F4F5F6; border: 1px solid #D8DBDF; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Cố
+                định</span>
+            </div>
+            <p style="margin: 0; font-size: 13px; color: #333333; line-height: 1.6; max-width: 760px;">Mỗi lần cấp, số
+              thứ tự tăng đúng một đơn vị — <span
+                style="font-family: var(--font-mono); font-weight: 600; color: #000000;">1</span>, <span
+                style="font-family: var(--font-mono); font-weight: 600; color: #000000;">2</span>, … <span
+                style="font-family: var(--font-mono); font-weight: 600; color: #000000;">10</span> — không phải <span
+                style="font-family: var(--font-mono); color: #9B9D96; text-decoration: line-through;">01</span>, <span
+                style="font-family: var(--font-mono); color: #9B9D96; text-decoration: line-through;">02</span>. Tiền tố
+              và hậu tố không đổi được phần số này. Số của <strong style="font-weight: 700;">văn bản đến</strong> giữ
+              nguyên như cơ quan gửi ghi.</p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <span
+            style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">3
+            · Xem trước</span>
+          <span style="font-size: 14px; color: #777777;">Các số sẽ được cấp lần lượt nếu người lấy số giữ nguyên tiền tố
+            và hậu tố mặc định.</span>
+        </div>
+        <table style="width: 100%; max-width: 660px; border-collapse: collapse; border: 1px solid #D8DBDF;">
+          <thead>
+            <tr style="background: #F4F5F6;">
+              <th
+                style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF; width: 96px;">
+                Lần cấp</th>
+              <th
+                style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF; width: 180px;">
+                Số văn bản</th>
+              <th
+                style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C; border-bottom: 1px solid #D8DBDF;">
+                Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ preview }}" as="r" hint-placeholder-count="6">
+              <tr style="{{ r.row }}">
+                <td style="{{ r.cellDim }}">{{ r.n }}</td>
+                <td style="{{ r.cellNum }}">{{ r.text }}</td>
+                <td style="{{ r.cellNote }}">{{ r.note }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </section>
+
+      <section
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;">
+        <span
+          style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">4
+          · Bộ đếm sổ 2026</span>
+        <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+          <div style="display: flex; gap: 26px; align-items: baseline; flex-wrap: wrap;">
+            <span style="font-size: 14px; color: #333333;">Đã ghi <strong
+                style="font-family: var(--font-mono); font-weight: 600; color: #000000;">{{ usedCount }}</strong> văn
+              bản đi</span>
+            <span style="font-size: 14px; color: #333333;">Bộ đếm đang ở <strong
+                style="font-family: var(--font-mono); font-weight: 600; color: #000000;">{{ counterAt }}</strong></span>
+          </div>
+          <sc-if value="{{ resetClosed }}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{ h.openReset }}"
+              style="margin-left: auto; height: 40px; padding: 0 14px; border: 1px solid #F0C7C7; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;"
+              style-hover="margin-left: auto; height: 40px; padding: 0 14px; border: 1px solid #CC0000; background: #FBE9E9; border-radius: 6px; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;">Đặt
+              lại bộ đếm…</button>
+          </sc-if>
+        </div>
+        <sc-if value="{{ resetOpen }}" hint-placeholder-val="{{ false }}">
+          <div
+            style="border: 1px solid #F0C7C7; background: #FBE9E9; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CC0000" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; margin-top: 2px;">
+                <path d="M12 4 2.5 20h19L12 4Z"></path>
+                <path d="M12 10v4"></path>
+                <path d="M12 17h.01"></path>
+              </svg>
+              <p style="margin: 0; font-size: 13px; color: #CC0000; line-height: 1.6; max-width: 700px;">Đặt lại bộ đếm
+                không sửa số của văn bản đã ghi vào sổ. Nếu đặt về một giá trị đã dùng, hệ thống sẽ cấp trùng số. Hành
+                động được ghi vào nhật ký kèm tên quản trị viên.</p>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
+                  kế tiếp sẽ là</span>
+                <input type="number" min="1" value="{{ resetTo }}" onChange="{{ h.resetTo }}"
+                  style="height: 40px; width: 130px; padding: 0 12px; border: 1px solid #F0C7C7; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+              </label>
+              <span style="font-size: 13px; color: #333333; padding-bottom: 11px;">→ <span
+                  style="font-family: var(--font-mono); font-weight: 600; color: #CC0000;">{{ resetPreview }}</span></span>
+              <span style="margin-left: auto; display: flex; gap: 10px;">
+                <button type="button" onClick="{{ h.closeReset }}"
+                  style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Hủy</button>
+                <button type="button" onClick="{{ h.doReset }}"
+                  style="height: 40px; padding: 0 18px; border: 1px solid #CC0000; background: #CC0000; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 18px; border: 1px solid #CC0000; background: #FBE9E9; border-radius: 6px; font-size: 14px; font-weight: 700; color: #CC0000; cursor: pointer;">Xác
+                  nhận đặt lại</button>
+              </span>
+            </div>
+          </div>
+        </sc-if>
+      </section>
+
+      <div
+        style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 14px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+        <span style="{{ statusStyle }}">{{ statusText }}</span>
+        <span style="margin-left: auto; display: flex; gap: 10px;">
+          <button type="button" onClick="{{ h.discard }}" style="{{ discardStyle }}">Hủy thay đổi</button>
+          <button type="button" onClick="{{ h.save }}" style="{{ saveStyle }}">Lưu cài đặt</button>
+        </span>
       </div>
-    </sc-if>
-  </section>
 
-  <div style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 14px 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-    <span style="{{ statusStyle }}">{{ statusText }}</span>
-    <span style="margin-left: auto; display: flex; gap: 10px;">
-      <button type="button" onClick="{{ h.discard }}" style="{{ discardStyle }}">Hủy thay đổi</button>
-      <button type="button" onClick="{{ h.save }}" style="{{ saveStyle }}">Lưu cài đặt</button>
-    </span>
-  </div>
+    </div>
+  </x-dc>
+  <script data-dc-script data-props='{"$preview":{"width":1060,"height":1120}}'>
+    const YEAR = 2026;
+    const USED_MAX = 6;
 
-</div>
-</x-dc>
-<script data-dc-script data-props='{"$preview":{"width":1060,"height":1180}}'>
-const YEAR = 2026;
-const USED_MAX = 6;
+    const SAVED = { prefix: '', suffix: '/2026', start: 1, resetYearly: true };
 
-const SAVED = {
-  segs: [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-  start: 1,
-  resetYearly: true
-};
+    const PRESETS = [
+      { prefix: '', suffix: '/2026' },
+      { prefix: '', suffix: '/2026/P1' },
+      { prefix: 'CV-', suffix: '/2026' },
+      { prefix: '', suffix: '-TB' },
+      { prefix: '', suffix: '' }
+    ];
 
-const PRESETS = [
-  [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-  [{ type: 'seq' }, { type: 'text', text: '/P1' }],
-  [{ type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }, { type: 'text', text: '/P1' }],
-  [{ type: 'seq' }, { type: 'text', text: '-CV' }],
-  [{ type: 'text', text: 'CV-' }, { type: 'seq' }, { type: 'text', text: '/' }, { type: 'year' }],
-  [{ type: 'seq' }]
-];
+    function build(prefix, seq, suffix) { return (prefix || '') + String(seq) + (suffix || ''); }
 
-function clone(segs) { return segs.map(s => ({ type: s.type, text: s.text || '' })); }
+    class Component extends DCLogic {
+      state = {
+        prefix: SAVED.prefix,
+        suffix: SAVED.suffix,
+        start: SAVED.start,
+        resetYearly: SAVED.resetYearly,
+        counter: USED_MAX,
+        resetOpen: false,
+        resetTo: USED_MAX + 1,
+        savedAt: ''
+      };
 
-function build(segs, seq, year) {
-  return segs.map(sg => {
-    if (sg.type === 'seq') return String(seq);
-    if (sg.type === 'year') return String(year);
-    if (sg.type === 'yy') return String(year).slice(2);
-    return sg.text || '';
-  }).join('');
-}
-
-function same(a, b) {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    if (a[i].type !== b[i].type) return false;
-    if ((a[i].text || '') !== (b[i].text || '')) return false;
-  }
-  return true;
-}
-
-class Component extends DCLogic {
-  state = {
-    segs: clone(SAVED.segs),
-    start: SAVED.start,
-    resetYearly: SAVED.resetYearly,
-    counter: USED_MAX,
-    resetOpen: false,
-    resetTo: USED_MAX + 1,
-    savedAt: ''
-  };
-
-  patch(i, key, val) {
-    this.setState(s => {
-      const segs = clone(s.segs);
-      segs[i][key] = val;
-      if (key === 'type' && val !== 'text') segs[i].text = '';
-      return { segs, savedAt: '' };
-    });
-  }
-
-  move(i, d) {
-    this.setState(s => {
-      const j = i + d;
-      if (j < 0 || j >= s.segs.length) return {};
-      const segs = clone(s.segs);
-      const t = segs[i]; segs[i] = segs[j]; segs[j] = t;
-      return { segs, savedAt: '' };
-    });
-  }
-
-  nextSeq() {
-    return Math.max(this.state.counter + 1, this.state.start);
-  }
-
-  structProblem(segs) {
-    const n = segs.filter(x => x.type === 'seq').length;
-    if (n === 0) return 'Cấu trúc phải có đúng một thành phần “Số thứ tự” — nếu không, mọi văn bản sẽ mang cùng một số.';
-    if (n > 1) return 'Chỉ được một thành phần “Số thứ tự”. Bỏ các thành phần trùng.';
-    if (segs.some(x => x.type === 'text' && (x.text || '') === '')) return 'Có ô “Ký tự cố định” đang để trống — điền dấu phân cách hoặc bỏ thành phần đó.';
-    return '';
-  }
-
-  renderVals() {
-    const s = this.state;
-    const next = this.nextSeq();
-    const cellBase = 'padding: 11px 14px; font-size: 14px; color: #212121; border-bottom: 1px solid #D8DBDF;';
-
-    const structErrorText = this.structProblem(s.segs);
-    const dirty = !same(s.segs, SAVED.segs) || s.start !== SAVED.start || s.resetYearly !== SAVED.resetYearly;
-    const blocked = !!structErrorText;
-
-    const rows = [];
-    for (let k = 0; k < 5; k++) {
-      rows.push({
-        n: k === 0 ? 'Kế tiếp' : String(k + 1),
-        text: build(s.segs, next + k, YEAR),
-        note: k === 0 ? 'Cấp khi bấm “Lấy số gửi văn bản đi”' : '',
-        first: k === 0
-      });
-    }
-    rows.push({
-      n: 'Sổ 2027',
-      text: build(s.segs, s.resetYearly ? Math.max(1, s.start) : next + 5, YEAR + 1),
-      note: s.resetYearly ? 'Bộ đếm về đầu vào 01/01/2027' : 'Bộ đếm chạy tiếp qua năm mới',
-      first: false,
-      turn: true
-    });
-
-    return {
-      segs: s.segs.map((sg, i) => ({
-        pos: String(i + 1),
-        type: sg.type,
-        text: sg.text || '',
-        isText: sg.type === 'text',
-        preview: sg.type === 'seq' ? String(next) : sg.type === 'year' ? String(YEAR) : sg.type === 'yy' ? String(YEAR).slice(2) : ((sg.text || '').length ? sg.text : '␣'),
-        box: 'border: 1px solid ' + (sg.type === 'seq' ? '#FFD3A8' : '#D8DBDF') + '; background: #FFFFFF; border-radius: 6px; padding: 9px 10px; display: flex; flex-direction: column; gap: 7px; min-width: 148px;',
-        chip: 'font-family: var(--font-mono); font-size: 13px; font-weight: 600; text-align: center; padding: 5px 6px; border-radius: 4px; color: ' + (sg.type === 'seq' ? '#CC4600' : '#37505C') + '; background: ' + (sg.type === 'seq' ? '#FFEAD0' : '#F4F5F6') + ';',
-        arrow: 'width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 4px; color: #37505C; cursor: pointer; padding: 0;',
-        kill: 'width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 4px; color: #CC0000; cursor: pointer; padding: 0;',
-        onType: e => this.patch(i, 'type', e.target.value),
-        onText: e => this.patch(i, 'text', e.target.value),
-        onUp: () => this.move(i, -1),
-        onDown: () => this.move(i, 1),
-        onRemove: () => this.setState(st => ({ segs: clone(st.segs).filter((x, j) => j !== i), savedAt: '' }))
-      })),
-      structError: blocked,
-      structErrorText,
-      nextNumber: blocked ? '—' : build(s.segs, next, YEAR),
-      nextHint: blocked ? 'Sửa cấu trúc để xem số kế tiếp' : 'Cấp cho văn bản đi tiếp theo trong sổ ' + YEAR,
-      presets: PRESETS.map(p => ({
-        label: build(p, next, YEAR),
-        style: 'padding: 6px 11px; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); cursor: pointer; border: 1px solid ' + (same(p, s.segs) ? '#FF5700' : '#D8DBDF') + '; background: ' + (same(p, s.segs) ? '#FFEAD0' : '#FFFFFF') + '; color: ' + (same(p, s.segs) ? '#CC4600' : '#333333') + ';',
-        onPick: () => this.setState({ segs: clone(p), savedAt: '' })
-      })),
-      start: s.start,
-      resetYesStyle: this.segBtn(s.resetYearly),
-      resetNoStyle: this.segBtn(!s.resetYearly),
-      resetHint: s.resetYearly ? 'Ngày 01/01 số quay về ' + Math.max(1, s.start) : 'Số tăng liên tục qua các năm',
-      preview: rows.map(r => ({
-        n: r.n, text: r.text, note: r.note,
-        row: r.turn ? 'background: #F4F5F6;' : '',
-        cellDim: cellBase + ' font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; color: ' + (r.first ? '#CC4600' : '#9B9D96') + ';',
-        cellNum: cellBase + ' font-family: var(--font-mono); font-weight: 600; font-size: ' + (r.first ? '17px' : '15px') + '; color: ' + (r.first ? '#CC4600' : '#000000') + ';',
-        cellNote: cellBase + ' font-size: 13px; color: #777777;'
-      })),
-      usedCount: String(USED_MAX),
-      counterAt: String(s.counter),
-      resetOpen: s.resetOpen,
-      resetClosed: !s.resetOpen,
-      resetTo: s.resetTo,
-      resetPreview: blocked ? '—' : build(s.segs, Math.max(1, s.resetTo, s.start), YEAR),
-      statusText: s.savedAt ? 'Đã lưu lúc ' + s.savedAt : blocked ? 'Cấu trúc chưa hợp lệ — chưa thể lưu' : dirty ? 'Có thay đổi chưa lưu' : 'Cài đặt đang khớp với bản đã lưu',
-      statusStyle: 'font-size: 13px; font-weight: ' + (dirty || blocked ? '700' : '400') + '; color: ' + (blocked ? '#CC0000' : dirty ? '#CC4600' : '#777777') + ';',
-      discardStyle: 'height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; cursor: ' + (dirty ? 'pointer' : 'default') + '; background: #FFFFFF; color: ' + (dirty ? '#333333' : '#9B9D96') + ';',
-      saveStyle: 'height: 40px; padding: 0 20px; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: ' + (dirty && !blocked ? 'pointer' : 'default') + '; border: 1px solid ' + (dirty && !blocked ? '#FF5700' : '#D8DBDF') + '; background: ' + (dirty && !blocked ? '#FF5700' : '#F4F5F6') + '; color: ' + (dirty && !blocked ? '#FFFFFF' : '#9B9D96') + ';',
-      h: {
-        addSeg: () => this.setState(st => ({ segs: clone(st.segs).concat([{ type: 'text', text: '' }]), savedAt: '' })),
-        start: e => this.setState({ start: Math.max(1, parseInt(e.target.value, 10) || 1), savedAt: '' }),
-        resetYes: () => this.setState({ resetYearly: true, savedAt: '' }),
-        resetNo: () => this.setState({ resetYearly: false, savedAt: '' }),
-        openReset: () => this.setState(st => ({ resetOpen: true, resetTo: st.counter + 1 })),
-        closeReset: () => this.setState({ resetOpen: false }),
-        resetTo: e => this.setState({ resetTo: Math.max(1, parseInt(e.target.value, 10) || 1) }),
-        doReset: () => this.setState(st => ({ counter: Math.max(0, st.resetTo - 1), resetOpen: false, savedAt: '' })),
-        discard: () => this.setState({ segs: clone(SAVED.segs), start: SAVED.start, resetYearly: SAVED.resetYearly, savedAt: '' }),
-        save: () => {
-          if (this.structProblem(this.state.segs)) return;
-          const d = new Date();
-          const hh = d.getHours() < 10 ? '0' + d.getHours() : String(d.getHours());
-          const mm = d.getMinutes() < 10 ? '0' + d.getMinutes() : String(d.getMinutes());
-          this.setState({ savedAt: hh + ':' + mm });
-        }
+      nextSeq() {
+        return Math.max(this.state.counter + 1, this.state.start);
       }
-    };
-  }
 
-  segBtn(active) {
-    return 'height: 40px; min-width: 84px; padding: 0 18px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; background: ' +
-      (active ? '#37505C' : '#FFFFFF') + '; color: ' + (active ? '#FFFFFF' : '#777777') + ';';
-  }
-}
-</script>
+      renderVals() {
+        const s = this.state;
+        const next = this.nextSeq();
+        const cellBase = 'padding: 11px 14px; font-size: 14px; color: #212121; border-bottom: 1px solid #D8DBDF;';
+        const dirty = s.prefix !== SAVED.prefix || s.suffix !== SAVED.suffix ||
+          s.start !== SAVED.start || s.resetYearly !== SAVED.resetYearly;
+
+        const rows = [];
+        for (let k = 0; k < 5; k++) {
+          rows.push({
+            n: k === 0 ? 'Kế tiếp' : String(k + 1),
+            text: build(s.prefix, next + k, s.suffix),
+            note: k === 0 ? 'Cấp khi bấm “Lấy số gửi văn bản đi”' : '',
+            first: k === 0
+          });
+        }
+        rows.push({
+          n: 'Sổ 2027',
+          text: build(s.prefix, s.resetYearly ? Math.max(1, s.start) : next + 5, s.suffix),
+          note: s.resetYearly ? 'Bộ đếm về đầu vào 01/01/2027' : 'Bộ đếm chạy tiếp qua năm mới',
+          first: false,
+          turn: true
+        });
+
+        return {
+          year: String(YEAR),
+          prefix: s.prefix,
+          suffix: s.suffix,
+          nextSeq: String(next),
+          nextNumber: build(s.prefix, next, s.suffix),
+          nextHint: 'Điền sẵn cho văn bản đi tiếp theo trong sổ ' + YEAR + ' — người lấy số sửa được',
+          presets: PRESETS.map(p => {
+            const on = p.prefix === s.prefix && p.suffix === s.suffix;
+            return {
+              label: build(p.prefix, next, p.suffix),
+              style: 'padding: 6px 11px; border-radius: 6px; font-size: 13px; font-family: var(--font-mono); cursor: pointer; border: 1px solid ' +
+                (on ? '#FF5700' : '#D8DBDF') + '; background: ' + (on ? '#FFEAD0' : '#FFFFFF') + '; color: ' + (on ? '#CC4600' : '#333333') + ';',
+              onPick: () => this.setState({ prefix: p.prefix, suffix: p.suffix, savedAt: '' })
+            };
+          }),
+          start: s.start,
+          resetYesStyle: this.segBtn(s.resetYearly),
+          resetNoStyle: this.segBtn(!s.resetYearly),
+          resetHint: s.resetYearly ? 'Ngày 01/01 số quay về ' + Math.max(1, s.start) : 'Số tăng liên tục qua các năm',
+          preview: rows.map(r => ({
+            n: r.n, text: r.text, note: r.note,
+            row: r.turn ? 'background: #F4F5F6;' : '',
+            cellDim: cellBase + ' font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 700; color: ' + (r.first ? '#CC4600' : '#9B9D96') + ';',
+            cellNum: cellBase + ' font-family: var(--font-mono); font-weight: 600; font-size: ' + (r.first ? '17px' : '15px') + '; color: ' + (r.first ? '#CC4600' : '#000000') + ';',
+            cellNote: cellBase + ' font-size: 13px; color: #777777;'
+          })),
+          usedCount: String(USED_MAX),
+          counterAt: String(s.counter),
+          resetOpen: s.resetOpen,
+          resetClosed: !s.resetOpen,
+          resetTo: s.resetTo,
+          resetPreview: build(s.prefix, Math.max(1, s.resetTo, s.start), s.suffix),
+          statusText: s.savedAt ? 'Đã lưu lúc ' + s.savedAt : dirty ? 'Có thay đổi chưa lưu' : 'Cài đặt đang khớp với bản đã lưu',
+          statusStyle: 'font-size: 13px; font-weight: ' + (dirty ? '700' : '400') + '; color: ' + (dirty ? '#CC4600' : '#777777') + ';',
+          discardStyle: 'height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; cursor: ' + (dirty ? 'pointer' : 'default') + '; background: #FFFFFF; color: ' + (dirty ? '#333333' : '#9B9D96') + ';',
+          saveStyle: 'height: 40px; padding: 0 20px; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: ' + (dirty ? 'pointer' : 'default') + '; border: 1px solid ' + (dirty ? '#FF5700' : '#D8DBDF') + '; background: ' + (dirty ? '#FF5700' : '#F4F5F6') + '; color: ' + (dirty ? '#FFFFFF' : '#9B9D96') + ';',
+          h: {
+            prefix: e => this.setState({ prefix: e.target.value, savedAt: '' }),
+            suffix: e => this.setState({ suffix: e.target.value, savedAt: '' }),
+            insertYear: () => this.setState({ suffix: '/' + YEAR, savedAt: '' }),
+            start: e => this.setState({ start: Math.max(1, parseInt(e.target.value, 10) || 1), savedAt: '' }),
+            resetYes: () => this.setState({ resetYearly: true, savedAt: '' }),
+            resetNo: () => this.setState({ resetYearly: false, savedAt: '' }),
+            openReset: () => this.setState(st => ({ resetOpen: true, resetTo: st.counter + 1 })),
+            closeReset: () => this.setState({ resetOpen: false }),
+            resetTo: e => this.setState({ resetTo: Math.max(1, parseInt(e.target.value, 10) || 1) }),
+            doReset: () => this.setState(st => ({ counter: Math.max(0, st.resetTo - 1), resetOpen: false, savedAt: '' })),
+            discard: () => this.setState({ prefix: SAVED.prefix, suffix: SAVED.suffix, start: SAVED.start, resetYearly: SAVED.resetYearly, savedAt: '' }),
+            save: () => {
+              const d = new Date();
+              const hh = d.getHours() < 10 ? '0' + d.getHours() : String(d.getHours());
+              const mm = d.getMinutes() < 10 ? '0' + d.getMinutes() : String(d.getMinutes());
+              this.setState({ savedAt: hh + ':' + mm });
+            }
+          }
+        };
+      }
+
+      segBtn(active) {
+        return 'height: 40px; min-width: 84px; padding: 0 18px; border: none; font-size: 14px; font-weight: 700; cursor: pointer; background: ' +
+          (active ? '#37505C' : '#FFFFFF') + '; color: ' + (active ? '#FFFFFF' : '#777777') + ';';
+      }
+    }
+  </script>
 </body>
+
 </html>

@@ -213,19 +213,36 @@ không xóa được, để giữ dấu vết ai đã ghi văn bản.
 
 ## Cấp số văn bản đi
 
-Cấu trúc số ghép từ các thành phần: **Số thứ tự**, **Năm** (4 hoặc 2 chữ số), và
-**Ký tự cố định**. Quản trị viên sắp thứ tự các thành phần ở trang Cài đặt → Lấy
-số, kèm "Bắt đầu từ" và "Reset đầu năm".
+Số văn bản đi là **tiền tố + số thứ tự + hậu tố** — chỉ vậy. Số thứ tự do hệ
+thống cấp và tăng đều một đơn vị; hai ô chữ hai bên do **người lấy số tự đặt cho
+từng văn bản** ngay trong hộp thoại cấp số. Trang Cài đặt → Lấy số chỉ đặt giá
+trị **điền sẵn** cho hai ô đó, kèm "Bắt đầu từ" và "Reset đầu năm".
+
+Sổ văn bản đi **không có đường nhập số bằng tay**: mọi số đều đi qua nút "Lấy số
+gửi văn bản đi", và số đã cấp thì không sửa được nữa. Máy chủ từ chối luôn mọi
+lệnh ghi tay vào sổ đi, không chỉ là giao diện ẩn nút đi.
 
 **Số không bao giờ có 0 ở đầu** — `6/2026`, không phải `06/2026`. Đây là quy tắc
-cố định, không có tùy chọn tắt. Số nhập tay vào sổ văn bản đi cũng được chuẩn hóa
-khi lưu (`099/2026` → `99/2026`). Số của **văn bản đến** thì giữ nguyên như cơ
-quan gửi ghi (`05/TTr-TCT` không bị đổi), vì đó là số của người khác.
+cố định, không có tùy chọn tắt. Số của **văn bản đến** thì giữ nguyên như cơ quan
+gửi ghi (`05/TTr-TCT` không bị đổi), vì đó là số của người khác — và sổ đến vẫn
+ghi tay bình thường.
 
 Việc chiếm số và ghi văn bản vào sổ nằm trong **cùng một transaction**. Hai văn
 thư bấm "Lấy số" cùng lúc sẽ nhận hai số khác nhau, và không bao giờ có số bị
-chiếm mà văn bản không vào sổ. Ngoài ra cơ sở dữ liệu còn hai ràng buộc UNIQUE
-chặn trùng số ở tầng dữ liệu, không phụ thuộc vào code ứng dụng.
+chiếm mà văn bản không vào sổ.
+
+### Trùng số chỉ xét số thứ tự
+
+Từ 11/09/2026, thứ duy nhất hệ thống bảo đảm không trùng là **số thứ tự trong
+cùng phạm vi đếm** — một ràng buộc UNIQUE ở tầng dữ liệu. Tiền tố và hậu tố
+**không** được xét tới.
+
+Đó là hệ quả bắt buộc của việc cho người lấy số tự đặt hai ô đó: nếu vẫn khóa
+theo chuỗi số ghép ra, thì hai lượt cấp hoàn toàn hợp lệ — số 7 của sổ 2025 với
+hậu tố `/2026`, và số 7 của sổ 2026 — sẽ cùng ra `7/2026` và bị chặn oan ở tầng
+dữ liệu, ngay giữa lúc văn thư đang lưu. Ngược lại, vì hai ô chữ không đụng được
+vào phần số, hai văn bản đi trong cùng một sổ **không bao giờ** mang cùng số thứ
+tự dù ai gõ gì vào tiền tố hậu tố.
 
 Số hiện trên nút "Lấy số" là **số dự kiến**. Số thật được chốt lúc bấm lưu. Nếu
 số cấp ra khác số dự kiến, giao diện **bật hộp thoại** bắt người dùng xác nhận —

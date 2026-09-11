@@ -578,7 +578,7 @@ Hai điều đáng biết:
 - [ ] Tên phòng hiện đúng, đủ dấu, trên đầu trang
 - [ ] Quản trị viên đã đăng nhập và đổi mật khẩu tạm
 - [ ] Đã tạo tài khoản văn thư và chỉ xem, thử đúng quyền từng vai
-- [ ] Cài đặt → Lấy số đã đặt đúng cấu trúc số của phòng và "Bắt đầu từ"
+- [ ] Cài đặt → Lấy số đã đặt đúng tiền tố / hậu tố mặc định của phòng và "Bắt đầu từ"
 - [ ] Task sao lưu đã chạy thật ít nhất một lần, đích nằm ngoài máy chủ
 - [ ] Đã thử phục hồi từ bản sao lưu (trên máy khác, không phải máy đang dùng)
 - [ ] Mật khẩu quản trị, tài khoản chạy dịch vụ và đường dẫn sao lưu được lưu ở

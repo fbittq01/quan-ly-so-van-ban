@@ -138,14 +138,6 @@ function preConvert(file) {
  * SQLite báo vi phạm UNIQUE theo tên CỘT, không theo tên index — nên nhận diện
  * theo mã lỗi cộng với cột, đừng bắt theo tên index.
  */
-function isDuplicateNumber(err) {
-  return (
-    err &&
-    err.code === 'SQLITE_CONSTRAINT_UNIQUE' &&
-    String(err.message).includes('so_van_ban')
-  );
-}
-
 function isDuplicateSeq(err) {
   return (
     err && err.code === 'SQLITE_CONSTRAINT_UNIQUE' && String(err.message).includes('.seq')
@@ -212,35 +204,30 @@ function readFields(body, book) {
 }
 
 /**
- * Số văn bản nhập tay.
- * Với sổ văn bản đi, bỏ số 0 ở đầu — đó là số của chính đơn vị này nên áp quy
- * tắc được. Với sổ văn bản đến thì giữ nguyên: số đó do cơ quan gửi đặt.
+ * Số văn bản nhập tay — CHỈ còn sổ văn bản đến.
+ * Số đó do cơ quan gửi đặt nên giữ nguyên, không chuẩn hóa gì. Sổ văn bản đi
+ * không còn đường nhập tay: mọi số đều do hệ thống cấp (bỏ nút “Ghi thủ công”
+ * ngày 11/09/2026).
  */
-function readSoVanBan(body, book) {
+function readSoVanBan(body) {
   const raw = text(body && body.soVanBan, 100);
   if (!raw) throw badRequest('Chưa nhập số văn bản.');
-  return book === 'di' ? noLeadZero(raw) : raw;
+  return raw;
 }
 
 /**
- * Chặn ghi tay một số đã có trong sổ đi.
+ * Tiền tố / hậu tố cho một lượt lấy số.
  *
- * Hai unique index chỉ khóa được cặp (năm sổ, số văn bản), mà năm sổ suy ra từ
- * NGÀY GỬI chứ không phải từ năm nằm trong chính chuỗi số. Nên số '5/2026' đề
- * ngày 30/12/2025 rơi vào năm sổ 2025 và lọt qua index — sang 2026 hệ thống
- * cấp lại đúng số đó cho văn bản khác. numberTakenBy tra đúng phạm vi mà cấu
- * hình lấy số quy định, nên bịt được ca này; index vẫn giữ nguyên làm chốt cuối.
- *
- * Sổ đến không kiểm: số đó do cơ quan gửi đặt, trùng nhau là chuyện bình thường.
+ * Người lấy số tự đặt cho từng văn bản; bỏ trống thì dùng mặc định của phòng
+ * trong Cài đặt lấy số. Chúng chỉ đổi phần chữ quanh số thứ tự, không đụng
+ * được vào chính số thứ tự nên không ảnh hưởng tính duy nhất.
  */
-function ensureNumberFree(cfg, book, year, soVanBan, excludeId) {
-  if (book !== 'di') return;
-  const takenYear = numbering.numberTakenBy(cfg, year, soVanBan, excludeId);
-  if (takenYear === null) return;
-  throw badRequest(
-    'Số “' + soVanBan + '” đã có trong sổ văn bản đi năm ' + takenYear + '.',
-    'duplicate'
-  );
+function readAffixes(body, cfg) {
+  const has = (k) => body && body[k] != null;
+  return {
+    prefix: has('prefix') ? numbering.cleanAffix(body.prefix) : cfg.prefix,
+    suffix: has('suffix') ? numbering.cleanAffix(body.suffix) : cfg.suffix,
+  };
 }
 
 // ------------------------------------------------------------------- đọc sổ
@@ -254,6 +241,8 @@ router.get('/next-number', auth.requireAuth, (req, res) => {
     year,
     seq: next.seq,
     soVanBan: next.soVanBan,
+    prefix: cfg.prefix,
+    suffix: cfg.suffix,
     resetYearly: cfg.resetYearly,
   });
 });
@@ -372,9 +361,18 @@ router.post(
       const book = String((req.body && req.body.book) || '');
       if (book !== 'den' && book !== 'di') throw badRequest('Sổ không hợp lệ.');
       const issue = book === 'di' && String((req.body && req.body.mode) || '') === 'issue';
+      if (book === 'di' && !issue) {
+        // Ranh giới thật, không chỉ là chuyện giao diện đã bỏ nút: sổ văn bản
+        // đi chỉ có một đường vào sổ là hệ thống cấp số.
+        throw badRequest(
+          'Sổ văn bản đi không nhận số ghi tay — dùng “Lấy số gửi văn bản đi”.',
+          'manual_disabled'
+        );
+      }
 
       const f = readFields(req.body, book);
       const cfg = numberingConfig();
+      const affix = readAffixes(req.body, cfg);
 
       // Chỉ đúng những khóa mà câu INSERT khai báo: better-sqlite3 từ chối
       // tham số có tên lạ.
@@ -399,13 +397,12 @@ router.post(
       const run = db.transaction(() => {
         let allocated = null;
         if (issue) {
-          allocated = numbering.allocate(cfg, f.year);
+          allocated = numbering.allocate(cfg, f.year, affix.prefix, affix.suffix);
           base.so_van_ban = allocated.soVanBan;
           base.seq = allocated.seq;
           base.seq_scope = allocated.scope;
         } else {
-          base.so_van_ban = readSoVanBan(req.body, book);
-          ensureNumberFree(cfg, book, f.year, base.so_van_ban);
+          base.so_van_ban = readSoVanBan(req.body);
         }
         base.search_text = searchTextFor(base);
         const info = insertStmt.run(base);
@@ -416,12 +413,6 @@ router.post(
       try {
         out = run();
       } catch (err) {
-        if (isDuplicateNumber(err)) {
-          throw badRequest(
-            'Số “' + base.so_van_ban + '” đã có trong sổ văn bản đi năm ' + f.year + '.',
-            'duplicate'
-          );
-        }
         if (isDuplicateSeq(err)) {
           throw badRequest(
             'Số thứ tự này vừa bị người khác lấy. Bấm lại để nhận số kế tiếp.',
@@ -485,20 +476,19 @@ router.put(
       }
 
       const f = readFields(req.body, existing.book);
-      // Số do hệ thống cấp thì giữ nguyên: sửa số đã phát hành là sai nghiệp vụ.
+      // Số của sổ đi giữ nguyên, kể cả hàng cũ ghi tay từ trước 11/09/2026:
+      // sửa số đã phát hành là sai nghiệp vụ, và giờ không còn đường nhập tay
+      // nào để sửa qua. Chỉ số của sổ đến mới nhập lại được — nó là số của cơ
+      // quan gửi, ghi nhầm thì phải sửa được.
       const soVanBan =
-        existing.seq != null ? existing.so_van_ban : readSoVanBan(req.body, existing.book);
-      const cfg = numberingConfig();
-      if (existing.seq == null) {
-        ensureNumberFree(cfg, existing.book, f.year, soVanBan, id);
-      }
+        existing.book === 'di' ? existing.so_van_ban : readSoVanBan(req.body);
 
       const dropFile = String((req.body && req.body.dropFile) || '') === '1';
       const oldPath = existing.file_path;
       const next2 = {
         id,
         so_van_ban: soVanBan,
-        year: existing.seq != null ? existing.year : f.year,
+        year: existing.book === 'di' ? existing.year : f.year,
         ngay_gui: f.ngayGui,
         nguoi_gui: f.nguoiGui,
         ten_van_ban: f.tenVanBan,
@@ -527,10 +517,10 @@ router.put(
            WHERE id = @id`
         ).run(next2);
       } catch (err) {
-        if (isDuplicateNumber(err)) {
+        if (isDuplicateSeq(err)) {
           throw badRequest(
-            'Số “' + soVanBan + '” đã có trong sổ văn bản đi năm ' + next2.year + '.',
-            'duplicate'
+            'Số thứ tự này vừa bị người khác lấy. Mở lại văn bản rồi thử lại.',
+            'duplicate_seq'
           );
         }
         throw err;
@@ -616,9 +606,9 @@ router.post(
           const taker = db
             .prepare(
               `SELECT ten_van_ban FROM documents
-                WHERE book = 'di' AND year = ? AND so_van_ban = ? AND deleted_at IS NULL`
+                WHERE seq_scope = ? AND seq = ? AND deleted_at IS NULL`
             )
-            .get(row.year, row.so_van_ban);
+            .get(row.seq_scope, row.seq);
           // Không đặt tên biến này là `next`: đó là hàm chuyển lỗi của Express
           // ở scope ngoài, và che nó đi thì nhánh bắt lỗi bên dưới câm lặng.
           const issued = numbering.allocate(cfg, row.year);
@@ -654,7 +644,7 @@ router.post(
     } catch (err) {
       // Một văn thư vừa lấy đúng số đó trong lúc lệnh này đang chạy. Transaction
       // đã cuộn lại nên văn bản vẫn nằm ngoài sổ; bấm lại là xong.
-      if (isDuplicateNumber(err) || isDuplicateSeq(err)) {
+      if (isDuplicateSeq(err)) {
         return next(
           badRequest(
             'Số của văn bản này vừa bị người khác lấy mất. Bấm khôi phục lại — hệ thống sẽ cấp số khác.',

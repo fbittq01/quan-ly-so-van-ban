@@ -163,9 +163,8 @@ function describeStartup() {
   console.log('  văn bản     : ' + docs);
   console.log(
     '  mẫu số      : ' +
-    cfg.segments
-      .map((s) => (s.type === 'seq' ? '<số>' : s.type === 'year' ? '<năm>' : s.type === 'yy' ? '<nn>' : s.text))
-      .join('') +
+    cfg.prefix + '<số>' + cfg.suffix +
+    ' (mặc định, người lấy số sửa được)' +
     (cfg.resetYearly ? ' · reset đầu năm' : ' · tăng liên tục')
   );
   if (users === 0) {
