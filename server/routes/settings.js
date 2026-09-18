@@ -1,9 +1,10 @@
 'use strict';
 
 const express = require('express');
-const { db, getSetting, setSetting, DEFAULT_NUMBERING, audit } = require('../db');
+const { db } = require('../db');
 const auth = require('../auth');
 const numbering = require('../numbering');
+const books = require('../books');
 const { badRequest, isIsoDate, strip, intOr } = require('../util');
 
 const router = express.Router();
@@ -12,121 +13,12 @@ const router = express.Router();
 // việc giao diện ẩn tab “Cài đặt” chỉ là cho gọn mắt.
 router.use(auth.requireAuth, auth.requirePasswordSettled, auth.requireRole('admin'));
 
-function currentYear() {
-  return new Date().getFullYear();
-}
-
-/** Ảnh chụp trạng thái lấy số: cấu hình, số kế tiếp, xem trước, bộ đếm. */
-function snapshot() {
-  const stored = getSetting('numbering', DEFAULT_NUMBERING);
-  const cfg = stored.value;
-  const year = currentYear();
-  const scope = numbering.scopeFor(cfg, year);
-
-  const next = numbering.peekNext(cfg, year);
-  const preview = [];
-  for (let k = 0; k < 5; k += 1) {
-    preview.push({
-      offset: k,
-      seq: next.seq + k,
-      soVanBan: numbering.buildNumber(cfg.prefix, next.seq + k, cfg.suffix),
-    });
-  }
-  const nextYearSeq = cfg.resetYearly ? Math.max(1, cfg.start) : next.seq + 5;
-  const nextYear = {
-    year: year + 1,
-    seq: nextYearSeq,
-    soVanBan: numbering.buildNumber(cfg.prefix, nextYearSeq, cfg.suffix),
-  };
-
-  const counterRow = db.prepare(`SELECT next_seq FROM counters WHERE scope = ?`).get(scope);
-  const issued = db
-    .prepare(
-      `SELECT COUNT(*) AS n FROM documents
-        WHERE book = 'di' AND year = ? AND deleted_at IS NULL`
-    )
-    .get(year).n;
-  // Chỉ tính văn bản còn trong sổ: xóa một văn bản là nhả số của nó ra, nên số
-  // đó không còn là "số lớn nhất đã dùng" và không còn là sàn của bộ đếm.
-  const maxSeq = db
-    .prepare(
-      `SELECT COALESCE(MAX(seq), 0) AS m FROM documents
-        WHERE seq_scope = ? AND deleted_at IS NULL`
-    )
-    .get(scope).m;
-
-  return {
-    numbering: cfg,
-    updatedAt: stored.updatedAt,
-    updatedByName: stored.updatedByName,
-    year,
-    scope,
-    next: { seq: next.seq, soVanBan: next.soVanBan, skipped: next.skipped },
-    preview,
-    nextYear,
-    counter: {
-      value: counterRow ? counterRow.next_seq : Math.max(1, cfg.start),
-      issuedThisYear: issued,
-      maxSeqUsed: maxSeq,
-    },
-  };
-}
-
-router.get('/numbering', (req, res) => {
-  res.json(snapshot());
-});
-
-router.put('/numbering', (req, res, next) => {
-  let cfg;
-  try {
-    cfg = numbering.validateNumbering(req.body && req.body.numbering);
-  } catch (err) {
-    return next(err);
-  }
-  const before = getSetting('numbering', DEFAULT_NUMBERING).value;
-  setSetting('numbering', cfg, req.user.id);
-  audit(
-    req.user,
-    'sua_cai_dat_lay_so',
-    'mặc định ' +
-      numbering.buildNumber(before.prefix, 1, before.suffix) +
-      ' → ' +
-      numbering.buildNumber(cfg.prefix, 1, cfg.suffix) +
-      ' · bắt đầu từ ' + cfg.start +
-      ' · reset đầu năm: ' + (cfg.resetYearly ? 'có' : 'không')
-  );
-  return res.json(snapshot());
-});
-
 /**
- * Đặt lại bộ đếm.
- * Trả về số THỰC TẾ sẽ được cấp — nếu giá trị yêu cầu đã bị chiếm bởi văn bản
- * đã ghi trong sổ, hệ thống nhảy tới số trống kế tiếp thay vì cấp trùng.
+ * Ba đường /numbering (đọc cấu hình, lưu cấu hình, đặt lại bộ đếm) đã bỏ ngày
+ * 18/09/2026. Tiền tố, hậu tố, "bắt đầu từ", cách reset và bộ đếm nay là thuộc
+ * tính của TỪNG SỔ, nên chúng sống ở /api/books (routes/books.js) chứ không
+ * còn là một bản cấu hình dùng chung ở đây.
  */
-router.post('/numbering/reset-counter', (req, res, next) => {
-  const cfg = getSetting('numbering', DEFAULT_NUMBERING).value;
-  const year = currentYear();
-  let effective;
-  try {
-    effective = numbering.resetCounter(cfg, year, req.body && req.body.nextSeq);
-  } catch (err) {
-    return next(err);
-  }
-  audit(
-    req.user,
-    'dat_lai_bo_dem',
-    'yêu cầu ' + req.body.nextSeq + ' · thực tế sẽ cấp ' + effective.soVanBan +
-      (effective.clamped ? ' · bị chặn, bộ đếm không lùi dưới ' + effective.floor : '')
-  );
-  return res.json({
-    ...snapshot(),
-    requestedSeq: effective.requested,
-    effectiveSeq: effective.seq,
-    adjusted: effective.skipped,
-    clamped: effective.clamped,
-    floor: effective.floor,
-  });
-});
 
 const AUDIT_PAGE = 200;
 
@@ -180,7 +72,7 @@ router.get('/audit', (req, res, next) => {
     .prepare(
       `SELECT a.id, a.at, a.username, a.action, a.detail, a.doc_id,
               d.id AS doc_exists, d.book, d.so_van_ban, d.ten_van_ban, d.ngay_gui,
-              d.file_name, d.seq, d.seq_scope, d.year, d.deleted_at,
+              d.file_name, d.seq, d.seq_scope, d.year, d.deleted_at, d.book_id,
               du.full_name AS deleted_by_name
          FROM audit_log a
          LEFT JOIN documents d ON d.id = a.doc_id
@@ -215,7 +107,8 @@ router.get('/audit', (req, res, next) => {
   // Số của văn bản đã xóa được nhả ra, nên tới lúc khôi phục nó có thể đã thuộc
   // về văn bản khác. Tính sẵn cho từng dòng để hộp thoại khôi phục nói trước
   // được sẽ giữ số cũ hay phải cấp số mới, thay vì để quản trị biết sau khi bấm.
-  const cfg = getSetting('numbering', DEFAULT_NUMBERING).value;
+  // Số mới phải lấy từ bộ đếm CỦA SỔ chứa văn bản đó, nên phải tra sổ theo hàng.
+  const bookById = new Map(books.all().map((b) => [b.id, b]));
 
   const entries = page.map((r) => {
     const e = {
@@ -233,7 +126,8 @@ router.get('/audit', (req, res, next) => {
     } else if (!r.deleted_at || latestDelete.get(r.doc_id) !== r.id) {
       e.restore = { state: 'restored' };
     } else {
-      const free = numbering.oldNumberFree(cfg, {
+      const docBook = bookById.get(r.book_id) || null;
+      const free = numbering.oldNumberFree({
         id: r.doc_exists,
         book: r.book,
         year: r.year,
@@ -246,6 +140,8 @@ router.get('/audit', (req, res, next) => {
         doc: {
           id: r.doc_exists,
           book: r.book,
+          bookId: r.book_id,
+          bookName: docBook ? docBook.name : null,
           soVanBan: r.so_van_ban,
           tenVanBan: r.ten_van_ban,
           ngayGui: r.ngay_gui,
@@ -254,7 +150,7 @@ router.get('/audit', (req, res, next) => {
           deletedByName: r.deleted_by_name || null,
           // Số cũ còn trả lại được không, và nếu không thì sẽ cấp số nào.
           numberFree: free,
-          nextNumber: free ? null : numbering.peekNext(cfg, r.year).soVanBan,
+          nextNumber: free || !docBook ? null : numbering.peekNext(docBook, r.year).soVanBan,
         },
       };
     }
@@ -268,4 +164,4 @@ router.get('/audit', (req, res, next) => {
   res.json({ entries, hasMore, total, restorable, limit, offset });
 });
 
-module.exports = { router, snapshot };
+module.exports = { router };

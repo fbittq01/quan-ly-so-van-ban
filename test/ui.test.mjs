@@ -202,10 +202,14 @@ const vt = await session('vanthu');
   await page.waitForSelector('.topbar');
   check('vào được sổ', await page.locator('.brand-name').isVisible());
   check('hiện tên và vai trò', (await page.locator('.topbar-right').innerText()).includes('Nhân viên'));
-  check('KHÔNG có tab Cài đặt', (await page.locator('.tab:has-text("Cài đặt")').count()) === 0);
-  check('có nút lấy số', await page.locator('button:has-text("Lấy số gửi văn bản đi")').isVisible());
-  const nut = await page.locator('button:has-text("Lấy số gửi văn bản đi")').innerText();
-  check('nút lấy số có số dự kiến, không 0 ở đầu', /\d+\/\d{4}/.test(nut) && !/\s0\d/.test(nut), nut);
+  check('KHÔNG có mục Cài đặt', (await page.locator('.booknav-item:has-text("Cài đặt")').count()) === 0);
+  check('cột sổ liệt kê cả ba sổ', (await page.locator('.booknav-item').count()) === 3,
+    String(await page.locator('.booknav-item').count()));
+  check('mở sẵn sổ đến', (await page.locator('.booknav-item.active').innerText()).includes('Văn bản đến'));
+  // Sổ đến không cấp số: nút ở đây là ghi tay, nút lấy số chỉ có ở sổ đi.
+  check('sổ đến có nút ghi tay', await page.locator('button:has-text("+ Ghi văn bản đến")').isVisible());
+  check('sổ đến KHÔNG có nút lấy số',
+    (await page.locator('button:has-text("Lấy số ở sổ này")').count()) === 0);
   check('bảng sổ đến có dữ liệu', (await page.locator('tbody tr').count()) > 0);
   await page.screenshot({ path: SHOT + '/03-so-van-ban-den.png', fullPage: true });
 
@@ -216,8 +220,12 @@ const vt = await session('vanthu');
   await page.fill('input[type="search"]', '');
   await page.waitForTimeout(600);
 
-  // lấy số
-  await page.click('button:has-text("Lấy số gửi văn bản đi")');
+  // lấy số — phải sang sổ đi trước, nút lấy số gắn với sổ đang mở
+  await page.click('.booknav-item:has-text("Văn bản đi"):not(:has-text("Đảng ủy"))');
+  await page.waitForSelector('button:has-text("Lấy số ở sổ này")');
+  const nut = await page.locator('.nextbox-num').innerText();
+  check('đầu sổ hiện số kế tiếp, không 0 ở đầu', /^\d+\/\d{4}$/.test(nut), nut);
+  await page.click('button:has-text("Lấy số ở sổ này")');
   await page.waitForSelector('.dialog');
   const duKien = await page.locator('.issued-value').innerText();
   check('hộp thoại hiện số dự kiến', /\d+\/\d{4}/.test(duKien), duKien);
@@ -235,7 +243,9 @@ const vt = await session('vanthu');
   const t = await page.locator('.toast').first().innerText();
   check('cấp số xong và báo lại', t.includes('Đã cấp số ' + duKien), t);
   await page.waitForSelector('.dialog', { state: 'detached' });
-  check('chuyển sang tab văn bản đi', (await page.locator('.tab.active').innerText()).includes('Văn bản đi'));
+  check('vẫn ở sổ vừa lấy số', (await page.locator('.booknav-item.active').innerText()).includes('Văn bản đi'));
+  // Bảng chỉ vẽ lại sau khi làm mới xong, nên phải chờ dòng chứ không đếm ngay.
+  await page.waitForSelector('tbody tr:has-text("Công văn thử qua giao diện")');
   check('văn bản mới có trong sổ', (await page.locator('tbody tr:has-text("Công văn thử qua giao diện")').count()) === 1);
   const soMoi = await page.locator('tbody tr:has-text("Công văn thử qua giao diện") .cell-num').innerText();
   check('số ghi trong sổ khớp số đã cấp', soMoi === duKien, soMoi + ' vs ' + duKien);
@@ -246,7 +256,7 @@ const vt = await session('vanthu');
     (await page.locator('button:has-text("+ Ghi thủ công")').count()) === 0);
 
   // tiền tố / hậu tố người lấy số tự đặt cho một lượt
-  await page.click('button:has-text("Lấy số gửi văn bản đi")');
+  await page.click('button:has-text("Lấy số ở sổ này")');
   await page.waitForSelector('.dialog');
   const soThuTu = (await page.locator('.dialog .seq-locked').innerText()).trim();
   await page.fill('.dialog input[data-fk="doc-prefix"]', 'CV-');
@@ -268,14 +278,17 @@ const vt = await session('vanthu');
   await page.waitForSelector('.dialog', { state: 'detached' });
 
   // người khác lấy mất số trong lúc mình đang nhập -> phải popup báo, không toast
-  await page.click('button:has-text("Lấy số gửi văn bản đi")');
+  await page.click('button:has-text("Lấy số ở sổ này")');
   await page.waitForSelector('.dialog');
   const duKien2 = await page.locator('.issued-value').innerText();
 
   const { page: pKhac } = await session('lay-so-truoc');
   await login(pKhac, 'admin', 'admin@2026');
   await pKhac.waitForSelector('.topbar');
-  await pKhac.click('button:has-text("Lấy số gửi văn bản đi")');
+  // Phiên mới mở ở sổ đến; phải sang đúng sổ đi kia mới giành được số.
+  await pKhac.click('.booknav-item:has-text("Văn bản đi"):not(:has-text("Đảng ủy"))');
+  await pKhac.waitForSelector('button:has-text("Lấy số ở sổ này")');
+  await pKhac.click('button:has-text("Lấy số ở sổ này")');
   await pKhac.waitForSelector('.issued-value');
   check('hai người cùng thấy một số dự kiến',
     (await pKhac.locator('.issued-value').innerText()) === duKien2, duKien2);
@@ -309,8 +322,8 @@ console.log('\n== vai trò Chỉ xem ==');
   const { page } = await session('xem');
   await login(page, 'minhtv', 'chixem@123');
   await page.waitForSelector('.topbar');
-  check('KHÔNG có tab Cài đặt', (await page.locator('.tab:has-text("Cài đặt")').count()) === 0);
-  check('KHÔNG có nút lấy số', (await page.locator('button:has-text("Lấy số gửi văn bản đi")').count()) === 0);
+  check('KHÔNG có tab Cài đặt', (await page.locator('.booknav-item:has-text("Cài đặt")').count()) === 0);
+  check('KHÔNG có nút lấy số', (await page.locator('button:has-text("Lấy số ở sổ này")').count()) === 0);
   check('KHÔNG có nút ghi sổ', (await page.locator('button:has-text("Ghi văn bản đến")').count()) === 0);
   check('KHÔNG có nút Sửa/Xóa trên dòng', (await page.locator('tbody button:has-text("Sửa")').count()) === 0);
   check('nói rõ vai trò chỉ xem', await page.locator('text=Vai trò Chỉ xem').isVisible());
@@ -318,104 +331,121 @@ console.log('\n== vai trò Chỉ xem ==');
 }
 
 // ------------------------------------------------------------------ quản trị
-console.log('\n== vai trò Quản trị · cài đặt lấy số ==');
+console.log('\n== vai trò Quản trị · quản lý sổ ==');
 const ad = await session('admin');
 {
   const page = ad.page;
   await login(page, 'admin', 'admin@2026');
   await page.waitForSelector('.topbar');
-  check('CÓ tab Cài đặt', (await page.locator('.tab:has-text("Cài đặt")').count()) === 1);
-  await page.click('.tab:has-text("Cài đặt")');
-  await page.waitForSelector('.affix-row');
-  check('hiện nhãn chỉ quản trị', await page.locator('.admin-chip').isVisible());
-  check('có đủ ô tiền tố và hậu tố',
-    (await page.locator('input[data-fk="cfg-prefix"]').count()) === 1 &&
-    (await page.locator('input[data-fk="cfg-suffix"]').count()) === 1);
-  check('ô số thứ tự bị khóa, không gõ được',
-    (await page.locator('.affix-row .seq-locked').count()) === 1 &&
-    (await page.locator('.affix-row input').count()) === 2);
-  check('quy tắc không đệm 0 là cố định', (await page.locator('.rule').innerText()).includes('Cố định'));
-  check('không còn bộ ghép thành phần', (await page.locator('.segment').count()) === 0);
+  check('CÓ mục Cài đặt', (await page.locator('.booknav-item:has-text("Cài đặt")').count()) === 1);
+  await page.click('.booknav-item:has-text("Cài đặt")');
+  await page.waitForSelector('.books-head');
+  check('mở thẳng vào mục Sổ', (await page.locator('.subtab.active').innerText()).trim() === 'Sổ');
+  check('KHÔNG còn mục Lấy số riêng',
+    (await page.locator('.subtab:has-text("Lấy số")').count()) === 0);
+  check('bảng sổ liệt kê ba sổ', (await page.locator('tbody tr').count()) === 3,
+    String(await page.locator('tbody tr').count()));
 
-  const truoc = await page.locator('.next-number-value').innerText();
-  check('có số kế tiếp', /^\d+\/\d{4}$/.test(truoc), truoc);
-  check('xem trước có 6 dòng', (await page.locator('.section:has-text("3 · Xem trước") tbody tr').count()) === 6);
-  await page.screenshot({ path: SHOT + '/07-cai-dat-lay-so.png', fullPage: true });
+  // Mỗi sổ đi một số kế tiếp riêng, khác hẳn nhau — điểm cốt lõi của tính năng.
+  const soKeTiep = await page.locator('tbody .cell-num').allInnerTexts();
+  check('mỗi sổ một số kế tiếp riêng',
+    soKeTiep[0] === '—' && soKeTiep[1] !== soKeTiep[2] && /-CV\/ĐU$/.test(soKeTiep[2]),
+    JSON.stringify(soKeTiep));
+  check('sổ đã có văn bản thì không xóa được',
+    (await page.locator('tbody tr:has-text("Văn bản đi") .btn-link.disabled').count()) >= 1);
+  await page.screenshot({ path: SHOT + '/07-cai-dat-so.png', fullPage: true });
 
-  // đổi hậu tố bằng tay: số kế tiếp đổi theo ngay
-  await page.fill('input[data-fk="cfg-suffix"]', '-CV');
+  // tạo sổ mới
+  await page.click('button:has-text("+ Tạo sổ mới")');
+  await page.waitForSelector('.book-form');
+  await page.fill('input[data-fk="book-name"]', 'Sổ đi — Công đoàn');
+  await page.fill('input[data-fk="book-prefix"]', 'CĐ-');
+  await page.fill('input[data-fk="book-suffix"]', '/CĐ');
+  await page.fill('input[data-fk="book-start"]', '5');
   await page.waitForTimeout(150);
-  check('trạng thái báo chưa lưu', (await page.locator('.savebar-status').innerText()).includes('chưa lưu'));
-  check('số kế tiếp đổi theo hậu tố vừa gõ',
-    /^\d+-CV$/.test(await page.locator('.next-number-value').innerText()),
-    await page.locator('.next-number-value').innerText());
-  await page.screenshot({ path: SHOT + '/08-doi-hau-to.png' });
+  check('xem trước số đầu tiên đổi theo ô vừa gõ',
+    (await page.locator('.book-preview-num').innerText()) === 'CĐ-5/CĐ',
+    await page.locator('.book-preview-num').innerText());
+  await page.screenshot({ path: SHOT + '/08-tao-so.png', fullPage: true });
+  await page.click('.book-form button:has-text("Tạo sổ")');
+  await page.waitForSelector('.note-flash');
+  check('tạo sổ xong có báo lại', (await page.locator('.note-flash').innerText()).includes('Công đoàn'));
+  check('bảng sổ có bốn dòng', (await page.locator('tbody tr').count()) === 4,
+    String(await page.locator('tbody tr').count()));
+  check('sổ mới hiện ngay ở cột bên trái',
+    (await page.locator('.booknav-item:has-text("Công đoàn")').count()) === 1);
 
-  await page.click('button:has-text("Hủy thay đổi")');
-  await page.waitForTimeout(200);
-  check('hủy thay đổi trả lại số cũ',
-    (await page.locator('.next-number-value').innerText()) === truoc, truoc);
+  // sổ rỗng thì xóa được
+  await page.click('tbody tr:has-text("Công đoàn") button:has-text("Xóa")');
+  await page.waitForSelector('.dialog');
+  check('hộp thoại xóa nói rõ sổ chưa phát hành số nào',
+    (await page.locator('.confirm-text').innerText()).includes('chưa số nào được phát hành'));
+  await page.click('.dialog button:has-text("Xóa sổ")');
+  await page.waitForTimeout(600);
+  check('xóa xong còn ba sổ', (await page.locator('tbody tr').count()) === 3,
+    String(await page.locator('tbody tr').count()));
 
-  // đổi bằng mẫu có sẵn rồi lưu
-  await page.click('.preset:has-text("-TB")');
+  // sửa hậu tố của một sổ đã có văn bản
+  await page.click('tbody tr:has-text("Đảng ủy") button:has-text("Sửa")');
+  await page.waitForSelector('.book-form');
+  check('sổ đã có văn bản thì khóa loại sổ',
+    await page.locator('.book-form .toggle button:has-text("Văn bản đến")').isDisabled());
+  await page.fill('input[data-fk="book-suffix"]', '-CV/DU2');
   await page.waitForTimeout(150);
-  await page.click('button:has-text("Lưu cài đặt")');
-  await page.waitForSelector('.toast');
-  const tt = await page.locator('.toast').first().innerText();
-  check('lưu cài đặt thành công', tt.includes('Đã lưu cài đặt'), tt);
-  check('số kế tiếp theo mẫu mới', /^\d+-TB$/.test(await page.locator('.next-number-value').innerText()),
-    await page.locator('.next-number-value').innerText());
-  await page.screenshot({ path: SHOT + '/09-doi-mau-so.png', fullPage: true });
+  check('xem trước đổi theo hậu tố mới',
+    /-CV\/DU2$/.test(await page.locator('.book-preview-num').innerText()),
+    await page.locator('.book-preview-num').innerText());
+  await page.click('.book-form button:has-text("Lưu sổ")');
+  await page.waitForSelector('.note-flash');
+  check('lưu xong số kế tiếp của sổ đó đổi theo',
+    /-CV\/DU2$/.test(await page.locator('tbody tr:has-text("Đảng ủy") .cell-num').innerText()),
+    await page.locator('tbody tr:has-text("Đảng ủy") .cell-num').innerText());
 
-  // trả về mặc định <số>/<năm> bằng nút chèn năm
-  await page.click('button:has-text("Chèn năm")');
-  await page.fill('input[data-fk="cfg-prefix"]', '');
-  await page.waitForTimeout(150);
-  await page.click('button:has-text("Lưu cài đặt")');
-  await page.waitForTimeout(500);
-  check('trả lại mặc định <số>/<năm>', /^\d+\/2026$/.test(await page.locator('.next-number-value').innerText()),
-    await page.locator('.next-number-value').innerText());
-
-  // đặt lại bộ đếm
-  await page.click('button:has-text("Đặt lại bộ đếm")');
-  await page.waitForSelector('.danger-zone');
-  check('vùng nguy hiểm có cảnh báo', (await page.locator('.danger-zone p').innerText()).includes('không sửa số của văn bản đã ghi'));
-  await page.fill('.danger-zone input[type="number"]', '5');
-  await page.click('button:has-text("Xác nhận đặt lại")');
-  await page.waitForTimeout(500);
-  const tr = await page.locator('.toast').last().innerText();
-  check('đặt lại về số đã dùng thì bị chặn, không lùi', /không lùi được/i.test(tr), tr);
-  const conLai = (await page.locator('.next-number-value').innerText()).trim();
-  check('bộ đếm không tụt xuống số vừa nhập', conLai !== '5/2026', conLai);
-  await page.screenshot({ path: SHOT + '/10-dat-lai-bo-dem.png' });
+  // ngừng dùng rồi dùng lại
+  await page.click('tbody tr:has-text("Đảng ủy") button:has-text("Ngừng dùng")');
+  await page.waitForSelector('.dialog');
+  check('hộp thoại nói văn bản vẫn còn',
+    (await page.locator('.confirm-text').innerText()).includes('vẫn còn nguyên'));
+  await page.click('.dialog button:has-text("Ngừng dùng")');
+  await page.waitForTimeout(600);
+  check('sổ chuyển sang trạng thái ngừng dùng',
+    (await page.locator('tbody tr:has-text("Đảng ủy")').innerText()).includes('Ngừng dùng'));
+  check('cột bên trái gom sổ đó vào nhóm Ngừng dùng',
+    (await page.locator('.booknav-group:has-text("Ngừng dùng")').count()) === 1);
+  await page.screenshot({ path: SHOT + '/09-ngung-dung-so.png', fullPage: true });
+  await page.click('tbody tr:has-text("Đảng ủy") button:has-text("Dùng lại")');
+  await page.waitForTimeout(600);
+  check('dùng lại được',
+    (await page.locator('tbody tr:has-text("Đảng ủy")').innerText()).includes('Đang dùng'));
 }
 
 console.log('\n== gõ rồi bấm ngay, và giữ focus khi gõ ==');
 {
   const page = ad.page;
-  // Ô hậu tố: gõ nhiều ký tự liền phải không mất focus giữa chừng.
-  await page.click('.subtab:has-text("Lấy số")');
-  await page.waitForSelector('.affix-row');
-  await page.locator('input[data-fk="cfg-suffix"]').click();
+  // Ô hậu tố: gõ nhiều ký tự liền phải không mất focus giữa chừng. Form này vẽ
+  // lại sau mỗi phím để cập nhật ô xem trước, nên đây là chỗ dễ mất focus nhất.
+  await page.click('tbody tr:has-text("Đảng ủy") button:has-text("Sửa")');
+  await page.waitForSelector('.book-form');
+  const truoc = await page.locator('input[data-fk="book-suffix"]').inputValue();
+  await page.locator('input[data-fk="book-suffix"]').click();
+  await page.keyboard.press('End');
   await page.keyboard.type('-ABC');
-  const val = await page.locator('input[data-fk="cfg-suffix"]').inputValue();
-  check('gõ liên tục không mất ký tự', val === '/2026-ABC', JSON.stringify(val));
+  const val = await page.locator('input[data-fk="book-suffix"]').inputValue();
+  check('gõ liên tục không mất ký tự', val === truoc + '-ABC', JSON.stringify(val));
   const stillFocused = await page.evaluate(() => document.activeElement?.dataset?.fk || null);
-  check('ô vẫn còn focus sau khi gõ', stillFocused === 'cfg-suffix', String(stillFocused));
+  check('ô vẫn còn focus sau khi gõ', stillFocused === 'book-suffix', String(stillFocused));
   const caret = await page.evaluate(() => document.activeElement.selectionStart);
-  check('con trỏ ở cuối chuỗi vừa gõ', caret === 9, String(caret));
-  await page.click('button:has-text("Hủy thay đổi")');
-  await page.waitForTimeout(200);
+  check('con trỏ ở cuối chuỗi vừa gõ', caret === val.length, String(caret));
 
-  // Gõ vào ô số rồi bấm nút ngay: click PHẢI ăn ngay lần đầu.
-  await page.click('button:has-text("Đặt lại bộ đếm")');
-  await page.waitForSelector('.danger-zone');
-  await page.locator('.danger-zone input[type="number"]').fill('3');
-  await page.click('button:has-text("Xác nhận đặt lại")');
-  await page.waitForTimeout(800);
-  const ts = await page.locator('.toast').allInnerTexts();
-  check('gõ rồi bấm ngay: click ăn lần đầu', ts.some((t) => t.includes('bộ đếm') || t.includes('bị chiếm')),
-    JSON.stringify(ts));
+  // Gõ vào ô bộ đếm rồi bấm Lưu ngay: click PHẢI ăn ngay lần đầu, và bộ đếm
+  // không được lùi qua số đang có văn bản dùng.
+  await page.locator('input[data-fk="book-suffix"]').fill(truoc);
+  await page.locator('input[data-fk="book-counter"]').fill('1');
+  await page.click('.book-form button:has-text("Lưu sổ")');
+  await page.waitForSelector('.note-flash');
+  const bao = await page.locator('.note-flash').innerText();
+  check('gõ rồi bấm ngay: click ăn lần đầu', bao.includes('Đã lưu sổ'), bao);
+  check('bộ đếm không lùi xuống số đang dùng', bao.includes('không lùi được'), bao);
 }
 
 console.log('\n== vai trò Quản trị · tài khoản ==');
@@ -485,7 +515,9 @@ console.log('\n== sổ theo năm và nhật ký ==');
 {
   const page = ad.page;
   await page.click('.subtab:has-text("Sổ theo năm")');
-  await page.waitForSelector('table');
+  // Đợi đúng bảng của trang này: mục Sổ vừa rời khỏi cũng có <table>, nên chờ
+  // 'table' chung sẽ trả về ngay trong lúc bảng cũ còn trên màn hình.
+  await page.waitForSelector('button:has-text("Mở sổ")');
   check('bảng sổ theo năm có 2025 và 2026', (await page.locator('tbody').innerText()).includes('2025'));
   await page.click('tbody tr:has-text("2025") button:has-text("Mở sổ")');
   await page.waitForSelector('.filters');
@@ -493,12 +525,13 @@ console.log('\n== sổ theo năm và nhật ký ==');
   check('có cảnh báo đang xem sổ năm khác', await page.locator('text=Số cấp mới vẫn thuộc sổ').isVisible());
   await page.screenshot({ path: SHOT + '/14-so-2025.png', fullPage: true });
 
-  await page.click('.tab:has-text("Cài đặt")');
+  await page.click('.booknav-item:has-text("Cài đặt")');
   await page.waitForSelector('.subtabs');
   await page.click('.subtab:has-text("Nhật ký")');
   await page.waitForSelector('.audit-list');
   const nk = await page.locator('.audit-list').innerText();
-  check('nhật ký ghi việc sửa cài đặt', nk.includes('Sửa cài đặt lấy số'));
+  check('nhật ký ghi việc sửa sổ', nk.includes('Sửa sổ'));
+  check('nhật ký ghi việc tạo và xóa sổ', nk.includes('Tạo sổ') && nk.includes('Xóa sổ'));
   check('nhật ký ghi việc đặt lại bộ đếm', nk.includes('Đặt lại bộ đếm'));
   check('nhật ký ghi việc cấp số', nk.includes('Cấp số văn bản đi'));
   check('nhật ký ghi ai làm', nk.includes('admin') && nk.includes('hant'));
@@ -510,7 +543,7 @@ console.log('\n== xóa rồi khôi phục từ nhật ký ==');
   const page = ad.page;
 
   // Xóa một văn bản đến khỏi sổ, rồi khôi phục lại từ trang Nhật ký.
-  await page.click('.tab:has-text("Văn bản đến")');
+  await page.click('.booknav-item:has-text("Văn bản đến")');
   await page.waitForSelector('tbody tr');
   await page.waitForTimeout(300);
 
@@ -533,7 +566,7 @@ console.log('\n== xóa rồi khôi phục từ nhật ký ==');
   const sauKhiXoa = await page.locator('tbody').innerText();
   check('văn bản đã ra khỏi sổ', !sauKhiXoa.includes(soVanBan), soVanBan);
 
-  await page.click('.tab:has-text("Cài đặt")');
+  await page.click('.booknav-item:has-text("Cài đặt")');
   await page.waitForSelector('.subtabs');
   await page.click('.subtab:has-text("Nhật ký")');
   await page.waitForSelector('.audit-list');
@@ -576,14 +609,14 @@ console.log('\n== xóa rồi khôi phục từ nhật ký ==');
   check('dòng xóa đổi thành đã khôi phục',
     (await page.locator('.restore-box:has-text("Đã khôi phục")').count()) >= 1);
 
-  await page.click('.tab:has-text("Văn bản đến")');
+  await page.click('.booknav-item:has-text("Văn bản đến")');
   await page.waitForSelector('tbody tr');
   await page.waitForTimeout(300);
   const troLai = await page.locator('tbody').innerText();
   check('văn bản trở lại sổ với đúng số cũ', troLai.includes(soVanBan), soVanBan);
 
   // Trả trang về Cài đặt cho các phần kiểm thử sau.
-  await page.click('.tab:has-text("Cài đặt")');
+  await page.click('.booknav-item:has-text("Cài đặt")');
   await page.waitForSelector('.subtabs');
 }
 
@@ -672,8 +705,10 @@ console.log('\n== đính kèm tệp ==');
   const dl = await page.request.get(B + (await row.locator('.cell-file a').getAttribute('href')));
   check('tải lại được tệp vừa đính kèm', dl.ok() && (await dl.text()).includes('%PDF-1.4'));
 
-  // --- sổ đi: lấy số kèm tệp
-  await page.click('button:has-text("Lấy số gửi văn bản đi")');
+  // --- sổ đi: lấy số kèm tệp (nút lấy số gắn với sổ đang mở)
+  await page.click('.booknav-item:has-text("Văn bản đi"):not(:has-text("Đảng ủy"))');
+  await page.waitForSelector('button:has-text("Lấy số ở sổ này")');
+  await page.click('button:has-text("Lấy số ở sổ này")');
   await page.waitForSelector('.file-drop');
   const [ch2] = await Promise.all([
     page.waitForEvent('filechooser'),
@@ -689,7 +724,7 @@ console.log('\n== đính kèm tệp ==');
     (await page.locator('tr:has-text("Công văn đi có tệp")').innerText()).includes('quyet-dinh.pdf'));
 
   // --- sửa: thay tệp rồi bỏ tệp
-  await page.click('.tabs button:has-text("Văn bản đến")');
+  await page.click('.booknav-item:has-text("Văn bản đến")');
   await page.locator('tr:has-text("888/UBND-VP") button:has-text("Sửa")').click();
   await page.waitForSelector('.file-drop');
   check('mở sửa thì thấy tệp đang có',

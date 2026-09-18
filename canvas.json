@@ -89,6 +89,26 @@
       "page": "page-3",
       "title": "Thùng rác (tùy chọn)",
       "is_interactive": true
+    },
+    {
+      "file": "NhieuSo.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1080,
+      "page": "page-4",
+      "title": "Ứng dụng — nhiều sổ, cột trái",
+      "is_interactive": true
+    },
+    {
+      "file": "CaiDatSo.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 1180,
+      "h": 1060,
+      "page": "page-4",
+      "title": "Cài đặt → Sổ",
+      "is_interactive": true
     }
   ],
   "annotations": [
@@ -147,11 +167,35 @@
       "w": 440,
       "page": "page-3",
       "text": "Giai đoạn 5 trong plan — chưa quyết làm hay không.\n\nĐây là chỗ duy nhất giải phóng đĩa: xóa mềm giữ file đính kèm lại mãi.\n\nQuy tắc “bộ đếm không bao giờ lùi”: xóa vĩnh viễn KHÔNG xóa hẳn hàng, mà để lại một dòng trống giữ chỗ số — nội dung và file mất, số thì giữ mãi. Nhờ vậy không có đường nào cấp lại số đã phát hành, kể cả nhập tay.\n\n“Xóa vĩnh viễn” là hành động thật sự không hoàn lại được, nên nó có hộp thoại đỏ riêng."
+    },
+    {
+      "id": "multibook-note",
+      "x": 0,
+      "y": -320,
+      "w": 560,
+      "page": "page-4",
+      "text": "Sổ thôi là hằng số 'den' | 'di' trong mã, trở thành DỮ LIỆU: mỗi sổ có tên, loại (đến/đi) và — nếu là sổ đi — bộ đếm cùng tiền tố/hậu tố mặc định của riêng nó.\n\nCột trái thay thanh tab ngang: nhóm theo Sổ đến / Sổ đi, mỗi dòng kèm số văn bản. Thêm sổ thứ tư, thứ năm không phải sửa lại bố cục.\n\nBấm thử: đổi vai trò ở góc phải trên để xem cột trái và các nút đổi theo quyền; chọn từng sổ để thấy 'Số kế tiếp' đổi theo bộ đếm riêng; gõ 'bao cao' vào ô tìm kiếm để thấy gợi ý bắc cầu sang sổ khác."
+    },
+    {
+      "id": "books-scope-note",
+      "x": 0,
+      "y": 1130,
+      "w": 560,
+      "page": "page-4",
+      "text": "Điều KHÔNG đổi:\n• Phân quyền vẫn theo vai trò toàn hệ thống — không gán sổ cho từng người.\n• Số thứ tự vẫn tăng đều, không đệm 0; tiền tố/hậu tố vẫn sửa được ở từng lần lấy số —\n  chỉ khác là giá trị điền sẵn nay lấy từ sổ đang đứng, không còn từ một cấu hình chung.\n• Xóa vẫn là nhả số, trong phạm vi bộ đếm của chính sổ đó.\n\nHai sổ đi không bao giờ đụng số của nhau: phạm vi đếm nay là (sổ, năm) chứ không còn chỉ là năm."
+    },
+    {
+      "id": "book-admin-note",
+      "x": 1560,
+      "y": -320,
+      "w": 560,
+      "page": "page-4",
+      "text": "Mục 'Sổ' mới trong Cài đặt, chỉ quản trị thấy. Nó THAY THẾ mục 'Lấy số' cũ: tiền tố, hậu tố, 'bắt đầu từ' và bộ đếm không còn là cấu hình chung một bản, mà là thuộc tính của từng sổ.\n\nXem cột 'Số kế tiếp': 88/2026 · 13-CV/ĐU · CĐ-10/2024 — ba sổ, ba cách đánh số, ba bộ đếm không dính gì nhau.\n\nTạo sổ: tên + loại + cách đánh số. Ô số đầu tiên hiện ngay để thấy trước số sẽ in ra giấy.\n\nSổ đã có văn bản: không xóa được, chỉ NGỪNG DÙNG — biến khỏi cột trái của văn thư, ngưng cấp số, nhưng quản trị vẫn tra cứu và khôi phục được. Xóa sổ đồng nghĩa xóa dấu vết số đã phát hành, nên chỉ sổ rỗng mới xóa.\n\nBấm thử: 'Tạo sổ mới', rồi Sửa / Ngừng dùng / Dùng lại trên sổ Công đoàn."
     }
   ],
   "launch": {
     "view": "canvas",
-    "page": "page-2"
+    "page": "page-4"
   },
   "pages": [
     {
@@ -165,6 +209,10 @@
     {
       "id": "page-3",
       "name": "Khôi phục văn bản"
+    },
+    {
+      "id": "page-4",
+      "name": "Nhiều sổ"
     }
   ]
 }

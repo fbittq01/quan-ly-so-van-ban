@@ -45,17 +45,25 @@ await login('vanthu', 'hant', 'vanthu@123');
 await login('xem', 'minhtv', 'chixem@123');
 check('ba phiên đăng nhập', jars.size === 3, [...jars.keys()].join(','));
 
+// Sổ là dữ liệu từ 18/09/2026, nên mọi lời gọi phải mang id sổ chứ không còn
+// mang hằng 'den' | 'di'. Lấy id từ chính máy chủ để kiểm thử không gắn cứng.
+const bookList = (await req('admin', 'GET', '/api/books')).data.books;
+const DEN = bookList.find((b) => b.kind === 'den').id;
+const DI = bookList.find((b) => b.name === 'Văn bản đi').id;
+const DU = bookList.find((b) => b.name === 'Văn bản đi — Đảng ủy').id;
+check('ba sổ từ dữ liệu mẫu', !!DEN && !!DI && !!DU, JSON.stringify(bookList.map((b) => b.name)));
+
 console.log('\n== sổ đi chỉ vào sổ bằng đường lấy số ==');
 {
   const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', ngayGui: '2026-06-01', tenVanBan: 'Ghi tay số văn bản đi', soVanBan: '099/2026',
+    book: DI, ngayGui: '2026-06-01', tenVanBan: 'Ghi tay số văn bản đi', soVanBan: '099/2026',
   });
   check('sổ đi: chặn ghi số tay', r.status === 400 && r.data?.code === 'manual_disabled',
     r.status + ' ' + r.data?.error);
 }
 {
   const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'den', ngayGui: '2026-06-02', tenVanBan: 'Số của cơ quan gửi', soVanBan: '05/TTr-ABC',
+    book: DEN, ngayGui: '2026-06-02', tenVanBan: 'Số của cơ quan gửi', soVanBan: '05/TTr-ABC',
   });
   check('sổ đến: 05/TTr-ABC giữ nguyên', r.data?.document?.soVanBan === '05/TTr-ABC',
     r.data?.document?.soVanBan);
@@ -64,15 +72,15 @@ console.log('\n== sổ đi chỉ vào sổ bằng đường lấy số ==');
 console.log('\n== tiền tố/hậu tố đặt riêng từng lượt ==');
 {
   const a = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt có tiền tố riêng',
+    book: DI, mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt có tiền tố riêng',
     prefix: 'CV-', suffix: '/2026/P1',
   });
   const b = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt bỏ trống hai ô',
+    book: DI, mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt bỏ trống hai ô',
     prefix: '', suffix: '',
   });
   const c = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt dùng mặc định của phòng',
+    book: DI, mode: 'issue', ngayGui: '2026-06-03', tenVanBan: 'Lượt dùng mặc định của phòng',
   });
   const sa = a.data?.document, sb = b.data?.document, sc = c.data?.document;
   check('tiền tố/hậu tố của lượt được dùng', sa?.soVanBan === 'CV-' + sa?.seq + '/2026/P1', sa?.soVanBan);
@@ -89,22 +97,22 @@ console.log('\n== trùng số chỉ xét số thứ tự ==');
   // Trước 11/09/2026 ca này bị chặn; giờ chuỗi không còn là thứ được bảo đảm
   // duy nhất, chỉ số thứ tự trong cùng phạm vi đếm mới là.
   const cu = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2025-12-30', tenVanBan: 'Sổ năm cũ, hậu tố 2026',
+    book: DI, mode: 'issue', ngayGui: '2025-12-30', tenVanBan: 'Sổ năm cũ, hậu tố 2026',
     suffix: '/2026',
   });
   check('cấp được số cho sổ năm cũ', cu.status === 201, cu.status + ' ' + cu.data?.error);
   const seqCu = cu.data?.document?.seq;
-  const moi = await req('vanthu', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: seqCu });
-  const same = await req('vanthu', 'GET', '/api/documents?book=di&year=2025');
+  const moi = await req('vanthu', 'POST', `/api/books/${DI}/reset-counter`, { nextSeq: seqCu });
+  const same = await req('vanthu', 'GET', `/api/documents?book=${DI}&year=2025`);
   check('chuỗi số trùng nhau qua hai năm sổ vẫn hợp lệ',
     cu.status === 201 && same.status === 200, String(same.status));
 
   // Số thứ tự đã có chủ thì bộ đếm phải nhảy qua, không cấp trùng.
   const mine = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-04', tenVanBan: 'Giữ chỗ số thứ tự',
+    book: DI, mode: 'issue', ngayGui: '2026-06-04', tenVanBan: 'Giữ chỗ số thứ tự',
   });
   const seqMine = mine.data?.document?.seq;
-  const reset = await req('admin', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: seqMine });
+  const reset = await req('admin', 'POST', `/api/books/${DI}/reset-counter`, { nextSeq: seqMine });
   // Số đó đang có văn bản giữ nên bộ đếm không hạ xuống được: hoặc bị sàn chặn
   // (clamped), hoặc peekNext bò qua (adjusted) — cách nào cũng ra số kế tiếp.
   check('đặt lại bộ đếm về số đã dùng thì nhảy qua',
@@ -112,7 +120,7 @@ console.log('\n== trùng số chỉ xét số thứ tự ==');
       (reset.data?.adjusted === true || reset.data?.clamped === true),
     JSON.stringify({ eff: reset.data?.effectiveSeq, adj: reset.data?.adjusted, clamp: reset.data?.clamped }));
   const after = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-04', tenVanBan: 'Sau khi đặt lại',
+    book: DI, mode: 'issue', ngayGui: '2026-06-04', tenVanBan: 'Sau khi đặt lại',
   });
   check('số cấp sau khi đặt lại không trùng số cũ',
     after.data?.document?.seq === seqMine + 1, String(after.data?.document?.seq));
@@ -121,7 +129,7 @@ console.log('\n== trùng số chỉ xét số thứ tự ==');
 console.log('\n== số của sổ đi không sửa được ==');
 {
   const made = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-05', tenVanBan: 'Sửa thử số đã cấp',
+    book: DI, mode: 'issue', ngayGui: '2026-06-05', tenVanBan: 'Sửa thử số đã cấp',
   });
   const id = made.data?.document?.id;
   const so = made.data?.document?.soVanBan;
@@ -135,16 +143,16 @@ console.log('\n== số của sổ đi không sửa được ==');
 
 console.log('\n== báo khi số cấp lệch số dự kiến ==');
 {
-  const peek = await req('vanthu', 'GET', '/api/documents/next-number');
+  const peek = await req('vanthu', 'GET', `/api/documents/next-number?book=${DI}`);
   const duKien = peek.data?.soVanBan;
 
   // Người khác lấy đúng số đang hiện trên màn hình của mình.
   await req('admin', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Người khác lấy trước',
+    book: DI, mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Người khác lấy trước',
   });
 
   const r = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Bị đẩy sang số kế tiếp',
+    book: DI, mode: 'issue', ngayGui: '2026-06-06', tenVanBan: 'Bị đẩy sang số kế tiếp',
     expectedSoVanBan: duKien,
   });
   check('số bị người khác lấy → báo lệch', r.data?.numberChange?.reason === 'taken',
@@ -154,62 +162,129 @@ console.log('\n== báo khi số cấp lệch số dự kiến ==');
     JSON.stringify(r.data?.numberChange));
 
   // Ghi cho năm sổ khác: số cấp theo sổ năm đó, không theo số dự kiến năm nay.
-  const peek2 = await req('vanthu', 'GET', '/api/documents/next-number');
+  const peek2 = await req('vanthu', 'GET', `/api/documents/next-number?book=${DI}`);
   const r2 = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2025-12-31', tenVanBan: 'Cấp số cho sổ năm cũ',
+    book: DI, mode: 'issue', ngayGui: '2025-12-31', tenVanBan: 'Cấp số cho sổ năm cũ',
     expectedSoVanBan: peek2.data?.soVanBan,
   });
   check('ghi cho năm khác → báo lệch vì năm', r2.data?.numberChange?.reason === 'year',
     JSON.stringify(r2.data?.numberChange));
 
   // Đúng như dự kiến thì không báo gì.
-  const peek3 = await req('vanthu', 'GET', '/api/documents/next-number');
+  const peek3 = await req('vanthu', 'GET', `/api/documents/next-number?book=${DI}`);
   const r3 = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-06-07', tenVanBan: 'Đúng số dự kiến',
+    book: DI, mode: 'issue', ngayGui: '2026-06-07', tenVanBan: 'Đúng số dự kiến',
     expectedSoVanBan: peek3.data?.soVanBan,
   });
   check('số đúng dự kiến thì không báo', r3.data?.numberChange === null && r3.data?.expectedDiffers === false,
     JSON.stringify(r3.data?.numberChange));
 }
 
-console.log('\n== cài đặt lấy số (chỉ quản trị) ==');
+console.log('\n== sổ: quản lý (chỉ quản trị) ==');
 {
-  const r = await req('vanthu', 'PUT', '/api/settings/numbering', {
-    numbering: { prefix: '', suffix: '/2026', start: 1, resetYearly: true },
-  });
-  check('văn thư không sửa được cấu hình', r.status === 403, String(r.status));
+  const r = await req('vanthu', 'POST', '/api/books', { name: 'Sổ của văn thư', kind: 'di' });
+  check('văn thư không tạo được sổ', r.status === 403, String(r.status));
+  const u = await req('vanthu', 'PUT', `/api/books/${DI}`, { name: 'Đổi tên trộm', kind: 'di', start: 1 });
+  check('văn thư không sửa được sổ', u.status === 403, String(u.status));
+  const list = await req('xem', 'GET', '/api/books');
+  check('ai cũng đọc được danh sách sổ', list.status === 200 && list.data.books.length >= 3,
+    String(list.data?.books?.length));
 }
-for (const [name, cfg] of [
-  ['bắt đầu từ 0', { prefix: '', suffix: '', start: 0 }],
-  ['bắt đầu từ chữ', { prefix: '', suffix: '', start: 'một' }],
-  ['thiếu cấu hình', null],
+for (const [name, body] of [
+  ['tên quá ngắn', { name: 'AB', kind: 'di', start: 1 }],
+  ['loại sổ lạ', { name: 'Sổ loại lạ', kind: 'ngang', start: 1 }],
+  ['bắt đầu từ 0', { name: 'Sổ bắt đầu 0', kind: 'di', start: 0 }],
+  ['bắt đầu từ chữ', { name: 'Sổ bắt đầu chữ', kind: 'di', start: 'một' }],
+  ['trùng tên sổ có sẵn', { name: 'Văn bản đi', kind: 'di', start: 1 }],
 ]) {
-  const r = await req('admin', 'PUT', '/api/settings/numbering', { numbering: cfg });
-  check('chặn cấu hình sai: ' + name, r.status === 400, r.status + ' ' + JSON.stringify(r.data));
+  const r = await req('admin', 'POST', '/api/books', body);
+  check('chặn tạo sổ sai: ' + name, r.status === 400, r.status + ' ' + JSON.stringify(r.data));
 }
+
+console.log('\n== hai sổ đi đếm số độc lập ==');
 {
-  const r = await req('admin', 'PUT', '/api/settings/numbering', {
-    numbering: { prefix: 'CV-', suffix: '/26', start: 1, resetYearly: false },
+  // Đây là lý do cả việc tách sổ tồn tại: bộ đếm phải thuộc về từng sổ, nếu
+  // không sổ này lấy số sẽ đẩy số của sổ kia nhảy theo.
+  const before = {
+    di: (await req('admin', 'GET', `/api/documents/next-number?book=${DI}`)).data.seq,
+    du: (await req('admin', 'GET', `/api/documents/next-number?book=${DU}`)).data.seq,
+  };
+  const cap = await req('vanthu', 'POST', '/api/documents', {
+    book: DU, mode: 'issue', ngayGui: '2026-06-08', tenVanBan: 'Lấy số ở sổ Đảng ủy',
   });
-  check('đổi mặc định sang CV-<số>/26',
-    r.status === 200 && /^CV-\d+\/26$/.test(r.data?.next?.soVanBan || ''), r.data?.next?.soVanBan);
-  check('có ghi ai sửa lần cuối', r.data?.updatedByName === 'Lê Quốc Bảo', r.data?.updatedByName);
-  check('xem trước 5 số, không có 0 ở đầu',
-    r.data?.preview?.length === 5 && r.data.preview.every((p) => !/^CV-0/.test(p.soVanBan)),
-    JSON.stringify(r.data?.preview?.map((p) => p.soVanBan)));
-  check('hai ô để trống là hợp lệ',
-    (await req('admin', 'PUT', '/api/settings/numbering', {
-      numbering: { prefix: '', suffix: '', start: 1, resetYearly: true },
-    })).status === 200);
-  // trả lại mặc định ban đầu
-  await req('admin', 'PUT', '/api/settings/numbering', {
-    numbering: { prefix: '', suffix: '/2026', start: 1, resetYearly: true },
+  check('lấy được số ở sổ đi thứ hai', cap.status === 201, cap.status + ' ' + cap.data?.error);
+  check('số của sổ Đảng ủy mang hậu tố riêng', /-CV\/ĐU$/.test(cap.data?.document?.soVanBan || ''),
+    cap.data?.document?.soVanBan);
+  const after = {
+    di: (await req('admin', 'GET', `/api/documents/next-number?book=${DI}`)).data.seq,
+    du: (await req('admin', 'GET', `/api/documents/next-number?book=${DU}`)).data.seq,
+  };
+  check('bộ đếm sổ Đảng ủy tiến lên', after.du === before.du + 1, before.du + ' → ' + after.du);
+  check('bộ đếm sổ đi chính KHÔNG bị kéo theo', after.di === before.di, before.di + ' → ' + after.di);
+
+  // Cùng một số thứ tự tồn tại song song ở hai sổ mà không vi phạm gì.
+  const dup = await req('admin', 'POST', `/api/books/${DU}/reset-counter`, { nextSeq: before.di });
+  const ok = dup.status === 200;
+  check('đặt bộ đếm sổ Đảng ủy về đúng số sổ kia sắp cấp', ok, dup.status + ' ' + dup.data?.error);
+  const a = await req('vanthu', 'POST', '/api/documents', {
+    book: DI, mode: 'issue', ngayGui: '2026-06-08', tenVanBan: 'Số X ở sổ chính quyền',
   });
+  const b = await req('vanthu', 'POST', '/api/documents', {
+    book: DU, mode: 'issue', ngayGui: '2026-06-08', tenVanBan: 'Số X ở sổ Đảng ủy',
+  });
+  check('hai sổ cùng mang một số thứ tự vẫn hợp lệ',
+    a.status === 201 && b.status === 201 && a.data.document.seq === b.data.document.seq,
+    JSON.stringify({ a: a.data?.document?.seq, b: b.data?.document?.seq, sa: a.status, sb: b.status }));
+}
+
+console.log('\n== sổ: sửa, ngừng dùng, xóa ==');
+{
+  const made = await req('admin', 'POST', '/api/books', {
+    name: 'Sổ đi thử nghiệm', kind: 'di', prefix: 'TN-', suffix: '/T', start: 5, resetYearly: true,
+  });
+  check('tạo sổ mới', made.status === 201, made.status + ' ' + made.data?.error);
+  const id = made.data?.book?.id;
+  check('số đầu tiên theo "bắt đầu từ"', made.data?.book?.next?.soVanBan === 'TN-5/T',
+    made.data?.book?.next?.soVanBan);
+
+  const upd = await req('admin', 'PUT', '/api/books/' + id, {
+    name: 'Sổ đi thử nghiệm', kind: 'di', prefix: '', suffix: '-TN', start: 5, resetYearly: false,
+  });
+  check('sửa tiền tố/hậu tố của sổ', upd.data?.book?.next?.soVanBan === '5-TN',
+    upd.data?.book?.next?.soVanBan);
+
+  // Sổ rỗng thì xóa được.
+  const del = await req('admin', 'DELETE', '/api/books/' + id);
+  check('xóa được sổ rỗng', del.status === 200, del.status + ' ' + del.data?.error);
+
+  // Sổ đã có văn bản thì không.
+  const delUsed = await req('admin', 'DELETE', '/api/books/' + DI);
+  check('không xóa được sổ đã có văn bản',
+    delUsed.status === 400 && delUsed.data?.code === 'book_in_use', JSON.stringify(delUsed.data));
+
+  // Ngừng dùng: đọc vẫn được, ghi thì không.
+  const hide = await req('admin', 'POST', `/api/books/${DU}/hidden`, { hidden: true });
+  check('ngừng dùng được sổ đã có văn bản', hide.status === 200, hide.status + ' ' + hide.data?.error);
+  const readHidden = await req('admin', 'GET', `/api/documents?book=${DU}`);
+  check('sổ ngừng dùng vẫn tra cứu được', readHidden.status === 200, String(readHidden.status));
+  const writeHidden = await req('vanthu', 'POST', '/api/documents', {
+    book: DU, mode: 'issue', ngayGui: '2026-06-09', tenVanBan: 'Ghi vào sổ đã ngừng dùng',
+  });
+  check('sổ ngừng dùng thì chặn ghi',
+    writeHidden.status === 400 && writeHidden.data?.code === 'book_hidden', JSON.stringify(writeHidden.data));
+  const hiddenForClerk = (await req('vanthu', 'GET', '/api/books')).data.books.some((b) => b.id === DU);
+  check('văn thư không thấy sổ đã ngừng dùng', hiddenForClerk === false, String(hiddenForClerk));
+
+  // Dùng lại: bộ đếm tiếp tục từ chỗ cũ, không nhảy lùi.
+  const seqTruoc = (await req('admin', 'GET', `/api/documents/next-number?book=${DU}`)).data.seq;
+  await req('admin', 'POST', `/api/books/${DU}/hidden`, { hidden: false });
+  const seqSau = (await req('admin', 'GET', `/api/documents/next-number?book=${DU}`)).data.seq;
+  check('dùng lại thì bộ đếm không nhảy lùi', seqSau === seqTruoc, seqTruoc + ' → ' + seqSau);
 }
 
 console.log('\n== tìm kiếm không dấu ==');
 for (const [q, expect] of [['chuyen doi so', true], ['CHUYỂN ĐỔI SỐ', true], ['khong-co-gi-nhu-the-nay', false]]) {
-  const r = await req('xem', 'GET', '/api/documents?book=den&q=' + encodeURIComponent(q));
+  const r = await req('xem', 'GET', `/api/documents?book=${DEN}&q=` + encodeURIComponent(q));
   check('tìm "' + q + '"', (r.data?.documents?.length > 0) === expect, 'thấy ' + r.data?.documents?.length);
 }
 
@@ -286,17 +361,17 @@ for (const [name, body, code] of [
 
 console.log('\n== dữ liệu vào không hợp lệ ==');
 for (const [name, body] of [
-  ['ngày sai', { book: 'den', soVanBan: '1/X', ngayGui: '2026-02-31', tenVanBan: 'X' }],
-  ['thiếu tên văn bản', { book: 'den', soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: '  ' }],
-  ['độ bảo mật lạ', { book: 'den', soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X', doBaoMat: 'Siêu Mật' }],
-  ['sổ lạ', { book: 'khac', soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X' }],
-  ['thiếu số văn bản', { book: 'den', ngayGui: '2026-09-10', tenVanBan: 'X' }],
+  ['ngày sai', { book: DEN, soVanBan: '1/X', ngayGui: '2026-02-31', tenVanBan: 'X' }],
+  ['thiếu tên văn bản', { book: DEN, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: '  ' }],
+  ['độ bảo mật lạ', { book: DEN, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X', doBaoMat: 'Siêu Mật' }],
+  ['sổ lạ', { book: 999999, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X' }],
+  ['thiếu số văn bản', { book: DEN, ngayGui: '2026-09-10', tenVanBan: 'X' }],
 ]) {
   const r = await req('vanthu', 'POST', '/api/documents', body);
   check('chặn: ' + name, r.status === 400, r.status + ' ' + r.data?.error);
 }
 {
-  const r = await req('vanthu', 'GET', '/api/documents?book=di&from=hom-qua');
+  const r = await req('vanthu', 'GET', `/api/documents?book=${DI}&from=hom-qua`);
   check('chặn lọc ngày sai', r.status === 400, String(r.status));
 }
 
@@ -304,30 +379,34 @@ console.log('\n== xóa mềm và khôi phục ==');
 {
   // Ghi một văn bản đi có cấp số, rồi xóa nó và khôi phục lại.
   const made = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-09-10',
+    book: DI, mode: 'issue', ngayGui: '2026-09-10',
     tenVanBan: 'Văn bản để thử khôi phục', nguoiGui: 'Kiểm thử',
   });
   check('ghi văn bản để thử', made.status === 201, String(made.status));
   const doc = made.data.document;
   const soVanBan = doc.soVanBan;
 
-  const before = await req('vanthu', 'GET', '/api/documents?book=di&year=2026');
+  const before = await req('vanthu', 'GET', `/api/documents?book=${DI}&year=2026`);
   const beforeTotal = before.data.totalInBook;
 
   const del = await req('vanthu', 'DELETE', '/api/documents/' + doc.id);
   check('văn thư xóa được', del.status === 200, String(del.status));
 
-  const after = await req('vanthu', 'GET', '/api/documents?book=di&year=2026');
+  const after = await req('vanthu', 'GET', `/api/documents?book=${DI}&year=2026`);
   check('xóa rồi thì không còn trong sổ',
     !after.data.documents.some((d) => d.id === doc.id));
   check('tổng số trong sổ giảm đi một',
     after.data.totalInBook === beforeTotal - 1,
     beforeTotal + ' → ' + after.data.totalInBook);
 
+  // /years đếm theo LOẠI sổ, nên cột 'di' gộp mọi sổ đi — cộng tay để so.
   const years = await req('vanthu', 'GET', '/api/documents/years');
   const y2026 = years.data.years.find((y) => y.year === 2026);
-  check('không tính vào sổ theo năm', y2026 && y2026.di === after.data.totalInBook,
-    JSON.stringify(y2026));
+  const diTrongNam = (
+    await Promise.all([DI, DU].map((b) => req('vanthu', 'GET', `/api/documents?book=${b}&year=2026`)))
+  ).reduce((n, r) => n + r.data.totalInBook, 0);
+  check('không tính vào sổ theo năm', y2026 && y2026.di === diTrongNam,
+    JSON.stringify({ y2026, diTrongNam }));
 
   const edit = await req('vanthu', 'PUT', '/api/documents/' + doc.id, {
     ngayGui: '2026-09-10', tenVanBan: 'Sửa văn bản đã xóa',
@@ -336,7 +415,7 @@ console.log('\n== xóa mềm và khôi phục ==');
     edit.status + ' ' + (edit.data && edit.data.code));
 
   // Xóa là NHẢ SỐ: số đó quay lại thành số kế tiếp sẽ cấp.
-  const nn = await req('vanthu', 'GET', '/api/documents/next-number');
+  const nn = await req('vanthu', 'GET', `/api/documents/next-number?book=${DI}`);
   check('số của văn bản đã xóa được cấp lại', nn.data.soVanBan === soVanBan,
     nn.data.soVanBan + ' vs ' + soVanBan);
 
@@ -357,7 +436,7 @@ console.log('\n== xóa mềm và khôi phục ==');
     again.status === 400 && again.data.code === 'not_deleted',
     again.status + ' ' + (again.data && again.data.code));
 
-  const restored = await req('vanthu', 'GET', '/api/documents?book=di&year=2026');
+  const restored = await req('vanthu', 'GET', `/api/documents?book=${DI}&year=2026`);
   check('văn bản trở lại sổ', restored.data.documents.some((d) => d.id === doc.id));
   check('tổng số trong sổ trở lại như trước',
     restored.data.totalInBook === beforeTotal,
@@ -369,7 +448,7 @@ console.log('\n== xóa mềm và khôi phục ==');
   // Ca thật của quy tắc mới: X bị xóa, số a sang tay văn bản Y, rồi mới khôi phục X.
   await req('vanthu', 'DELETE', '/api/documents/' + doc.id);
   const y = await req('vanthu', 'POST', '/api/documents', {
-    book: 'di', mode: 'issue', ngayGui: '2026-09-10', tenVanBan: 'Văn bản Y lấy lại số đã nhả',
+    book: DI, mode: 'issue', ngayGui: '2026-09-10', tenVanBan: 'Văn bản Y lấy lại số đã nhả',
   });
   check('văn bản khác nhận đúng số vừa nhả', y.data.document.soVanBan === soVanBan,
     y.data.document.soVanBan + ' vs ' + soVanBan);
@@ -395,7 +474,7 @@ console.log('\n== xóa mềm và khôi phục ==');
       lai.data.renumbered.to === lai.data.document.soVanBan,
     JSON.stringify(lai.data.renumbered));
 
-  const caHai = await req('vanthu', 'GET', '/api/documents?book=di&year=2026');
+  const caHai = await req('vanthu', 'GET', `/api/documents?book=${DI}&year=2026`);
   const soTrongSo = caHai.data.documents.map((d) => d.soVanBan);
   check('sổ không có hai văn bản cùng số',
     new Set(soTrongSo).size === soTrongSo.length, String(soTrongSo.length));
@@ -405,7 +484,7 @@ console.log('\n== xóa mềm và khôi phục ==');
 
   // Dọn Y để các phép thử sau đếm đúng số dòng như trước.
   await req('vanthu', 'DELETE', '/api/documents/' + y.data.document.id);
-  const donXong = await req('vanthu', 'GET', '/api/documents?book=di&year=2026');
+  const donXong = await req('vanthu', 'GET', `/api/documents?book=${DI}&year=2026`);
   check('dọn xong thì sổ trở lại như trước', donXong.data.totalInBook === beforeTotal,
     String(donXong.data.totalInBook));
 }
@@ -413,7 +492,7 @@ console.log('\n== xóa mềm và khôi phục ==');
 console.log('\n== nhật ký: tìm kiếm và trạng thái khôi phục ==');
 {
   const mine = await req('vanthu', 'POST', '/api/documents', {
-    book: 'den', ngayGui: '2026-09-10', soVanBan: '9999/NK-TEST',
+    book: DEN, ngayGui: '2026-09-10', soVanBan: '9999/NK-TEST',
     tenVanBan: 'Giấy triệu tập kiểm kê kho lưu trữ',
   });
   const doc = mine.data.document;
@@ -477,36 +556,36 @@ console.log('\n== nhật ký: tìm kiếm và trạng thái khôi phục ==');
 
 console.log('\n== bộ đếm không lùi qua số đang dùng ==');
 {
-  const snap = await req('admin', 'GET', '/api/settings/numbering');
+  const snap = await req('admin', 'GET', `/api/books/${DI}/counter`);
   const maxUsed = snap.data.counter.maxSeqUsed;
   check('có số lớn nhất đang dùng', typeof maxUsed === 'number', String(maxUsed));
 
-  const down = await req('admin', 'POST', '/api/settings/numbering/reset-counter', { nextSeq: 1 });
+  const down = await req('admin', 'POST', `/api/books/${DI}/reset-counter`, { nextSeq: 1 });
   check('đặt bộ đếm về 1 bị chặn', down.data.clamped === true, String(down.data.clamped));
   check('sàn là số lớn nhất đã dùng + 1', down.data.floor === maxUsed + 1,
     down.data.floor + ' vs ' + (maxUsed + 1));
-  check('bộ đếm không xuống dưới sàn', down.data.counter.value >= maxUsed + 1,
-    String(down.data.counter.value));
+  check('bộ đếm không xuống dưới sàn', down.data.effectiveSeq >= maxUsed + 1,
+    String(down.data.effectiveSeq));
 
-  const up = await req('admin', 'POST', '/api/settings/numbering/reset-counter', {
+  const up = await req('admin', 'POST', `/api/books/${DI}/reset-counter`, {
     nextSeq: maxUsed + 500,
   });
   check('đẩy bộ đếm lên thì không bị chặn', up.data.clamped === false, String(up.data.clamped));
-  check('bộ đếm nhận giá trị cao hơn', up.data.counter.value === maxUsed + 500,
-    String(up.data.counter.value));
+  check('bộ đếm nhận giá trị cao hơn', up.data.effectiveSeq === maxUsed + 500,
+    String(up.data.effectiveSeq));
 
-  const backDown = await req('admin', 'POST', '/api/settings/numbering/reset-counter', {
+  const backDown = await req('admin', 'POST', `/api/books/${DI}/reset-counter`, {
     nextSeq: maxUsed + 1,
   });
   check('vẫn sửa lại được về sát sàn khi nhập nhầm',
-    backDown.data.counter.value === maxUsed + 1 && backDown.data.clamped === false,
-    String(backDown.data.counter.value));
+    backDown.data.effectiveSeq === maxUsed + 1 && backDown.data.clamped === false,
+    String(backDown.data.effectiveSeq));
 }
 
 console.log('\n== đăng xuất ==');
 {
   await req('xem', 'POST', '/api/logout');
-  const r = await req('xem', 'GET', '/api/documents?book=den');
+  const r = await req('xem', 'GET', `/api/documents?book=${DEN}`);
   check('phiên hết hiệu lực sau đăng xuất', r.status === 401, String(r.status));
 }
 

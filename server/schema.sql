@@ -25,8 +25,43 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
+-- Sổ văn bản. Trước 18/09/2026 chỉ có đúng hai sổ, viết cứng thành hằng số
+-- 'den' | 'di' trong mã; nay sổ là dữ liệu nên một phòng mở được bao nhiêu sổ
+-- tùy ý (hai sổ đi song song là ca có thật: sổ chính quyền và sổ Đảng ủy).
+--
+-- kind quyết định cách đánh số và không đổi được khi sổ đã có văn bản:
+--   'den' — số do cơ quan gửi ghi, hệ thống không cấp số, không có bộ đếm
+--   'di'  — hệ thống cấp số; prefix/suffix/start_seq/reset_yearly là của
+--           RIÊNG sổ này, mỗi sổ một bộ đếm không dính gì nhau
+--
+-- hidden = ngừng dùng: sổ biến khỏi danh sách của văn thư và không cấp số nữa,
+-- nhưng văn bản trong đó còn nguyên và quản trị vẫn tra cứu được. Đó là thứ
+-- thay cho việc xóa — xóa một sổ đã phát hành số là xóa mất dấu vết của những
+-- số ấy, nên chỉ sổ rỗng mới xóa được.
+CREATE TABLE IF NOT EXISTS books (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  name         TEXT    NOT NULL,
+  kind         TEXT    NOT NULL CHECK (kind IN ('den', 'di')),
+  prefix       TEXT    NOT NULL DEFAULT '',
+  suffix       TEXT    NOT NULL DEFAULT '',
+  start_seq    INTEGER NOT NULL DEFAULT 1,
+  reset_yearly INTEGER NOT NULL DEFAULT 1,
+  hidden       INTEGER NOT NULL DEFAULT 0,
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+  created_at   TEXT    NOT NULL,
+  created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+-- Trùng tên sổ là lỗi nhập liệu chứ không phải nhu cầu: hai dòng "Văn bản đi"
+-- trong danh sách thì văn thư không biết đang lấy số ở sổ nào.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_books_name ON books(name);
+
 CREATE TABLE IF NOT EXISTS documents (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  -- LOẠI sổ, không phải sổ nào. Sổ cụ thể nằm ở book_id (thêm trong db.js).
+  -- Giữ lại cột này thay vì dựng lại bảng chỉ để bỏ ràng buộc CHECK: mọi cơ sở
+  -- dữ liệu đang chạy đều có nó, và 'den' | 'di' vẫn đúng với mọi hàng vì đó
+  -- là kind của sổ chứa hàng đó. Truy vấn theo loại (thống kê đến/đi) đọc cột
+  -- này; truy vấn theo sổ đọc book_id.
   book         TEXT    NOT NULL CHECK (book IN ('den', 'di')),
   so_van_ban   TEXT    NOT NULL,
   -- seq/seq_scope chỉ có với văn bản đi do hệ thống cấp số.

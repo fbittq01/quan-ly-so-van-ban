@@ -1,6 +1,6 @@
 # Quản lý số văn bản
 
-Sổ văn bản đến / văn bản đi cho một Phòng 1, chạy trên một máy
+Sổ văn bản cho một Phòng 1, chạy trên một máy
 chủ trong mạng nội bộ. Cấp số văn bản đi tự động, phân quyền theo vai trò, tài
 khoản do quản trị viên cấp.
 
@@ -197,13 +197,15 @@ Nên đặt sao lưu tự động chạy hằng ngày:
 
 | | Quản trị | Văn thư | Chỉ xem |
 | --- | --- | --- | --- |
-| Xem hai sổ | có | có | có |
+| Xem mọi sổ | có | có | có |
 | Ghi sổ, lấy số, sửa, xóa | có | có | **không** |
 | Khôi phục văn bản đã xóa | **có** | không | không |
-| Cài đặt lấy số | **có** | không | không |
+| Tạo / sửa / ngừng dùng sổ | **có** | không | không |
 | Thêm / khóa tài khoản | **có** | không | không |
 
-Phân quyền được chặn ở máy chủ trên từng route, không chỉ ẩn tab trên giao diện.
+Quyền **không** tách theo từng sổ: vai trò áp cho cả hệ thống, văn thư ghi được
+mọi sổ đang dùng. Phân quyền được chặn ở máy chủ trên từng route, không chỉ ẩn
+mục trên giao diện.
 Người dùng không tự đăng ký ở bất cứ đâu — chỉ quản trị viên tạo tài khoản.
 
 Hệ thống không cho phép các hành động khiến không còn quản trị viên nào đăng nhập
@@ -211,15 +213,38 @@ Hệ thống không cho phép các hành động khiến không còn quản tr�
 quản trị cuối cùng đang hoạt động. Người đã từng ghi sổ thì chỉ khóa được chứ
 không xóa được, để giữ dấu vết ai đã ghi văn bản.
 
+## Nhiều sổ
+
+Từ 18/09/2026 sổ là **dữ liệu**, không còn là hai hằng số `den` | `di` viết cứng
+trong mã. Một phòng mở bao nhiêu sổ cũng được — ca có thật là hai sổ đi song
+song: sổ chính quyền và sổ Đảng ủy, mỗi sổ một dãy số riêng.
+
+Mỗi sổ có **loại** (`đến` hoặc `đi`) và, nếu là sổ đi, **tiền tố, hậu tố, "bắt
+đầu từ", cách reset và bộ đếm của riêng nó**. Hai sổ đi không bao giờ giành số
+của nhau: phạm vi đếm là `(sổ, năm)` chứ không còn chỉ là năm. Số 12 ở sổ này và
+số 12 ở sổ kia là hai văn bản khác nhau, cùng tồn tại bình thường.
+
+Quản trị quản lý sổ ở **Cài đặt → Sổ**. Mục "Lấy số" cũ không còn: cấu hình đánh
+số nay nằm trong từng sổ.
+
+**Sổ đã có văn bản thì không xóa được, chỉ *ngừng dùng*.** Sổ ngừng dùng biến
+khỏi cột bên trái của văn thư và máy chủ từ chối mọi lệnh ghi vào nó, nhưng văn
+bản trong đó còn nguyên và quản trị vẫn tra cứu, khôi phục được. Xóa hẳn chỉ áp
+dụng cho sổ **chưa từng** có văn bản nào — kể cả văn bản đã xóa mềm cũng chặn,
+vì những hàng đó là bằng chứng số đã từng được phát hành.
+
+Dùng lại một sổ thì bộ đếm **tiếp tục từ chỗ đã dừng**, không nhảy lùi về đè lên
+số đã phát hành.
+
 ## Cấp số văn bản đi
 
 Số văn bản đi là **tiền tố + số thứ tự + hậu tố** — chỉ vậy. Số thứ tự do hệ
 thống cấp và tăng đều một đơn vị; hai ô chữ hai bên do **người lấy số tự đặt cho
-từng văn bản** ngay trong hộp thoại cấp số. Trang Cài đặt → Lấy số chỉ đặt giá
-trị **điền sẵn** cho hai ô đó, kèm "Bắt đầu từ" và "Reset đầu năm".
+từng văn bản** ngay trong hộp thoại cấp số. Cài đặt của sổ chỉ đặt giá trị
+**điền sẵn** cho hai ô đó, kèm "Bắt đầu từ" và "Reset đầu năm".
 
 Sổ văn bản đi **không có đường nhập số bằng tay**: mọi số đều đi qua nút "Lấy số
-gửi văn bản đi", và số đã cấp thì không sửa được nữa. Máy chủ từ chối luôn mọi
+ở sổ này", và số đã cấp thì không sửa được nữa. Máy chủ từ chối luôn mọi
 lệnh ghi tay vào sổ đi, không chỉ là giao diện ẩn nút đi.
 
 **Số không bao giờ có 0 ở đầu** — `6/2026`, không phải `06/2026`. Đây là quy tắc
@@ -334,7 +359,8 @@ server/
   db.js           mở SQLite (WAL, synchronous=FULL), migration cột thêm sau, cài đặt, nhật ký
   schema.sql      lược đồ dữ liệu và các ràng buộc chống trùng số
   auth.js         băm mật khẩu scrypt, phiên, chặn theo vai trò, chống dò mật khẩu
-  numbering.js    ghép số, kiểm tra cấu hình, chiếm số nguyên tử
+  books.js        sổ: đọc, kiểm tra, tạo/sửa/ngừng dùng/xóa
+  numbering.js    ghép số, bộ đếm của từng sổ, chiếm số nguyên tử
   routes/         auth · docs · settings · users
   bin/            init-admin · backup · seed-demo
 public/
@@ -388,7 +414,8 @@ Không có bước build, không có framework phía trình duyệt. Giao diện
 ## Nhật ký và khôi phục văn bản đã xóa
 
 Trang Cài đặt → Nhật ký ghi lại mọi việc: đăng nhập, cấp số, ghi/sửa/xóa/khôi
-phục văn bản, sửa cài đặt lấy số, đặt lại bộ đếm, và mọi thay đổi tài khoản —
+phục văn bản, tạo/sửa/ngừng dùng/xóa sổ, đặt lại bộ đếm, và mọi thay đổi tài
+khoản —
 kèm tên người làm và thời điểm. Tìm được theo từ khóa (không cần dấu, như tìm
 trong sổ), lọc theo loại việc, và nạp dần từng đợt 200 dòng.
 

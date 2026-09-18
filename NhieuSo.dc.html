@@ -1,0 +1,685 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+
+<body>
+  <x-dc>
+    <helmet>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Mulish:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap">
+      <style>
+        :root {
+          --font-sans: 'Mulish', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+          --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+
+        body {
+          margin: 0;
+          background: #F4F5F6;
+          -webkit-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+
+        input,
+        select,
+        textarea,
+        button {
+          font-family: inherit;
+        }
+      </style>
+    </helmet>
+
+    <div
+      style="position: relative; min-height: 1080px; background: #F4F5F6; font-family: var(--font-sans); color: #212121; display: flex; flex-direction: column;">
+
+      <header
+        style="background: #FFFFFF; border-bottom: 1px solid #D8DBDF; padding: 18px 32px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="width: 9px; height: 9px; background: #FF5700; display: inline-block;"></span>
+          <span style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">Quản lý số văn
+            bản</span>
+        </div>
+        <span style="font-size: 13px; color: #777777;">{{ orgName }}</span>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 13px; color: #333333;">{{ userName }}</span>
+          <span style="{{ userBadge }}">{{ userRole }}</span>
+          <select value="{{ roleKey }}" onChange="{{ h.role }}"
+            style="height: 32px; padding: 0 8px; border: 1px dashed #D8DBDF; border-radius: 6px; font-size: 12px; color: #777777; background: #FFFFFF;">
+            <option value="admin">xem như Quản trị</option>
+            <option value="vanthu">xem như Văn thư</option>
+            <option value="xem">xem như Chỉ xem</option>
+          </select>
+        </div>
+      </header>
+
+      <div style="flex: 1; display: flex; align-items: stretch;">
+
+        <!-- ────────── CỘT SỔ ────────── -->
+        <nav
+          style="width: 236px; flex: 0 0 236px; background: #FFFFFF; border-right: 1px solid #D8DBDF; padding: 18px 0 20px; display: flex; flex-direction: column; gap: 2px;">
+
+          <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+            <sc-if value="{{ n.isGroup }}" hint-placeholder-val="{{ false }}">
+              <div
+                style="padding: 16px 18px 7px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #9B9D96;">
+                {{ n.label }}</div>
+            </sc-if>
+            <sc-if value="{{ n.isBook }}" hint-placeholder-val="{{ true }}">
+              <button type="button" onClick="{{ n.onPick }}" style="{{ n.style }}" style-hover="{{ n.styleHover }}">
+                <span style="{{ n.nameStyle }}">{{ n.label }}</span>
+                <span style="{{ n.countStyle }}">{{ n.count }}</span>
+              </button>
+            </sc-if>
+          </sc-for>
+
+          <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+            <button type="button" onClick="{{ h.goBooks }}"
+              style="margin: 10px 14px 0; height: 34px; border: 1px dashed #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 13px; font-weight: 700; color: #37505C; cursor: pointer; text-align: center;"
+              style-hover="margin: 10px 14px 0; height: 34px; border: 1px dashed #37505C; background: #F4F5F6; border-radius: 6px; font-size: 13px; font-weight: 700; color: #24434A; cursor: pointer; text-align: center;">+
+              Thêm sổ</button>
+          </sc-if>
+
+          <div style="flex: 1;"></div>
+
+          <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+            <div style="border-top: 1px solid #D8DBDF; margin-top: 14px; padding-top: 10px;">
+              <button type="button" onClick="{{ h.goSettings }}" style="{{ settingsStyle }}"
+                style-hover="{{ settingsHover }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#37505C" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto;">
+                  <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                </svg>
+                <span>Cài đặt</span>
+              </button>
+            </div>
+          </sc-if>
+        </nav>
+
+        <!-- ────────── NỘI DUNG ────────── -->
+        <main style="flex: 1; min-width: 0; padding: 22px 28px 40px; display: flex; flex-direction: column; gap: 14px;">
+
+          <sc-if value="{{ pageSettings }}" hint-placeholder-val="{{ false }}">
+            <section
+              style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 44px 40px; display: flex; flex-direction: column; gap: 10px;">
+              <span
+                style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #FF5700;">Cài
+                đặt</span>
+              <p style="margin: 0; font-size: 14px; color: #333333; line-height: 1.6; max-width: 620px;">Mục <b>Sổ</b>
+                nằm ở đây — xem artboard “Cài đặt → Sổ” bên cạnh. Các mục Tài khoản, Nhật ký, Sổ năm giữ nguyên như bản
+                hiện tại.</p>
+              <button type="button" onClick="{{ h.backBook }}"
+                style="align-self: flex-start; margin-top: 6px; height: 36px; padding: 0 14px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 13px; color: #333333; cursor: pointer;"
+                style-hover="align-self: flex-start; margin-top: 6px; height: 36px; padding: 0 14px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 13px; color: #333333; cursor: pointer;">←
+                Về sổ</button>
+            </section>
+          </sc-if>
+
+          <sc-if value="{{ pageBook }}" hint-placeholder-val="{{ true }}">
+
+            <!-- Đầu sổ: cho biết đang đứng ở sổ nào, đánh số ra sao -->
+            <section
+              style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 16px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+              <div style="display: flex; flex-direction: column; gap: 5px; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em; color: #000000;">{{ bookName
+                    }}</span>
+                  <span style="{{ typeBadge }}">{{ typeLabel }}</span>
+                  <sc-if value="{{ bookHidden }}" hint-placeholder-val="{{ false }}">
+                    <span
+                      style="padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #777777; background: #F4F5F6; border: 1px solid #D8DBDF;">Ngừng
+                      dùng</span>
+                  </sc-if>
+                </div>
+                <span style="font-size: 13px; color: #777777;">{{ bookHint }}</span>
+              </div>
+
+              <sc-if value="{{ canTakeNumber }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
+                  <div
+                    style="display: flex; align-items: baseline; gap: 10px; padding: 8px 14px; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 6px;">
+                    <span
+                      style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                      kế tiếp</span>
+                    <span
+                      style="font-family: var(--font-mono); font-weight: 600; font-size: 19px; color: #CC4600;">{{
+                      nextNumber }}</span>
+                  </div>
+                  <button type="button" onClick="{{ h.layso }}"
+                    style="height: 42px; padding: 0 18px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
+                    style-hover="height: 42px; padding: 0 18px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">Lấy
+                    số ở sổ này</button>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ canAddIncoming }}" hint-placeholder-val="{{ false }}">
+                <button type="button" onClick="{{ h.add }}"
+                  style="margin-left: auto; height: 42px; padding: 0 18px; border: 1px solid #37505C; background: #FFFFFF; border-radius: 6px; font-size: 14px; font-weight: 700; color: #37505C; cursor: pointer;"
+                  style-hover="margin-left: auto; height: 42px; padding: 0 18px; border: 1px solid #24434A; background: #F4F5F6; border-radius: 6px; font-size: 14px; font-weight: 700; color: #24434A; cursor: pointer;">+
+                  Ghi văn bản đến</button>
+              </sc-if>
+
+              <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}">
+                <span
+                  style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #777777;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9B9D96" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="10" width="16" height="10" rx="1.5"></rect>
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+                  </svg>
+                  Vai trò Chỉ xem — không ghi sổ, không lấy số
+                </span>
+              </sc-if>
+
+              <sc-if value="{{ hiddenLocked }}" hint-placeholder-val="{{ false }}">
+                <span
+                  style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #CC4600;">Sổ
+                  đã ngừng dùng — tra cứu được, không cấp số mới.</span>
+              </sc-if>
+            </section>
+
+            <!-- Bộ lọc: nguyên như bản cũ, chỉ khác là lọc trong phạm vi sổ đang chọn -->
+            <section
+              style="background: #FFFFFF; border: 1px solid #D8DBDF; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Sổ
+                    năm</span>
+                  <select value="{{ bookYear }}" onChange="{{ h.bookYear }}"
+                    style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; min-width: 130px;">
+                    <option value="">Tất cả các năm</option>
+                    <sc-for list="{{ yearOptions }}" as="y" hint-placeholder-count="2">
+                      <option value="{{ y.value }}">{{ y.label }}</option>
+                    </sc-for>
+                  </select>
+                </label>
+                <label style="flex: 1 1 280px; min-width: 200px; display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tìm
+                    kiếm</span>
+                  <input type="text" value="{{ q }}" onChange="{{ h.q }}"
+                    placeholder="Tên văn bản · số · người gửi · ghi chú"
+                    style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;"
+                    style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+                </label>
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Độ
+                    bảo mật</span>
+                  <select value="{{ secFilter }}" onChange="{{ h.sec }}"
+                    style="height: 40px; padding: 0 10px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; min-width: 120px;">
+                    <option value="">Tất cả</option>
+                    <option value="Thường">Thường</option>
+                    <option value="Mật">Mật</option>
+                    <option value="Tối Mật">Tối Mật</option>
+                    <option value="Tuyệt Mật">Tuyệt Mật</option>
+                  </select>
+                </label>
+                <button type="button" onClick="{{ h.reset }}"
+                  style="height: 40px; padding: 0 14px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 14px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Xóa
+                  lọc</button>
+                <span style="margin-left: auto; font-size: 13px; color: #777777;">{{ resultLabel }}</span>
+              </div>
+
+              <sc-if value="{{ showCrossHint }}" hint-placeholder-val="{{ false }}">
+                <div
+                  style="border-top: 1px solid #D8DBDF; padding-top: 11px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                  <span style="font-size: 13px; color: #333333;">{{ crossHint }}</span>
+                  <button type="button" onClick="{{ h.searchAll }}"
+                    style="border: none; background: none; padding: 0; font-size: 13px; font-weight: 700; color: #CC4600; cursor: pointer; text-decoration: underline;">{{
+                    crossAction }}</button>
+                </div>
+              </sc-if>
+            </section>
+
+            <!-- Bảng sổ -->
+            <section style="background: #FFFFFF; border: 1px solid #D8DBDF; overflow-x: auto;">
+              <table style="width: 100%; min-width: 1120px; border-collapse: collapse; table-layout: fixed;">
+                <thead>
+                  <tr style="border-bottom: 1px solid #D8DBDF; background: #F4F5F6;">
+                    <th
+                      style="width: 118px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                      Số văn bản</th>
+                    <th
+                      style="width: 92px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                      Ngày gửi</th>
+                    <th
+                      style="width: 168px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                      {{ colPeople }}</th>
+                    <th
+                      style="text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                      Tên văn bản</th>
+                    <th
+                      style="width: 104px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                      Độ bảo mật</th>
+                    <th
+                      style="width: 124px; text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">
+                      Đính kèm</th>
+                    <th style="width: 92px; padding: 10px 14px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ rows }}" as="row" hint-placeholder-count="6">
+                    <tr style="border-bottom: 1px solid #D8DBDF;"
+                      style-hover="border-bottom: 1px solid #D8DBDF; background: #F4F5F6;">
+                      <td style="{{ row.cellNum }}">{{ row.soVanBan }}</td>
+                      <td style="{{ row.cellMono }}">{{ row.ngayHienThi }}</td>
+                      <td style="{{ row.cell }}">{{ row.nguoiGui }}</td>
+                      <td style="{{ row.cellTitle }}">{{ row.tenVanBan }}</td>
+                      <td style="{{ row.cell }}"><span style="{{ row.badge }}">{{ row.doBaoMat }}</span></td>
+                      <td style="{{ row.cellFile }}">{{ row.fileLabel }}</td>
+                      <td style="{{ row.cellActions }}">
+                        <sc-if value="{{ row.canWrite }}" hint-placeholder-val="{{ true }}">
+                          <button type="button" onClick="{{ row.onEdit }}"
+                            style="border: none; background: none; padding: 4px 6px; font-size: 13px; color: #37505C; cursor: pointer; text-decoration: underline;">Sửa</button>
+                          <button type="button" onClick="{{ row.onDelete }}"
+                            style="border: none; background: none; padding: 4px 6px; font-size: 13px; color: #CC0000; cursor: pointer; text-decoration: underline;">Xóa</button>
+                        </sc-if>
+                      </td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+              <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+                <div style="padding: 52px 24px; text-align: center; color: #777777; font-size: 14px;">Sổ này chưa có văn
+                  bản nào khớp với điều kiện lọc.</div>
+              </sc-if>
+            </section>
+
+            <sc-if value="{{ isOutgoing }}" hint-placeholder-val="{{ true }}">
+              <p style="margin: 0; font-size: 12px; color: #9B9D96;">{{ formatLabel }}</p>
+            </sc-if>
+          </sc-if>
+        </main>
+      </div>
+
+      <!-- ────────── HỘP THOẠI LẤY SỐ ────────── -->
+      <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+        <div
+          style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.42); display: flex; align-items: center; justify-content: center; padding: 32px;">
+          <div
+            style="width: 100%; max-width: 620px; background: #FFFFFF; border: 1px solid #D8DBDF; display: flex; flex-direction: column;">
+            <div
+              style="padding: 18px 24px; border-bottom: 1px solid #D8DBDF; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;">
+              <span style="font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: #000000;">{{ modalTitle
+                }}</span>
+              <span style="{{ typeBadge }}">{{ bookName }}</span>
+              <span style="margin-left: auto; font-size: 13px; color: #777777;">{{ modalHint }}</span>
+            </div>
+
+            <div style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+              <sc-if value="{{ isOutgoing }}" hint-placeholder-val="{{ true }}">
+              <div
+                style="border: 1px solid #FFD3A8; background: #FFEAD0; padding: 14px 16px; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                  sẽ cấp</span>
+                <span
+                  style="font-family: var(--font-mono); font-weight: 600; font-size: 28px; letter-spacing: -0.01em; color: #CC4600;">{{
+                  formNumber }}</span>
+              </div>
+
+              <div style="display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tiền
+                    tố</span>
+                  <input type="text" value="{{ formPrefix }}" onChange="{{ h.fPrefix }}" placeholder="để trống"
+                    style="height: 40px; width: 140px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #CC4600;">Số
+                    thứ tự</span>
+                  <div
+                    style="height: 40px; min-width: 70px; padding: 0 14px; border: 1px solid #FFD3A8; background: #FFEAD0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 600; font-size: 15px; color: #CC4600;">
+                    {{ formSeq }}</div>
+                </div>
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Hậu
+                    tố</span>
+                  <input type="text" value="{{ formSuffix }}" onChange="{{ h.fSuffix }}" placeholder="để trống"
+                    style="height: 40px; width: 140px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF;">
+                </label>
+              </div>
+              </sc-if>
+
+              <sc-if value="{{ isIncoming }}" hint-placeholder-val="{{ false }}">
+                <label style="display: flex; flex-direction: column; gap: 6px;">
+                  <span
+                    style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Số
+                    văn bản (ghi theo cơ quan gửi)</span>
+                  <input type="text" value="{{ formRawNumber }}" onChange="{{ h.fRaw }}" placeholder="vd: 2145/UBND-VP"
+                    style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;"
+                    style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; font-family: var(--font-mono); color: #212121; background: #FFFFFF; outline: none;">
+                </label>
+              </sc-if>
+
+              <label style="display: flex; flex-direction: column; gap: 6px;">
+                <span
+                  style="font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #37505C;">Tên
+                  văn bản</span>
+                <input type="text" value="{{ formTitle }}" onChange="{{ h.fTitle }}"
+                  placeholder="vd: Báo cáo kết quả công tác tháng 9/2026"
+                  style="height: 40px; padding: 0 12px; border: 1px solid #D8DBDF; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;"
+                  style-focus="height: 40px; padding: 0 12px; border: 1px solid #37505C; border-radius: 6px; font-size: 14px; color: #212121; background: #FFFFFF; outline: none;">
+              </label>
+            </div>
+
+            <div
+              style="padding: 16px 24px; border-top: 1px solid #D8DBDF; display: flex; align-items: center; gap: 12px;">
+              <span style="font-size: 13px; color: #CC0000;">{{ formError }}</span>
+              <span style="margin-left: auto; display: flex; gap: 10px;">
+                <button type="button" onClick="{{ h.closeModal }}"
+                  style="height: 40px; padding: 0 16px; border: 1px solid #D8DBDF; background: #FFFFFF; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 16px; border: 1px solid #37505C; background: #F4F5F6; border-radius: 6px; font-size: 14px; color: #333333; cursor: pointer;">Hủy</button>
+                <button type="button" onClick="{{ h.saveDoc }}"
+                  style="height: 40px; padding: 0 20px; border: 1px solid #FF5700; background: #FF5700; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;"
+                  style-hover="height: 40px; padding: 0 20px; border: 1px solid #CC4600; background: #CC4600; border-radius: 6px; font-size: 14px; font-weight: 700; color: #FFFFFF; cursor: pointer;">Cấp
+                  số &amp; ghi sổ</button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+    </div>
+  </x-dc>
+
+  <script data-dc-script
+    data-props='{"orgName":{"editor":"text","default":"Phòng 1","tsType":"string"},"$preview":{"width":1440,"height":1080}}'>
+      const TODAY = '2026-09-18';
+      const YEAR = 2026;
+
+      const ROLE = {
+        admin: { label: 'Quản trị', fg: '#CC4600', bg: '#FFEAD0', bd: '#FFD3A8' },
+        vanthu: { label: 'Văn thư', fg: '#2C4F6A', bg: '#EAF0F5', bd: '#C3D3DF' },
+        xem: { label: 'Chỉ xem', fg: '#37505C', bg: '#F4F5F6', bd: '#D8DBDF' }
+      };
+
+      const SEC = {
+        'Thường': { fg: '#37505C', bg: '#F4F5F6', bd: '#D8DBDF' },
+        'Mật': { fg: '#2C4F6A', bg: '#EAF0F5', bd: '#C3D3DF' },
+        'Tối Mật': { fg: '#CC4600', bg: '#FFEAD0', bd: '#FFD3A8' },
+        'Tuyệt Mật': { fg: '#CC0000', bg: '#FBE9E9', bd: '#F0C7C7' }
+      };
+
+      // Sổ là DỮ LIỆU, không còn là hằng số 'den' | 'di' trong mã.
+      // kind quyết định cách đánh số: 'den' ghi lại số cơ quan gửi ghi,
+      // 'di' do hệ thống cấp và có bộ đếm riêng của từng sổ.
+      const BOOKS = [
+        { id: 'den', name: 'Văn bản đến', kind: 'den', hidden: false },
+        { id: 'di', name: 'Văn bản đi', kind: 'di', prefix: '', suffix: '/2026', start: 1, resetYearly: true, hidden: false },
+        { id: 'di-du', name: 'Văn bản đi — Đảng ủy', kind: 'di', prefix: '', suffix: '-CV/ĐU', start: 1, resetYearly: true, hidden: false },
+        { id: 'di-cd', name: 'Văn bản đi — Công đoàn', kind: 'di', prefix: 'CĐ-', suffix: '/2024', start: 1, resetYearly: true, hidden: true }
+      ];
+
+      function seed() {
+        return {
+          den: [
+            { id: 'd1', soVanBan: '2145/UBND-VP', ngayGui: '2026-09-02', nguoiGui: 'UBND Tỉnh — Văn phòng', tenVanBan: 'Về việc triển khai kế hoạch chuyển đổi số quý IV', doBaoMat: 'Thường', file: '2145-ubnd-vp.pdf' },
+            { id: 'd2', soVanBan: '87/SNV-TCCB', ngayGui: '2026-08-28', nguoiGui: 'Sở Nội vụ', tenVanBan: 'Hướng dẫn rà soát biên chế năm 2026', doBaoMat: 'Mật', file: '87-snv.pdf' },
+            { id: 'd3', soVanBan: '19/CA-PA03', ngayGui: '2026-08-21', nguoiGui: 'Công an Tỉnh — PA03', tenVanBan: 'Yêu cầu phối hợp bảo đảm an ninh mạng nội bộ', doBaoMat: 'Tối Mật', file: '' },
+            { id: 'd4', soVanBan: '3312/BTC-NSNN', ngayGui: '2026-08-14', nguoiGui: 'Bộ Tài chính', tenVanBan: 'Thông báo phân bổ dự toán ngân sách bổ sung', doBaoMat: 'Thường', file: '3312-btc.pdf' },
+            { id: 'd5', soVanBan: '4120/UBND-KT', ngayGui: '2025-12-09', nguoiGui: 'UBND Tỉnh — Phòng Kinh tế', tenVanBan: 'Về việc quyết toán kinh phí hoạt động năm 2025', doBaoMat: 'Thường', file: '4120-ubnd-kt.pdf' }
+          ],
+          di: [
+            { id: 'x1', seq: 6, soVanBan: '6/2026', ngayGui: '2026-09-05', nguoiGui: 'Nguyễn Thị Hà — Văn thư', tenVanBan: 'Báo cáo kết quả thực hiện nhiệm vụ tháng 8/2026', doBaoMat: 'Thường', file: 'bc-thang-08.pdf' },
+            { id: 'x2', seq: 5, soVanBan: '5/2026', ngayGui: '2026-08-27', nguoiGui: 'Trần Văn Minh — Phó Chánh VP', tenVanBan: 'Công văn trả lời Sở Nội vụ về rà soát biên chế', doBaoMat: 'Mật', file: 'cv-tra-loi-snv.pdf' },
+            { id: 'x3', seq: 4, soVanBan: '4/2026', ngayGui: '2026-08-12', nguoiGui: 'Nguyễn Thị Hà — Văn thư', tenVanBan: 'Giấy mời họp giao ban quý III', doBaoMat: 'Thường', file: '' },
+            { id: 'x4', seq: 3, soVanBan: '3/2026', ngayGui: '2026-07-19', nguoiGui: 'Lê Quốc Bảo — Chánh Văn phòng', tenVanBan: 'Kế hoạch bảo vệ bí mật nhà nước năm 2026', doBaoMat: 'Tuyệt Mật', file: '' },
+            { id: 'x5', seq: 42, soVanBan: '42/2025', ngayGui: '2025-12-18', nguoiGui: 'Lê Quốc Bảo — Chánh Văn phòng', tenVanBan: 'Báo cáo tổng kết công tác văn thư lưu trữ năm 2025', doBaoMat: 'Thường', file: 'bc-tong-ket-2025.pdf' }
+          ],
+          'di-du': [
+            { id: 'u1', seq: 12, soVanBan: '12-CV/ĐU', ngayGui: '2026-09-11', nguoiGui: 'Lê Quốc Bảo — Bí thư Đảng ủy', tenVanBan: 'Công văn triệu tập hội nghị Ban Chấp hành mở rộng', doBaoMat: 'Thường', file: 'cv-12-du.pdf' },
+            { id: 'u2', seq: 11, soVanBan: '11-CV/ĐU', ngayGui: '2026-08-30', nguoiGui: 'Lê Quốc Bảo — Bí thư Đảng ủy', tenVanBan: 'Báo cáo công tác xây dựng Đảng quý III/2026', doBaoMat: 'Mật', file: '' },
+            { id: 'u3', seq: 10, soVanBan: '10-CV/ĐU', ngayGui: '2026-08-05', nguoiGui: 'Nguyễn Thị Hà — Văn phòng Đảng ủy', tenVanBan: 'Kế hoạch học tập chuyên đề năm 2026', doBaoMat: 'Thường', file: 'kh-chuyen-de.pdf' }
+          ],
+          'di-cd': [
+            { id: 'c1', seq: 8, soVanBan: 'CĐ-8/2024', ngayGui: '2024-11-22', nguoiGui: 'Phạm Thị Thu — Công đoàn', tenVanBan: 'Thông báo chi hỗ trợ đoàn viên dịp cuối năm 2024', doBaoMat: 'Thường', file: '' }
+          ]
+        };
+      }
+
+      function strip(s) {
+        return (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+      }
+      function viDate(iso) {
+        const p = (iso || '').split('-');
+        return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : (iso || '—');
+      }
+      function build(prefix, seq, suffix) { return (prefix || '') + String(seq) + (suffix || ''); }
+
+      class Component extends DCLogic {
+        state = {
+          roleKey: 'admin',
+          page: 'book',
+          bookId: 'di-du',
+          bookYear: String(YEAR),
+          q: '', secFilter: '',
+          books: BOOKS.map(b => Object.assign({}, b)),
+          docs: seed(),
+          form: null, formError: ''
+        };
+
+        book(id) { return this.state.books.find(b => b.id === (id || this.state.bookId)) || this.state.books[0]; }
+
+        /** Bộ đếm của RIÊNG sổ này — hai sổ đi không bao giờ đụng số của nhau. */
+        nextFor(book) {
+          const list = this.state.docs[book.id] || [];
+          const pool = book.resetYearly ? list.filter(d => (d.ngayGui || '').slice(0, 4) === String(YEAR)) : list;
+          const max = pool.reduce((m, d) => Math.max(m, d.seq || 0), 0);
+          const seq = Math.max(max + 1, book.start || 1);
+          return { seq, text: build(book.prefix, seq, book.suffix) };
+        }
+
+        openLaySo = () => {
+          const b = this.book();
+          const n = b.kind === 'di' ? this.nextFor(b) : null;
+          this.setState({
+            form: { seq: n ? n.seq : null, prefix: b.prefix || '', suffix: b.suffix || '', raw: '', tenVanBan: '' },
+            formError: ''
+          });
+        };
+
+        setForm(patch) {
+          this.setState(s => ({ form: Object.assign({}, s.form, patch), formError: '' }));
+        }
+
+        saveDoc = () => {
+          const f = this.state.form;
+          const b = this.book();
+          if (!f) return;
+          if (!f.tenVanBan.trim()) { this.setState({ formError: 'Chưa nhập tên văn bản.' }); return; }
+          if (b.kind === 'den' && !f.raw.trim()) { this.setState({ formError: 'Chưa nhập số văn bản.' }); return; }
+          const rec = {
+            id: 'n' + Date.now(), seq: b.kind === 'di' ? f.seq : null,
+            soVanBan: b.kind === 'di' ? build(f.prefix, f.seq, f.suffix) : f.raw.trim(),
+            ngayGui: TODAY,
+            nguoiGui: 'Nguyễn Thị Hà — Văn thư',
+            tenVanBan: f.tenVanBan.trim(), doBaoMat: 'Thường', file: ''
+          };
+          this.setState(s => {
+            const docs = Object.assign({}, s.docs);
+            docs[b.id] = [rec].concat(docs[b.id] || []);
+            return { docs, form: null, formError: '' };
+          });
+        };
+
+        navStyle(active, muted) {
+          const bg = active ? '#FFF3EB' : 'transparent';
+          const bar = active ? '#FF5700' : 'transparent';
+          return 'appearance: none; border: none; border-left: 3px solid ' + bar + '; background: ' + bg +
+            '; width: 100%; padding: 9px 16px 9px 15px; display: flex; align-items: center; gap: 10px; cursor: ' +
+            (muted ? 'pointer' : 'pointer') + '; text-align: left;';
+        }
+
+        renderVals() {
+          const s = this.state;
+          const role = s.roleKey;
+          const isAdmin = role === 'admin';
+          const canWrite = role === 'admin' || role === 'vanthu';
+          const b = this.book();
+          const cell = 'padding: 13px 14px; font-size: 14px; color: #212121; vertical-align: top; line-height: 1.45;';
+
+          // Cột sổ: nhóm theo loại, sổ ngừng dùng gom xuống cuối và chỉ quản trị thấy.
+          const visible = s.books.filter(x => !x.hidden);
+          const hidden = s.books.filter(x => x.hidden);
+          const nav = [];
+          const push = (label, list) => {
+            if (!list.length) return;
+            nav.push({ isGroup: true, isBook: false, label });
+            list.forEach(x => {
+              const active = x.id === s.bookId && s.page === 'book';
+              const count = (s.docs[x.id] || []).length;
+              nav.push({
+                isGroup: false, isBook: true, label: x.name, count: String(count),
+                style: this.navStyle(active, x.hidden),
+                styleHover: this.navStyle(active, x.hidden).replace('background: transparent', 'background: #F4F5F6'),
+                nameStyle: 'flex: 1; min-width: 0; font-size: 14px; font-weight: ' + (active ? '700' : '500') +
+                  '; color: ' + (x.hidden ? '#9B9D96' : active ? '#000000' : '#333333') + '; line-height: 1.35;',
+                countStyle: 'font-family: var(--font-mono); font-size: 12px; color: ' + (active ? '#CC4600' : '#9B9D96') + ';',
+                onPick: () => this.setState({ bookId: x.id, page: 'book', q: '' })
+              });
+            });
+          };
+          push('Sổ đến', visible.filter(x => x.kind === 'den'));
+          push('Sổ đi', visible.filter(x => x.kind === 'di'));
+          if (isAdmin) push('Ngừng dùng', hidden);
+
+          const list0 = s.docs[b.id] || [];
+          const inYear = list0.filter(d => !s.bookYear || (d.ngayGui || '').slice(0, 4) === s.bookYear);
+          const nq = strip(s.q);
+          const rows = inYear.filter(d => {
+            if (s.secFilter && d.doBaoMat !== s.secFilter) return false;
+            if (!nq) return true;
+            return strip([d.soVanBan, d.nguoiGui, d.tenVanBan, d.doBaoMat, viDate(d.ngayGui)].join(' ')).indexOf(nq) >= 0;
+          }).sort((a, b2) => (a.ngayGui < b2.ngayGui ? 1 : a.ngayGui > b2.ngayGui ? -1 : 0));
+
+          // Tìm chữ này ở sổ khác có ra gì không — chỗ duy nhất cắt ngang các sổ.
+          let otherHits = 0;
+          if (nq) {
+            s.books.forEach(x => {
+              if (x.id === b.id) return;
+              otherHits += (s.docs[x.id] || []).filter(d =>
+                strip([d.soVanBan, d.nguoiGui, d.tenVanBan].join(' ')).indexOf(nq) >= 0).length;
+            });
+          }
+
+          const years = {};
+          Object.keys(s.docs).forEach(k => (s.docs[k] || []).forEach(d => { if (d.ngayGui) years[d.ngayGui.slice(0, 4)] = true; }));
+          years[String(YEAR)] = true;
+
+          const isDi = b.kind === 'di';
+          const n = isDi ? this.nextFor(b) : null;
+          const f = s.form;
+          const me = ROLE[role];
+
+          return {
+            orgName: this.props.orgName ?? 'Phòng 1',
+            roleKey: role,
+            userName: role === 'admin' ? 'Lê Quốc Bảo' : role === 'vanthu' ? 'Nguyễn Thị Hà' : 'Trần Văn Minh',
+            userRole: me.label,
+            userBadge: 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; color: ' +
+              me.fg + '; background: ' + me.bg + '; border: 1px solid ' + me.bd + ';',
+            isAdmin, readOnly: !canWrite,
+
+            nav,
+            settingsStyle: this.navStyle(s.page === 'settings', false),
+            settingsHover: this.navStyle(s.page === 'settings', false).replace('background: transparent', 'background: #F4F5F6'),
+            pageBook: s.page === 'book',
+            pageSettings: s.page === 'settings',
+
+            bookName: b.name,
+            bookHidden: !!b.hidden,
+            typeLabel: isDi ? 'Văn bản đi' : 'Văn bản đến',
+            typeBadge: 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: ' +
+              (isDi ? '#CC4600' : '#2C4F6A') + '; background: ' + (isDi ? '#FFEAD0' : '#EAF0F5') +
+              '; border: 1px solid ' + (isDi ? '#FFD3A8' : '#C3D3DF') + ';',
+            bookHint: isDi
+              ? 'Bộ đếm riêng của sổ này · ' + (b.resetYearly ? 'reset đầu năm' : 'tăng liên tục qua các năm')
+              : 'Số do cơ quan gửi ghi — hệ thống không cấp số cho sổ đến',
+            nextNumber: n ? n.text : '',
+            canTakeNumber: isDi && canWrite && !b.hidden,
+            canAddIncoming: !isDi && canWrite && !b.hidden,
+            hiddenLocked: !!b.hidden && canWrite,
+            isOutgoing: isDi,
+            formatLabel: isDi
+              ? 'Định dạng số của sổ này: tiền tố “' + (b.prefix || '∅') + '” + số thứ tự + hậu tố “' + (b.suffix || '∅') +
+              '” · không có 0 ở đầu · ' + (b.resetYearly ? 'reset đầu năm' : 'tăng liên tục')
+              : '',
+
+            colPeople: isDi ? 'Người ký / đơn vị soạn' : 'Cơ quan gửi',
+
+            bookYear: s.bookYear, q: s.q, secFilter: s.secFilter,
+            yearOptions: Object.keys(years).sort().reverse().map(y => ({ value: y, label: 'Sổ ' + y })),
+            resultLabel: 'Hiển thị ' + rows.length + ' / ' + inYear.length + ' văn bản · ' +
+              (s.bookYear ? 'sổ ' + s.bookYear : 'tất cả các năm'),
+            showCrossHint: otherHits > 0,
+            crossHint: 'Còn ' + otherHits + ' văn bản khớp “' + s.q + '” ở sổ khác.',
+            crossAction: 'Tìm trong tất cả các sổ',
+            isEmpty: rows.length === 0,
+
+            rows: rows.map(d => {
+              const c = SEC[d.doBaoMat] || SEC['Thường'];
+              return {
+                soVanBan: d.soVanBan, ngayHienThi: viDate(d.ngayGui),
+                nguoiGui: d.nguoiGui || '—', tenVanBan: d.tenVanBan, doBaoMat: d.doBaoMat,
+                fileLabel: d.file || '—',
+                cell, cellMono: cell + ' font-family: var(--font-mono); font-size: 13px;',
+                cellNum: cell + ' font-family: var(--font-mono); font-weight: 600; color: #000000;',
+                cellTitle: cell + ' font-weight: 600;',
+                cellFile: cell + ' font-size: 13px; color: ' + (d.file ? '#CC4600' : '#9B9D96') + ';',
+                cellActions: cell + ' text-align: right; white-space: nowrap;',
+                badge: 'display: inline-block; padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 700; color: ' +
+                  c.fg + '; background: ' + c.bg + '; border: 1px solid ' + c.bd + ';',
+                canWrite: canWrite && !b.hidden,
+                onEdit: () => { }, onDelete: () => { }
+              };
+            }),
+
+            modalOpen: !!f,
+            modalTitle: isDi ? 'Lấy số' : 'Ghi văn bản đến',
+            modalHint: isDi ? 'Mỗi sổ một bộ đếm riêng' : 'Sổ đến không cấp số — ghi lại số cơ quan gửi đã ghi',
+            isIncoming: !isDi,
+            formRawNumber: f ? f.raw : '',
+            formSeq: f && f.seq != null ? String(f.seq) : '',
+            formPrefix: f ? f.prefix : '',
+            formSuffix: f ? f.suffix : '',
+            formTitle: f ? f.tenVanBan : '',
+            formNumber: f && f.seq != null ? build(f.prefix, f.seq, f.suffix) : '',
+            formError: s.formError,
+
+            h: {
+              role: e => this.setState({ roleKey: e.target.value, page: 'book' }),
+              goSettings: () => this.setState({ page: 'settings' }),
+              goBooks: () => this.setState({ page: 'settings' }),
+              backBook: () => this.setState({ page: 'book' }),
+              bookYear: e => this.setState({ bookYear: e.target.value }),
+              q: e => this.setState({ q: e.target.value }),
+              sec: e => this.setState({ secFilter: e.target.value }),
+              reset: () => this.setState({ q: '', secFilter: '', bookYear: String(YEAR) }),
+              searchAll: () => { },
+              layso: this.openLaySo,
+              add: this.openLaySo,
+              closeModal: () => this.setState({ form: null, formError: '' }),
+              saveDoc: this.saveDoc,
+              fPrefix: e => this.setForm({ prefix: e.target.value }),
+              fSuffix: e => this.setForm({ suffix: e.target.value }),
+              fTitle: e => this.setForm({ tenVanBan: e.target.value }),
+              fRaw: e => this.setForm({ raw: e.target.value })
+            }
+          };
+        }
+      }
+  </script>
+</body>
+
+</html>

@@ -14,6 +14,7 @@ require('../env');
 const { db } = require('../db');
 const auth = require('../auth');
 const numbering = require('../numbering');
+const books = require('../books');
 const { strip, nowIso } = require('../util');
 
 const force = process.argv.includes('--force');
@@ -54,7 +55,14 @@ const DI = [
   [41, '2025-11-04', 'Nguyễn Thị Hà — Văn thư', 'Công văn đề nghị cấp bổ sung trang thiết bị lưu trữ', 'Thường', 'Gửi Sở Tài chính'],
 ];
 
-const CFG = { prefix: '', suffix: '/' + new Date().getFullYear(), start: 1, resetYearly: true };
+// Sổ đi thứ hai: lý do chính khiến sổ trở thành dữ liệu. Tiền tố/hậu tố và bộ
+// đếm của nó không dính gì tới sổ đi chính quyền — số 12 ở đây và số 12 ở sổ
+// kia là hai văn bản khác nhau, cùng tồn tại được.
+const DU = [
+  [12, '2026-09-11', 'Lê Quốc Bảo — Bí thư Đảng ủy', 'Công văn triệu tập hội nghị Ban Chấp hành mở rộng', 'Thường', 'Gửi các chi bộ trực thuộc'],
+  [11, '2026-08-30', 'Lê Quốc Bảo — Bí thư Đảng ủy', 'Báo cáo công tác xây dựng Đảng quý III/2026', 'Mật', 'Gửi Đảng ủy cấp trên'],
+  [10, '2026-08-05', 'Nguyễn Thị Hà — Văn phòng Đảng ủy', 'Kế hoạch học tập chuyên đề năm 2026', 'Thường', ''],
+];
 
 function viDate(iso) {
   const p = iso.split('-');
@@ -73,27 +81,40 @@ const insertUser = db.prepare(
 );
 
 const insertDoc = db.prepare(
-  `INSERT INTO documents (book, so_van_ban, seq, seq_scope, year, ngay_gui, nguoi_gui,
+  `INSERT INTO documents (book, book_id, so_van_ban, seq, seq_scope, year, ngay_gui, nguoi_gui,
                           ten_van_ban, do_bao_mat, ghi_chu, search_text, created_at, created_by)
-   VALUES (@book, @so, @seq, @scope, @year, @ngay, @nguoi, @ten, @bao_mat, @ghi_chu,
+   VALUES (@book, @book_id, @so, @seq, @scope, @year, @ngay, @nguoi, @ten, @bao_mat, @ghi_chu,
            @search, @created, @by)`
 );
 
-db.transaction(() => {
+/** Sổ theo tên, tạo nếu chưa có. splitBooksMigration đã dựng sẵn hai sổ gốc. */
+function ensureBook(name, kind, prefix, suffix, adminId) {
+  const found = books.all().find((b) => b.name === name);
+  if (found) return found;
+  const maxOrder = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM books`).get().m;
+  const info = db
+    .prepare(
+      `INSERT INTO books (name, kind, prefix, suffix, start_seq, reset_yearly, hidden, sort_order, created_at, created_by)
+       VALUES (?, ?, ?, ?, 1, 1, 0, ?, ?, ?)`
+    )
+    .run(name, kind, prefix, suffix, maxOrder + 1, nowIso(), adminId);
+  return books.get(info.lastInsertRowid);
+}
+
+const seeded = db.transaction(() => {
   for (const [username, name, title, role, password, locked] of USERS) {
     insertUser.run(username, name, title, role, auth.hashPassword(password), locked, nowIso());
   }
   const adminId = db.prepare(`SELECT id FROM users WHERE username = 'admin'`).get().id;
   const haId = db.prepare(`SELECT id FROM users WHERE username = 'hant'`).get().id;
 
-  db.prepare(
-    `INSERT INTO settings (key, value, updated_at, updated_by) VALUES ('numbering', ?, ?, ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-  ).run(JSON.stringify(CFG), nowIso(), adminId);
+  const bookDen = books.all().find((b) => b.kind === 'den');
+  const bookDi = books.all().find((b) => b.kind === 'di');
+  const bookDu = ensureBook('Văn bản đi — Đảng ủy', 'di', '', '-CV/ĐU', adminId);
 
   for (const [so, ngay, nguoi, ten, baoMat, ghiChu] of DEN) {
     insertDoc.run({
-      book: 'den', so, seq: null, scope: null,
+      book: 'den', book_id: bookDen.id, so, seq: null, scope: null,
       year: Number.parseInt(ngay.slice(0, 4), 10), ngay, nguoi, ten,
       bao_mat: baoMat, ghi_chu: ghiChu,
       search: searchText([so, nguoi, ten, ghiChu, baoMat], ngay),
@@ -102,20 +123,26 @@ db.transaction(() => {
   }
 
   const maxByScope = new Map();
-  for (const [seq, ngay, nguoi, ten, baoMat, ghiChu] of DI) {
-    const year = Number.parseInt(ngay.slice(0, 4), 10);
-    const scope = numbering.scopeFor(CFG, year);
-    // Dữ liệu mẫu trải nhiều năm, nên hậu tố dựng theo năm của chính văn bản
-    // chứ không dùng hậu tố mặc định của năm nay.
-    const so = numbering.buildNumber(CFG.prefix, seq, '/' + year);
-    insertDoc.run({
-      book: 'di', so, seq, scope, year, ngay, nguoi, ten,
-      bao_mat: baoMat, ghi_chu: ghiChu,
-      search: searchText([so, nguoi, ten, ghiChu, baoMat], ngay),
-      created: nowIso(), by: haId,
-    });
-    maxByScope.set(scope, Math.max(maxByScope.get(scope) || 0, seq));
-  }
+  /** Nạp một sổ đi; suffixFor cho phép dữ liệu cũ mang hậu tố theo năm của nó. */
+  const seedOut = (book, rows, suffixFor) => {
+    for (const [seq, ngay, nguoi, ten, baoMat, ghiChu] of rows) {
+      const year = Number.parseInt(ngay.slice(0, 4), 10);
+      const scope = numbering.scopeFor(book, year);
+      const so = numbering.buildNumber(book.prefix, seq, suffixFor(year));
+      insertDoc.run({
+        book: 'di', book_id: book.id, so, seq, scope, year, ngay, nguoi, ten,
+        bao_mat: baoMat, ghi_chu: ghiChu,
+        search: searchText([so, nguoi, ten, ghiChu, baoMat], ngay),
+        created: nowIso(), by: haId,
+      });
+      maxByScope.set(scope, Math.max(maxByScope.get(scope) || 0, seq));
+    }
+  };
+
+  // Dữ liệu mẫu trải nhiều năm, nên hậu tố dựng theo năm của chính văn bản chứ
+  // không dùng hậu tố mặc định của năm nay.
+  seedOut(bookDi, DI, (year) => '/' + year);
+  seedOut(bookDu, DU, () => bookDu.suffix);
 
   // Bộ đếm phải đứng sau số lớn nhất đã dùng, nếu không lần lấy số đầu tiên
   // sẽ phải nhảy qua một loạt số đã chiếm.
@@ -125,13 +152,16 @@ db.transaction(() => {
        ON CONFLICT(scope) DO UPDATE SET next_seq = excluded.next_seq`
     ).run(scope, max + 1);
   }
+  return { bookDi, bookDu };
 })();
 
 const year = new Date().getFullYear();
 console.log('Đã nạp dữ liệu thử.');
 console.log('  văn bản đến : ' + DEN.length);
-console.log('  văn bản đi  : ' + DI.length);
-console.log('  số kế tiếp  : ' + numbering.peekNext(CFG, year).soVanBan);
+console.log('  văn bản đi  : ' + DI.length + ' (' + seeded.bookDi.name + ')');
+console.log('              : ' + DU.length + ' (' + seeded.bookDu.name + ')');
+console.log('  số kế tiếp  : ' + numbering.peekNext(seeded.bookDi, year).soVanBan +
+  ' · ' + numbering.peekNext(seeded.bookDu, year).soVanBan);
 console.log('');
 console.log('Tài khoản thử (mật khẩu chỉ dùng để xem thử, đổi ngay nếu dùng thật):');
 for (const [username, name, , role, password, locked] of USERS) {

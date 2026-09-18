@@ -6,13 +6,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const express = require('express');
 
-const { db, getSetting, DEFAULT_NUMBERING } = require('./db');
+const { db } = require('./db');
 const authLib = require('./auth');
 const { HttpError, SECURITY_LEVELS, ROLE_LABEL, AUDIT_ACTION_LABEL } = require('./util');
 
 const authRoutes = require('./routes/auth');
 const docRoutes = require('./routes/docs');
 const settingsRoutes = require('./routes/settings');
+const bookRoutes = require('./routes/books');
+const books = require('./books');
 const userRoutes = require('./routes/users');
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
@@ -76,6 +78,7 @@ app.get('/api/config', (req, res) => {
 app.use('/api', authRoutes.router);
 app.use('/api/documents', docRoutes.router);
 app.use('/api/settings', settingsRoutes.router);
+app.use('/api/books', bookRoutes.router);
 app.use('/api/users', userRoutes.router);
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -154,19 +157,24 @@ function describeStartup() {
   const users = db.prepare(`SELECT COUNT(*) AS n FROM users`).get().n;
   const admins = authLib.activeAdminCount();
   const docs = db.prepare(`SELECT COUNT(*) AS n FROM documents`).get().n;
-  const cfg = getSetting('numbering', DEFAULT_NUMBERING).value;
+  const list = books.all();
+  const counts = books.counts();
 
   console.log('Quản lý số văn bản');
   console.log('  đơn vị      : ' + ORG_NAME);
   console.log('  địa chỉ     : http://' + (HOST === '0.0.0.0' ? 'localhost' : HOST) + ':' + PORT);
   console.log('  tài khoản   : ' + users + ' (quản trị đang hoạt động: ' + admins + ')');
   console.log('  văn bản     : ' + docs);
-  console.log(
-    '  mẫu số      : ' +
-    cfg.prefix + '<số>' + cfg.suffix +
-    ' (mặc định, người lấy số sửa được)' +
-    (cfg.resetYearly ? ' · reset đầu năm' : ' · tăng liên tục')
-  );
+  // Mỗi sổ một dòng: mẫu số là của riêng từng sổ nên không gộp được thành một
+  // dòng "mẫu số" chung như trước.
+  list.forEach((b, i) => {
+    const head = i === 0 ? '  sổ          : ' : '                ';
+    const mau = b.kind === 'di'
+      ? b.prefix + '<số>' + b.suffix + (b.resetYearly ? ' · reset đầu năm' : ' · tăng liên tục')
+      : 'số theo cơ quan gửi';
+    console.log(head + b.name + ' — ' + mau + ' · ' + (counts.get(b.id) || 0) + ' văn bản' +
+      (b.hidden ? ' · NGỪNG DÙNG' : ''));
+  });
   if (users === 0) {
     console.log('');
     console.log('  Chưa có tài khoản nào. Chạy:  npm run init-admin');

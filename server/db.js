@@ -40,6 +40,7 @@ function addMissingColumns() {
   const wanted = [
     ['documents', 'deleted_at', 'TEXT'],
     ['documents', 'deleted_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL'],
+    ['documents', 'book_id', 'INTEGER REFERENCES books(id)'],
     ['audit_log', 'doc_id', 'INTEGER'],
     ['audit_log', 'search_text', "TEXT NOT NULL DEFAULT ''"],
   ];
@@ -54,6 +55,8 @@ function addMissingColumns() {
              ON documents(deleted_at) WHERE deleted_at IS NOT NULL`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_audit_doc
              ON audit_log(doc_id) WHERE doc_id IS NOT NULL`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_documents_book_id
+             ON documents(book_id, ngay_gui DESC)`);
 
   // Hai bảo đảm "không trùng số" của sổ đi. Cả hai CHỈ tính văn bản còn trong
   // sổ: xóa một văn bản là nhả số của nó ra cho văn bản khác lấy (quy tắc chốt
@@ -146,6 +149,15 @@ const DEFAULT_NUMBERING = {
   resetYearly: true,
 };
 
+// Tách sổ. Phải đứng SAU hai thứ: migrateNumberingSetting (sổ đi chép lại cấu
+// hình lấy số, mà cấu hình đó chỉ ở dạng tiền tố/hậu tố sau khi hàm kia chạy),
+// và hằng DEFAULT_NUMBERING ngay trên — `const` không được hoisted nên gọi
+// migration trước chỗ này sẽ chết ngay lúc khởi động.
+const splitBooks = splitBooksMigration();
+if (splitBooks) {
+  console.log('  cập nhật    : tách sổ — “Văn bản đến” và “Văn bản đi” nay là dữ liệu, thêm sổ được');
+}
+
 /** Đọc một mục cài đặt (JSON) kèm thông tin ai sửa lần cuối. */
 function getSetting(key, fallback) {
   const row = db
@@ -175,6 +187,65 @@ function setSetting(key, value, userId) {
        updated_at = excluded.updated_at,
        updated_by = excluded.updated_by`
   ).run(key, JSON.stringify(value), new Date().toISOString(), userId ?? null);
+}
+
+/**
+ * Dựng bảng sổ cho một cơ sở dữ liệu có từ thời còn đúng hai sổ viết cứng.
+ *
+ * Chạy đúng MỘT lần, nhận ra bằng việc bảng books còn rỗng. Ba việc, phải nằm
+ * trong cùng một transaction vì làm dở nửa chừng thì bộ đếm và văn bản trỏ vào
+ * hai phạm vi đếm khác nhau, và số sẽ cấp trùng:
+ *
+ *   1. tạo hai hàng sổ, sổ đi nhận nguyên cấu hình lấy số đang dùng chung
+ *   2. gắn book_id cho mọi văn bản cũ theo cột book ('den' | 'di')
+ *   3. đổi tên phạm vi đếm từ '2026' | 'all' sang '<id sổ đi>:2026' | '<id>:all'
+ *      ở CẢ documents.seq_scope lẫn counters.scope
+ *
+ * Việc 3 là chỗ dễ hỏng nhất: bỏ sót một trong hai bảng thì bộ đếm đứng ở phạm
+ * vi này còn văn bản giữ số ở phạm vi kia, nên peekNext không nhìn thấy số nào
+ * đang bị chiếm và cấp trùng ngay số kế tiếp.
+ */
+function splitBooksMigration() {
+  const have = db.prepare(`SELECT COUNT(*) AS n FROM books`).get().n;
+  if (have > 0) return null;
+
+  const cfgRow = getSetting('numbering', DEFAULT_NUMBERING);
+  const cfg = cfgRow.value || DEFAULT_NUMBERING;
+  const now = new Date().toISOString();
+
+  return db.transaction(() => {
+    const ins = db.prepare(
+      `INSERT INTO books (name, kind, prefix, suffix, start_seq, reset_yearly, hidden, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`
+    );
+    const denId = ins.run('Văn bản đến', 'den', '', '', 1, 1, 1, now).lastInsertRowid;
+    const diId = ins.run(
+      'Văn bản đi',
+      'di',
+      String(cfg.prefix || ''),
+      String(cfg.suffix || ''),
+      Number.isFinite(cfg.start) && cfg.start >= 1 ? cfg.start : 1,
+      cfg.resetYearly === false ? 0 : 1,
+      2,
+      now
+    ).lastInsertRowid;
+
+    db.prepare(`UPDATE documents SET book_id = ? WHERE book = 'den'`).run(denId);
+    db.prepare(`UPDATE documents SET book_id = ? WHERE book = 'di'`).run(diId);
+
+    // Phạm vi đếm cũ không có tiền tố sổ. Chỉ sổ đi từng có seq_scope, nên mọi
+    // giá trị cũ đều thuộc về sổ đi vừa tạo.
+    const tag = diId + ':';
+    db.prepare(
+      `UPDATE documents SET seq_scope = ? || seq_scope
+        WHERE seq_scope IS NOT NULL AND seq_scope NOT LIKE '%:%'`
+    ).run(tag);
+    db.prepare(
+      `UPDATE counters SET scope = ? || scope WHERE scope NOT LIKE '%:%'`
+    ).run(tag);
+
+    return { denId, diId };
+  })();
 }
 
 /**
@@ -244,6 +315,7 @@ module.exports = {
   DB_PATH,
   DEFAULT_NUMBERING,
   migrateNumberingSetting,
+  splitBooksMigration,
   getSetting,
   setSetting,
   audit,
