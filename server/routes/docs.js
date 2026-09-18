@@ -6,9 +6,10 @@ const crypto = require('node:crypto');
 const express = require('express');
 const multer = require('multer');
 
-const { db, UPLOAD_DIR, getSetting, DEFAULT_NUMBERING, audit } = require('../db');
+const { db, UPLOAD_DIR, audit } = require('../db');
 const auth = require('../auth');
 const numbering = require('../numbering');
+const books = require('../books');
 const convert = require('../convert');
 const {
   strip,
@@ -110,10 +111,6 @@ function contentDisposition(kind, name) {
   return kind + '; filename="' + ascii + '"; filename*=UTF-8\'\'' + encodeURIComponent(safe);
 }
 
-function numberingConfig() {
-  return getSetting('numbering', DEFAULT_NUMBERING).value;
-}
-
 function currentYear() {
   return new Date().getFullYear();
 }
@@ -155,7 +152,10 @@ function searchTextFor(d) {
 function rowToJson(r) {
   return {
     id: r.id,
+    // book = LOẠI sổ ('den' | 'di'), bookId = sổ cụ thể. Giao diện cần cả hai:
+    // loại quyết định hình dạng hộp thoại, sổ quyết định mở lại đúng chỗ nào.
     book: r.book,
+    bookId: r.book_id,
     soVanBan: r.so_van_ban,
     seq: r.seq,
     year: r.year,
@@ -182,7 +182,7 @@ function rowToJson(r) {
 }
 
 /** Đọc và kiểm tra các trường của một văn bản từ body (JSON hoặc multipart). */
-function readFields(body, book) {
+function readFields(body, kind) {
   const ngayGui = String((body && body.ngayGui) || '').trim();
   if (!isIsoDate(ngayGui)) throw badRequest('Ngày gửi không hợp lệ.');
 
@@ -199,7 +199,7 @@ function readFields(body, book) {
     nguoiGui: text(body && body.nguoiGui, 200),
     ghiChu: multiline(body && body.ghiChu, 2000),
     year: Number.parseInt(ngayGui.slice(0, 4), 10),
-    book,
+    book: kind,
   };
 }
 
@@ -218,42 +218,53 @@ function readSoVanBan(body) {
 /**
  * Tiền tố / hậu tố cho một lượt lấy số.
  *
- * Người lấy số tự đặt cho từng văn bản; bỏ trống thì dùng mặc định của phòng
- * trong Cài đặt lấy số. Chúng chỉ đổi phần chữ quanh số thứ tự, không đụng
- * được vào chính số thứ tự nên không ảnh hưởng tính duy nhất.
+ * Người lấy số tự đặt cho từng văn bản; bỏ trống thì dùng mặc định CỦA SỔ ĐÓ.
+ * Chúng chỉ đổi phần chữ quanh số thứ tự, không đụng được vào chính số thứ tự
+ * nên không ảnh hưởng tính duy nhất.
  */
-function readAffixes(body, cfg) {
+function readAffixes(body, book) {
   const has = (k) => body && body[k] != null;
   return {
-    prefix: has('prefix') ? numbering.cleanAffix(body.prefix) : cfg.prefix,
-    suffix: has('suffix') ? numbering.cleanAffix(body.suffix) : cfg.suffix,
+    prefix: has('prefix') ? numbering.cleanAffix(body.prefix) : book.prefix,
+    suffix: has('suffix') ? numbering.cleanAffix(body.suffix) : book.suffix,
   };
 }
 
 // ------------------------------------------------------------------- đọc sổ
 
-/** Số kế tiếp dự kiến của sổ năm nay. Chỉ để hiển thị, không chiếm số. */
-router.get('/next-number', auth.requireAuth, (req, res) => {
-  const cfg = numberingConfig();
-  const year = currentYear();
-  const next = numbering.peekNext(cfg, year);
-  res.json({
-    year,
-    seq: next.seq,
-    soVanBan: next.soVanBan,
-    prefix: cfg.prefix,
-    suffix: cfg.suffix,
-    resetYearly: cfg.resetYearly,
-  });
+/** Số kế tiếp dự kiến của MỘT sổ trong năm nay. Chỉ để hiển thị, không chiếm số. */
+router.get('/next-number', auth.requireAuth, (req, res, next) => {
+  try {
+    const book = books.require(req.query.book, false);
+    if (book.kind !== 'di') throw badRequest('Sổ đến không cấp số.', 'no_counter');
+    const year = currentYear();
+    const peek = numbering.peekNext(book, year);
+    return res.json({
+      bookId: book.id,
+      year,
+      seq: peek.seq,
+      soVanBan: peek.soVanBan,
+      prefix: book.prefix,
+      suffix: book.suffix,
+      resetYearly: book.resetYearly,
+    });
+  } catch (err) {
+    return next(err);
+  }
 });
 
 router.get('/', auth.requireAuth, (req, res, next) => {
-  const book = String(req.query.book || 'den');
-  if (book !== 'den' && book !== 'di') return next(badRequest('Sổ không hợp lệ.'));
+  let book;
+  try {
+    // Đọc thì sổ đã ngừng dùng vẫn mở được — quản trị còn phải tra cứu trong đó.
+    book = books.require(req.query.book, false);
+  } catch (err) {
+    return next(err);
+  }
 
   // Văn bản đã xóa mềm không còn thuộc sổ; chỉ trang Nhật ký nhìn thấy chúng.
-  const where = ['d.book = ?', 'd.deleted_at IS NULL'];
-  const args = [book];
+  const where = ['d.book_id = ?', 'd.deleted_at IS NULL'];
+  const args = [book.id];
 
   const year = String(req.query.year || '').trim();
   if (year) {
@@ -305,11 +316,11 @@ router.get('/', auth.requireAuth, (req, res, next) => {
   const totalInBook = db
     .prepare(
       `SELECT COUNT(*) AS n FROM documents
-        WHERE book = ? AND deleted_at IS NULL${year ? ' AND year = ?' : ''}`
+        WHERE book_id = ? AND deleted_at IS NULL${year ? ' AND year = ?' : ''}`
     )
-    .get(...(year ? [book, Number.parseInt(year, 10)] : [book])).n;
+    .get(...(year ? [book.id, Number.parseInt(year, 10)] : [book.id])).n;
 
-  res.json({ documents: rows.map(rowToJson), shown: rows.length, totalInBook });
+  res.json({ book, documents: rows.map(rowToJson), shown: rows.length, totalInBook });
 });
 
 /** Số lượng văn bản theo từng năm, cho trang “Sổ theo năm”. */
@@ -334,11 +345,11 @@ const WRITE_ROLES = ['admin', 'vanthu'];
 
 const insertStmt = db.prepare(
   `INSERT INTO documents
-     (book, so_van_ban, seq, seq_scope, year, ngay_gui, nguoi_gui, ten_van_ban,
+     (book, book_id, so_van_ban, seq, seq_scope, year, ngay_gui, nguoi_gui, ten_van_ban,
       do_bao_mat, ghi_chu, file_name, file_path, file_size, search_text,
       created_at, created_by)
    VALUES
-     (@book, @so_van_ban, @seq, @seq_scope, @year, @ngay_gui, @nguoi_gui, @ten_van_ban,
+     (@book, @book_id, @so_van_ban, @seq, @seq_scope, @year, @ngay_gui, @nguoi_gui, @ten_van_ban,
       @do_bao_mat, @ghi_chu, @file_name, @file_path, @file_size, @search_text,
       @created_at, @created_by)`
 );
@@ -358,26 +369,26 @@ router.post(
   upload.single('file'),
   (req, res, next) => {
     try {
-      const book = String((req.body && req.body.book) || '');
-      if (book !== 'den' && book !== 'di') throw badRequest('Sổ không hợp lệ.');
-      const issue = book === 'di' && String((req.body && req.body.mode) || '') === 'issue';
-      if (book === 'di' && !issue) {
+      // Ghi thì sổ đã ngừng dùng bị chặn hẳn — đó là ý nghĩa của "ngừng dùng".
+      const book = books.require(req.body && req.body.book, true);
+      const issue = book.kind === 'di' && String((req.body && req.body.mode) || '') === 'issue';
+      if (book.kind === 'di' && !issue) {
         // Ranh giới thật, không chỉ là chuyện giao diện đã bỏ nút: sổ văn bản
         // đi chỉ có một đường vào sổ là hệ thống cấp số.
         throw badRequest(
-          'Sổ văn bản đi không nhận số ghi tay — dùng “Lấy số gửi văn bản đi”.',
+          'Sổ văn bản đi không nhận số ghi tay — dùng nút “Lấy số ở sổ này”.',
           'manual_disabled'
         );
       }
 
-      const f = readFields(req.body, book);
-      const cfg = numberingConfig();
-      const affix = readAffixes(req.body, cfg);
+      const f = readFields(req.body, book.kind);
+      const affix = readAffixes(req.body, book);
 
       // Chỉ đúng những khóa mà câu INSERT khai báo: better-sqlite3 từ chối
       // tham số có tên lạ.
       const base = {
-        book,
+        book: book.kind,
+        book_id: book.id,
         year: f.year,
         so_van_ban: null,
         seq: null,
@@ -397,7 +408,7 @@ router.post(
       const run = db.transaction(() => {
         let allocated = null;
         if (issue) {
-          allocated = numbering.allocate(cfg, f.year, affix.prefix, affix.suffix);
+          allocated = numbering.allocate(book, f.year, affix.prefix, affix.suffix);
           base.so_van_ban = allocated.soVanBan;
           base.seq = allocated.seq;
           base.seq_scope = allocated.scope;
@@ -427,7 +438,7 @@ router.post(
       audit(
         req.user,
         issue ? 'cap_so' : 'ghi_so',
-        book + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban,
+        book.name + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban,
         row.id
       );
       // Số dự kiến hiện lúc mở hộp thoại có thể lệch với số thực cấp: người
@@ -475,6 +486,7 @@ router.put(
         );
       }
 
+      const existingBook = books.get(existing.book_id);
       const f = readFields(req.body, existing.book);
       // Số của sổ đi giữ nguyên, kể cả hàng cũ ghi tay từ trước 11/09/2026:
       // sửa số đã phát hành là sai nghiệp vụ, và giờ không còn đường nhập tay
@@ -529,7 +541,12 @@ router.put(
       if (req.file || dropFile) removeFile(oldPath);
       preConvert(req.file);
       const row = db.prepare(`SELECT * FROM documents WHERE id = ?`).get(id);
-      audit(req.user, 'sua_van_ban', existing.book + ' · ' + row.so_van_ban, id);
+      audit(
+        req.user,
+        'sua_van_ban',
+        (existingBook ? existingBook.name : existing.book) + ' · ' + row.so_van_ban,
+        id
+      );
       return res.json({ document: rowToJson(row) });
     } catch (err) {
       if (req.file) removeFile(req.file.filename);
@@ -557,17 +574,20 @@ router.delete(
     // và bộ đếm bị kéo về chính số vừa xóa, nên người lấy số kế tiếp nhận lại
     // đúng số đó. Đổi lại, khôi phục không còn chắc chắn giữ được số cũ — xem
     // nhánh /restore bên dưới.
-    const cfg = numberingConfig();
+    // Bộ đếm được nhả về là bộ đếm CỦA SỔ CHỨA văn bản này, không phải của sổ
+    // người dùng đang mở — xóa một văn bản ở sổ Đảng ủy không được kéo bộ đếm
+    // của sổ chính quyền.
+    const book = books.get(row.book_id);
     db.transaction(() => {
       db.prepare(
         `UPDATE documents SET deleted_at = ?, deleted_by = ?
           WHERE id = ? AND deleted_at IS NULL`
       ).run(nowIso(), req.user.id, id);
-      numbering.release(cfg, row.seq_scope, row.seq);
+      if (book) numbering.release(book, row.seq_scope, row.seq);
       audit(
         req.user,
         'xoa_van_ban',
-        row.book + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban,
+        (book ? book.name : row.book) + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban,
         id
       );
     })();
@@ -598,11 +618,11 @@ router.post(
       return next(badRequest('Văn bản này chưa bị xóa nên không cần khôi phục.', 'not_deleted'));
     }
 
-    const cfg = numberingConfig();
+    const book = books.get(row.book_id);
     let renumbered = null;
     try {
       db.transaction(() => {
-        if (!numbering.oldNumberFree(cfg, row)) {
+        if (!numbering.oldNumberFree(row)) {
           const taker = db
             .prepare(
               `SELECT ten_van_ban FROM documents
@@ -611,7 +631,8 @@ router.post(
             .get(row.seq_scope, row.seq);
           // Không đặt tên biến này là `next`: đó là hàm chuyển lỗi của Express
           // ở scope ngoài, và che nó đi thì nhánh bắt lỗi bên dưới câm lặng.
-          const issued = numbering.allocate(cfg, row.year);
+          // Số mới lấy từ bộ đếm của chính sổ cũ của văn bản này.
+          const issued = numbering.allocate(book, row.year);
           renumbered = {
             from: row.so_van_ban,
             to: issued.soVanBan,
@@ -636,7 +657,7 @@ router.post(
         audit(
           req.user,
           'khoi_phuc_van_ban',
-          row.book + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban +
+          (book ? book.name : row.book) + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban +
             (renumbered ? ' · số cũ đã có chủ, cấp lại số ' + renumbered.to : ''),
           id
         );

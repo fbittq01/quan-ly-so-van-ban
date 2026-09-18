@@ -286,19 +286,20 @@ const state = {
   config: null,
   user: null,
   page: 'so',
-  book: 'den',
-  settingsTab: 'layso',
+  // Sổ nay là dữ liệu: danh sách tải từ máy chủ, bookId là sổ đang mở.
+  books: [],
+  bookId: null,
+  settingsTab: 'so',
   filters: { year: String(new Date().getFullYear()), q: '', security: '', from: '', to: '' },
   documents: [],
   shown: 0,
   totalInBook: 0,
-  counts: { den: 0, di: 0 },
   nextNumber: null,
   years: [],
-  numbering: null,
-  draftNumbering: null,
-  numberingSavedAt: '',
-  resetOpen: false,
+  bookForm: null,
+  bookFormError: '',
+  bookSavedAt: '',
+  resetOpenFor: null,
   resetToRaw: '1',
   users: [],
   audit: [],
@@ -332,11 +333,43 @@ function showError(err) {
 const isAdmin = () => state.user && state.user.role === 'admin';
 const canWrite = () => state.user && (state.user.role === 'admin' || state.user.role === 'vanthu');
 
+/** Sổ đang mở, hoặc null khi danh sách chưa về. */
+function currentBook() {
+  return state.books.find((b) => b.id === state.bookId) || null;
+}
+
+function bookById(id) {
+  return state.books.find((b) => b.id === id) || null;
+}
+
+/**
+ * Chốt lại sổ đang mở sau khi danh sách sổ đổi.
+ *
+ * Sổ đang xem có thể vừa bị ngừng dùng hoặc xóa mất ở máy khác, nên không bao
+ * giờ tin state.bookId là còn hợp lệ. Ưu tiên sổ còn dùng được đầu tiên.
+ */
+function settleBook() {
+  if (state.books.length === 0) {
+    state.bookId = null;
+    return;
+  }
+  if (currentBook()) return;
+  const live = state.books.find((b) => !b.hidden);
+  state.bookId = (live || state.books[0]).id;
+}
+
 // ------------------------------------------------------------ tải dữ liệu
 
+async function loadBooks() {
+  const data = await api('GET', '/api/books');
+  state.books = data.books;
+  settleBook();
+}
+
 async function loadBook() {
+  if (!state.bookId) return;
   const f = state.filters;
-  const qs = new URLSearchParams({ book: state.book });
+  const qs = new URLSearchParams({ book: String(state.bookId) });
   if (f.year) qs.set('year', f.year);
   if (f.q) qs.set('q', f.q);
   if (f.security) qs.set('security', f.security);
@@ -348,29 +381,25 @@ async function loadBook() {
   state.totalInBook = data.totalInBook;
 }
 
-async function loadCounts() {
+async function loadYears() {
   const data = await api('GET', '/api/documents/years');
   state.years = data.years;
-  state.counts = data.years.reduce(
-    (acc, y) => ({ den: acc.den + y.den, di: acc.di + y.di }),
-    { den: 0, di: 0 }
-  );
 }
 
+/**
+ * Số kế tiếp của sổ ĐANG MỞ.
+ *
+ * Danh sách sổ cũng chở sẵn số kế tiếp của từng sổ, nhưng gọi riêng ở đây để
+ * con số trên nút “Lấy số” luôn là bản mới nhất ngay trước lúc bấm — giữa hai
+ * lần tải, người khác có thể đã lấy mất số đó.
+ */
 async function loadNextNumber() {
-  state.nextNumber = await api('GET', '/api/documents/next-number');
-}
-
-async function loadNumbering() {
-  const data = await api('GET', '/api/settings/numbering');
-  state.numbering = data;
-  state.draftNumbering = {
-    prefix: data.numbering.prefix || '',
-    suffix: data.numbering.suffix || '',
-    startRaw: String(data.numbering.start),
-    resetYearly: data.numbering.resetYearly,
-  };
-  state.resetToRaw = String(data.counter.value);
+  const book = currentBook();
+  if (!book || book.kind !== 'di') {
+    state.nextNumber = null;
+    return;
+  }
+  state.nextNumber = await api('GET', '/api/documents/next-number?book=' + book.id);
 }
 
 async function loadUsers() {
@@ -399,16 +428,24 @@ async function refresh() {
   state.loading = true;
   render();
   try {
+    // Danh sách sổ quyết định sổ nào đang mở, mà loadBook/loadNextNumber đều cần
+    // biết điều đó — nên lần đầu (chưa có sổ nào) phải đợi nó xong đã. Về sau
+    // sổ đang mở đã biết rồi, nên chạy song song: nối tiếp hai lượt gọi làm mọi
+    // lần làm mới chậm thêm một vòng, thấy rõ nhất ngay sau khi cấp số.
+    const booksFirst = !state.bookId;
+    const booksDone = loadBooks();
+    if (booksFirst) await booksDone;
+
     if (state.page === 'so') {
-      await Promise.all([loadBook(), loadCounts(), loadNextNumber()]);
-    } else if (state.settingsTab === 'layso') {
-      await Promise.all([loadNumbering(), loadCounts()]);
+      await Promise.all([booksDone, loadBook(), loadNextNumber()]);
     } else if (state.settingsTab === 'taikhoan') {
-      await Promise.all([loadUsers(), loadCounts()]);
+      await Promise.all([booksDone, loadUsers()]);
     } else if (state.settingsTab === 'sonam') {
-      await loadCounts();
+      await Promise.all([booksDone, loadYears()]);
     } else if (state.settingsTab === 'nhatky') {
-      await Promise.all([loadAudit(), loadCounts()]);
+      await Promise.all([booksDone, loadAudit()]);
+    } else {
+      await booksDone;
     }
   } catch (err) {
     showError(err);
@@ -634,31 +671,76 @@ function renderHeader() {
   );
 }
 
-function renderTabs() {
-  const tab = (label, count, active, onClick, extra) =>
-    el('button', { class: 'tab' + (active ? ' active' : ''), type: 'button', onclick: onClick },
-      label,
-      count !== null && count !== undefined ? el('span', { class: 'tab-count', text: String(count) }) : null,
-      extra || null
-    );
+/**
+ * Cột sổ bên trái.
+ *
+ * Thay thanh tab ngang cũ, vốn viết cứng đúng hai sổ. Sổ nhóm theo loại, và
+ * nhóm “Ngừng dùng” chỉ quản trị thấy — máy chủ cũng chỉ trả sổ ẩn cho quản
+ * trị, nên với người khác nhóm đó rỗng sẵn.
+ */
+function renderBookNav() {
+  const groups = [
+    ['Sổ đến', state.books.filter((b) => !b.hidden && b.kind === 'den')],
+    ['Sổ đi', state.books.filter((b) => !b.hidden && b.kind === 'di')],
+    ['Ngừng dùng', state.books.filter((b) => b.hidden)],
+  ];
 
-  return el('div', { class: 'tabs' },
-    tab('1. Văn bản đến', state.counts.den, state.page === 'so' && state.book === 'den', () => {
-      state.page = 'so';
-      state.book = 'den';
-      refresh();
-    }),
-    tab('2. Văn bản đi', state.counts.di, state.page === 'so' && state.book === 'di', () => {
-      state.page = 'so';
-      state.book = 'di';
-      refresh();
-    }),
-    // Tab Cài đặt chỉ hiện với quản trị. Máy chủ vẫn chặn riêng, đây chỉ là cho gọn mắt.
-    isAdmin()
-      ? tab('Cài đặt', null, state.page === 'settings', () => {
-        state.page = 'settings';
+  const item = (b) => {
+    const active = state.page === 'so' && b.id === state.bookId;
+    return el('button', {
+      class: 'booknav-item' + (active ? ' active' : '') + (b.hidden ? ' off' : ''),
+      type: 'button',
+      title: b.name,
+      onclick: () => {
+        if (state.page === 'so' && state.bookId === b.id) return;
+        state.page = 'so';
+        state.bookId = b.id;
+        // Lọc là của từng lần tra cứu, không phải của sổ: giữ nguyên năm và
+        // các bộ lọc, chỉ bỏ từ khóa vì nó gần như chắc chắn không còn hợp.
+        state.filters.q = '';
         refresh();
-      }, icon('lock', 13, '#cc4600'))
+      },
+    },
+      el('span', { class: 'booknav-name', text: b.name }),
+      el('span', { class: 'booknav-count', text: String(b.count) })
+    );
+  };
+
+  return el('nav', { class: 'booknav' },
+    groups.map(([label, list]) =>
+      list.length === 0
+        ? null
+        : [el('div', { class: 'booknav-group', text: label }), list.map(item)]
+    ),
+    isAdmin()
+      ? el('button', {
+        class: 'booknav-add',
+        type: 'button',
+        onclick: () => {
+          state.page = 'settings';
+          state.settingsTab = 'so';
+          openBookForm(null);
+        },
+        text: '+ Thêm sổ',
+      })
+      : null,
+    el('div', { class: 'booknav-spacer' }),
+    // Mục Cài đặt chỉ hiện với quản trị. Máy chủ vẫn chặn riêng, đây chỉ là
+    // cho gọn mắt.
+    isAdmin()
+      ? el('div', { class: 'booknav-foot' },
+        el('button', {
+          class: 'booknav-item' + (state.page === 'settings' ? ' active' : ''),
+          type: 'button',
+          onclick: () => {
+            state.page = 'settings';
+            refresh();
+          },
+        },
+          icon('lock', 14, '#37505c'),
+          el('span', { class: 'booknav-name', text: 'Cài đặt' })
+        )
+      )
       : null
   );
 }
@@ -737,8 +819,7 @@ function renderFilters() {
       el('span', {
         class: 'muted',
         text:
-          'Hiển thị ' + state.shown + ' / ' + state.totalInBook +
-          (state.book === 'den' ? ' văn bản đến' : ' văn bản đi') +
+          'Hiển thị ' + state.shown + ' / ' + state.totalInBook + ' văn bản' +
           ' · ' + (f.year ? 'sổ ' + f.year : 'tất cả các năm'),
       }),
       f.year && f.year !== String(state.config.currentYear)
@@ -754,44 +835,79 @@ function renderFilters() {
             text: 'Về sổ năm nay',
           })
         )
-        : null,
-      canWrite()
-        ? el('div', { class: 'filters-actions' },
-          // Chỉ sổ đến mới ghi tay: số của nó là số cơ quan gửi đặt. Sổ đi chỉ
-          // có một đường vào sổ là “Lấy số gửi văn bản đi”.
-          state.book === 'den'
-            ? el('button', {
-              class: 'btn btn-secondary',
-              type: 'button',
-              onclick: () => openDocDialog({ book: 'den', mode: 'manual' }),
-              text: '+ Ghi văn bản đến',
-            })
-            : null,
-          el('button', {
-            class: 'btn btn-primary',
-            type: 'button',
-            onclick: () => openDocDialog({ book: 'di', mode: 'issue' }),
-          },
-            'Lấy số gửi văn bản đi',
-            state.nextNumber
-              ? el('span', { class: 'mono next-num', text: state.nextNumber.soVanBan })
-              : null
-          )
-        )
-        : el('span', { class: 'push muted inline-icon' },
-          icon('lock', 14, '#9b9d96'),
-          'Vai trò Chỉ xem — không ghi sổ, không lấy số'
-        )
+        : null
     )
   );
 }
 
+/**
+ * Đầu sổ: tên sổ, loại, và đường ghi vào chính sổ này.
+ *
+ * Mọi nút ghi đều gắn với sổ ĐANG MỞ — không còn nút “Lấy số gửi văn bản đi”
+ * chung chung như hồi chỉ có một sổ đi, vì giờ câu hỏi “số của sổ nào” phải trả
+ * lời được ngay trên nút.
+ */
+function renderBookHead() {
+  const book = currentBook();
+  if (!book) return null;
+  const di = book.kind === 'di';
+  const write = canWrite() && !book.hidden;
+
+  return el('section', { class: 'section section-tight bookhead' },
+    el('div', { class: 'bookhead-title' },
+      el('div', { class: 'bookhead-name' },
+        el('span', { text: book.name }),
+        el('span', { class: di ? 'badge badge-orange' : 'badge badge-blue', text: di ? 'Văn bản đi' : 'Văn bản đến' }),
+        book.hidden ? el('span', { class: 'badge', text: 'Ngừng dùng' }) : null
+      ),
+      el('span', {
+        class: 'hint',
+        text: di
+          ? 'Bộ đếm riêng của sổ này · ' + (book.resetYearly ? 'reset đầu năm' : 'tăng liên tục qua các năm')
+          : 'Số do cơ quan gửi ghi — hệ thống không cấp số cho sổ đến',
+      })
+    ),
+    write && di
+      ? el('div', { class: 'bookhead-actions' },
+        el('div', { class: 'nextbox' },
+          el('span', { class: 'label', text: 'Số kế tiếp' }),
+          el('span', { class: 'nextbox-num', text: state.nextNumber ? state.nextNumber.soVanBan : '…' })
+        ),
+        el('button', {
+          class: 'btn btn-primary',
+          type: 'button',
+          onclick: () => openDocDialog({ bookId: book.id, mode: 'issue' }),
+          text: 'Lấy số ở sổ này',
+        })
+      )
+      : null,
+    write && !di
+      ? el('button', {
+        class: 'btn btn-secondary push',
+        type: 'button',
+        onclick: () => openDocDialog({ bookId: book.id, mode: 'manual' }),
+        text: '+ Ghi văn bản đến',
+      })
+      : null,
+    book.hidden && canWrite()
+      ? el('span', { class: 'push hint', text: 'Sổ đã ngừng dùng — tra cứu được, không ghi thêm được.' })
+      : null,
+    !canWrite()
+      ? el('span', { class: 'push muted inline-icon' },
+        icon('lock', 14, '#9b9d96'),
+        'Vai trò Chỉ xem — không ghi sổ, không lấy số'
+      )
+      : null
+  );
+}
+
 function renderBookTable() {
-  const write = canWrite();
+  const book = currentBook();
+  const write = canWrite() && !!book && !book.hidden;
   const head = el('tr', {},
     el('th', { class: 'w110', text: 'Số văn bản' }),
     el('th', { class: 'w96', text: 'Ngày gửi' }),
-    el('th', { class: 'w160', text: 'Người gửi' }),
+    el('th', { class: 'w160', text: book && book.kind === 'di' ? 'Người ký / đơn vị soạn' : 'Cơ quan gửi' }),
     el('th', { text: 'Tên văn bản' }),
     el('th', { class: 'w110', text: 'Độ bảo mật' }),
     el('th', { class: 'w140', text: 'Đính kèm' }),
@@ -812,7 +928,7 @@ function renderBookTable() {
       el('td', { class: 'cell-note', text: d.ghiChu || '—' }),
       write
         ? el('td', { class: 'cell-actions' },
-          el('button', { class: 'btn-link', type: 'button', onclick: () => openDocDialog({ book: d.book, mode: 'edit', doc: d }), text: 'Sửa' }),
+          el('button', { class: 'btn-link', type: 'button', onclick: () => openDocDialog({ bookId: d.bookId, mode: 'edit', doc: d }), text: 'Sửa' }),
           el('button', {
             class: 'btn-link danger',
             type: 'button',
@@ -827,18 +943,29 @@ function renderBookTable() {
   return el('section', { class: 'table-wrap' },
     el('table', {}, el('thead', {}, head), el('tbody', {}, rows)),
     state.documents.length === 0
-      ? el('div', { class: 'empty-state', text: state.loading ? 'Đang tải…' : 'Không có văn bản nào khớp với điều kiện lọc.' })
+      ? el('div', { class: 'empty-state', text: state.loading ? 'Đang tải…' : 'Sổ này chưa có văn bản nào khớp với điều kiện lọc.' })
       : null
   );
 }
 
 function renderBookPage() {
+  const book = currentBook();
+  if (!book) {
+    return [
+      el('section', { class: 'section' },
+        el('span', { class: 'muted', text: state.loading ? 'Đang tải…' : 'Chưa có sổ nào. Quản trị viên tạo sổ ở Cài đặt → Sổ.' })),
+    ];
+  }
   return [
+    renderBookHead(),
     renderFilters(),
     renderBookTable(),
-    state.nextNumber
+    book.kind === 'di'
       ? el('p', { class: 'hint m0' },
-        'Định dạng số văn bản đi: ' + (state.nextNumber.resetYearly ? 'tự tăng theo năm, reset đầu năm' : 'tự tăng liên tục qua các năm') + ' · không có 0 ở đầu')
+        'Định dạng số của sổ này: tiền tố ' + (book.prefix ? '“' + book.prefix + '”' : '(để trống)') +
+        ' + số thứ tự + hậu tố ' + (book.suffix ? '“' + book.suffix + '”' : '(để trống)') +
+        ' · không có 0 ở đầu · ' +
+        (book.resetYearly ? 'reset đầu năm' : 'tăng liên tục qua các năm'))
       : null,
   ];
 }
@@ -846,8 +973,10 @@ function renderBookPage() {
 // ------------------------------------------------------- trang cài đặt
 
 function renderSettingsTabs() {
+  // Mục 'Lấy số' cũ đã bỏ ngày 18/09/2026: tiền tố, hậu tố, "bắt đầu từ" và bộ
+  // đếm nay là của riêng từng sổ nên chúng nằm trong mục 'Sổ'.
   const tabs = [
-    ['layso', 'Lấy số'],
+    ['so', 'Sổ'],
     ['taikhoan', 'Tài khoản'],
     ['sonam', 'Sổ theo năm'],
     ['nhatky', 'Nhật ký'],
@@ -888,309 +1017,383 @@ const AFFIX_PRESETS = (year) => [
   { prefix: '', suffix: '' },
 ];
 
-function renderNumberingPage() {
-  const snap = state.numbering;
-  if (!snap) return el('section', { class: 'section' }, el('span', { class: 'muted', text: 'Đang tải…' }));
-
-  const draft = state.draftNumbering;
-  const year = snap.year;
-  const seq = snap.next.seq;
-  const start = num(draft.startRaw, 1);
-  const dirty = draft.prefix !== snap.numbering.prefix ||
-    draft.suffix !== snap.numbering.suffix ||
-    start !== snap.numbering.start ||
-    draft.resetYearly !== snap.numbering.resetYearly;
-
-  const touch = () => {
-    state.numberingSavedAt = '';
-    render();
-  };
-
-  const save = async () => {
-    try {
-      const data = await api('PUT', '/api/settings/numbering', {
-        numbering: {
-          prefix: draft.prefix,
-          suffix: draft.suffix,
-          start,
-          resetYearly: draft.resetYearly,
-        },
-      });
-      state.numbering = data;
-      state.numberingSavedAt = viDateTime(new Date().toISOString()).slice(-5);
-      toast('Đã lưu cài đặt lấy số. Số kế tiếp: ' + data.next.soVanBan, 'ok');
-      render();
-    } catch (err) {
-      showError(err);
+/**
+ * Mở form tạo / sửa sổ.
+ * book = null để tạo mới. `counter` chỉ có khi sửa: đó là bộ đếm hiện tại, tải
+ * riêng vì danh sách sổ không chở nó.
+ */
+function openBookForm(book) {
+  state.bookForm = book
+    ? {
+      id: book.id,
+      name: book.name,
+      kind: book.kind,
+      prefix: book.prefix,
+      suffix: book.suffix,
+      startRaw: String(book.start),
+      resetYearly: book.resetYearly,
+      counterRaw: book.next ? String(book.next.seq) : '1',
+      lockedKind: book.count > 0,
     }
-  };
+    : {
+      id: null,
+      name: '',
+      kind: 'di',
+      prefix: '',
+      suffix: '/' + state.config.currentYear,
+      startRaw: '1',
+      resetYearly: true,
+      counterRaw: '1',
+      lockedKind: false,
+    };
+  state.bookFormError = '';
+  state.bookSavedAt = '';
+  render();
+}
 
-  const affixField = (label, key, placeholder) =>
+function closeBookForm() {
+  state.bookForm = null;
+  state.bookFormError = '';
+  render();
+}
+
+async function submitBookForm() {
+  const f = state.bookForm;
+  if (!f) return;
+  const payload = {
+    name: f.name,
+    kind: f.kind,
+    prefix: f.prefix,
+    suffix: f.suffix,
+    start: num(f.startRaw, 1),
+    resetYearly: f.resetYearly,
+  };
+  try {
+    const saved = f.id
+      ? await api('PUT', '/api/books/' + f.id, payload)
+      : await api('POST', '/api/books', payload);
+
+    // Đặt lại bộ đếm là một việc RIÊNG ở máy chủ, không đi kèm việc lưu sổ: nó
+    // có thể bị chặn lại (không cho lùi qua số đang dùng) mà việc lưu sổ vẫn
+    // phải thành công. Gọi sau, và báo riêng nếu giá trị thực khác giá trị gõ.
+    let clampNote = '';
+    if (f.id && f.kind === 'di') {
+      const want = num(f.counterRaw, 0);
+      const now = saved.book.next ? saved.book.next.seq : 0;
+      if (want > 0 && want !== now) {
+        const r = await api('POST', '/api/books/' + f.id + '/reset-counter', { nextSeq: want });
+        if (r.clamped || r.effectiveSeq !== want) {
+          clampNote = ' Bộ đếm không lùi được xuống ' + want + ' vì số đó đang có văn bản dùng; sổ sẽ cấp ' +
+            r.effectiveSeq + '.';
+        }
+      }
+    }
+
+    state.bookForm = null;
+    state.bookFormError = '';
+    state.bookSavedAt = 'Đã lưu sổ “' + saved.book.name + '”.' + clampNote;
+    // Sổ vừa tạo nên là sổ đang mở khi quay lại trang sổ — đó là thứ người vừa
+    // tạo nó muốn xem tiếp.
+    if (!f.id) state.bookId = saved.book.id;
+    await refresh();
+  } catch (err) {
+    state.bookFormError = (err && err.message) || 'Không lưu được sổ.';
+    render();
+  }
+}
+
+async function setBookHidden(book, hidden) {
+  try {
+    await api('POST', '/api/books/' + book.id + '/hidden', { hidden });
+    closeDialog();
+    state.bookSavedAt = hidden
+      ? 'Đã ngừng dùng sổ “' + book.name + '”. Sổ không còn hiện với văn thư; quản trị vẫn tra cứu được.'
+      : 'Đã dùng lại sổ “' + book.name + '”. Bộ đếm tiếp tục từ chỗ đã dừng.';
+    await refresh();
+  } catch (err) {
+    showError(err);
+  }
+}
+
+async function deleteBook(book) {
+  try {
+    await api('DELETE', '/api/books/' + book.id);
+    closeDialog();
+    state.bookSavedAt = 'Đã xóa sổ “' + book.name + '” (sổ rỗng, chưa phát hành số nào).';
+    if (state.bookId === book.id) state.bookId = null;
+    await refresh();
+  } catch (err) {
+    showError(err);
+  }
+}
+
+function confirmHideBook(book) {
+  confirmDialog({
+    eyebrow: 'Sổ văn bản',
+    title: 'Ngừng dùng sổ “' + book.name + '”?',
+    message:
+      'Sổ biến khỏi cột bên trái của văn thư và không lấy số mới được nữa. ' +
+      book.count + ' văn bản trong sổ vẫn còn nguyên, quản trị mở ra tra cứu được. ' +
+      'Đổi ý được bất cứ lúc nào bằng nút “Dùng lại”.',
+    confirmLabel: 'Ngừng dùng',
+    onConfirm: () => setBookHidden(book, true),
+  });
+}
+
+function confirmDeleteBook(book) {
+  confirmDialog({
+    eyebrow: 'Sổ văn bản',
+    title: 'Xóa sổ “' + book.name + '”?',
+    message:
+      'Sổ này chưa có văn bản nào, chưa số nào được phát hành — xóa đi không mất dấu vết gì. ' +
+      'Sổ đã có văn bản thì không có nút này.',
+    confirmLabel: 'Xóa sổ',
+    danger: true,
+    onConfirm: () => deleteBook(book),
+  });
+}
+
+/** Bảng sổ + form tạo/sửa. Chỉ quản trị vào được (máy chủ chặn riêng). */
+function renderBooksPage() {
+  const rows = state.books.map((b) => {
+    const di = b.kind === 'di';
+    return el('tr', {},
+      el('td', {},
+        el('strong', { class: b.hidden ? 'book-name-off' : '', text: b.name }),
+        el('span', {
+          class: 'book-hint',
+          text: di
+            ? 'Tiền tố ' + (b.prefix ? '“' + b.prefix + '”' : '(để trống)') +
+            ' · hậu tố ' + (b.suffix ? '“' + b.suffix + '”' : '(để trống)') + ' · ' +
+            (b.resetYearly ? 'reset đầu năm' : 'tăng liên tục')
+            : 'Số do cơ quan gửi ghi — không có bộ đếm',
+        })
+      ),
+      el('td', {}, el('span', { class: di ? 'badge badge-orange' : 'badge badge-blue', text: di ? 'Đi' : 'Đến' })),
+      el('td', { class: 'cell-num', text: di && b.next ? b.next.soVanBan : '—' }),
+      el('td', { class: 'cell-mono', text: String(b.count) }),
+      el('td', {}, el('span', { class: b.hidden ? 'badge' : 'badge badge-blue', text: b.hidden ? 'Ngừng dùng' : 'Đang dùng' })),
+      el('td', { class: 'cell-actions' },
+        el('button', { class: 'btn-link', type: 'button', onclick: () => openBookForm(b), text: 'Sửa' }),
+        el('button', {
+          class: 'btn-link',
+          type: 'button',
+          onclick: () => (b.hidden ? setBookHidden(b, false) : confirmHideBook(b)),
+          text: b.hidden ? 'Dùng lại' : 'Ngừng dùng',
+        }),
+        // Sổ đã có văn bản thì không xóa được: chỗ này để chữ xám thay vì giấu
+        // nút đi, để quản trị thấy được là có việc “xóa” và vì sao nó không dùng
+        // được ở đây.
+        b.count === 0
+          ? el('button', { class: 'btn-link danger', type: 'button', onclick: () => confirmDeleteBook(b), text: 'Xóa' })
+          : el('span', { class: 'btn-link disabled', title: 'Sổ đã có văn bản — chỉ ngừng dùng được', text: 'Xóa' })
+      )
+    );
+  });
+
+  const list = el('section', { class: 'card' },
+    el('div', { class: 'books-head' },
+      el('div', { class: 'field' },
+        el('span', { class: 'label', text: 'Sổ văn bản' }),
+        el('span', {
+          class: 'muted',
+          text:
+            'Mỗi sổ đi có tiền tố, hậu tố và bộ đếm của riêng nó. Đây là giá trị điền sẵn: ' +
+            'người lấy số vẫn sửa được cho từng văn bản.',
+        })
+      ),
+      el('button', { class: 'btn btn-primary push', type: 'button', onclick: () => openBookForm(null), text: '+ Tạo sổ mới' })
+    ),
+    state.bookSavedAt ? el('div', { class: 'note note-flash', text: state.bookSavedAt }) : null,
+    el('div', { class: 'table-wrap' },
+      el('table', {},
+        el('thead', {},
+          el('tr', {},
+            el('th', { text: 'Tên sổ' }),
+            el('th', { class: 'w110', text: 'Loại' }),
+            el('th', { class: 'w160', text: 'Số kế tiếp' }),
+            el('th', { class: 'w96', text: 'Văn bản' }),
+            el('th', { class: 'w110', text: 'Trạng thái' }),
+            el('th', { class: 'w190' })
+          )
+        ),
+        el('tbody', {}, rows)
+      )
+    ),
+    el('div', { class: 'book-rule' },
+      el('span', { class: 'rule-icon' }, icon('lock', 14, '#37505c')),
+      el('p', {},
+        'Sổ đã có văn bản thì không xóa được, chỉ ngừng dùng: sổ biến khỏi cột bên trái của văn thư, ' +
+        'không lấy số mới được nữa, nhưng quản trị vẫn mở ra tra cứu và khôi phục văn bản trong đó. ' +
+        'Xóa được sổ đồng nghĩa với xóa được dấu vết của những số đã phát hành.')
+    )
+  );
+
+  return [list, renderBookForm()];
+}
+
+function renderBookForm() {
+  const f = state.bookForm;
+  if (!f) return null;
+  const di = f.kind === 'di';
+  const start = num(f.startRaw, 1);
+  const seqPreview = f.id ? num(f.counterRaw, start) : start;
+
+  const seg = (label, active, onClick, disabled) =>
+    el('button', {
+      class: active ? 'active' : '',
+      type: 'button',
+      disabled: !!disabled,
+      onclick: disabled ? null : onClick,
+      text: label,
+    });
+
+  const affix = (label, key) =>
     el('label', { class: 'field' },
       el('span', { class: 'label', text: label }),
       el('input', {
-        class: 'input mono w160', type: 'text', value: draft[key], placeholder,
-        maxlength: '24',
-        fk: 'cfg-' + key,
+        class: 'input mono w140',
+        type: 'text',
+        fk: 'book-' + key,
+        value: f[key],
+        placeholder: 'để trống',
         oninput: (e) => {
-          draft[key] = e.target.value;
-          touch();
+          f[key] = e.target.value;
+          render();
         },
       })
     );
 
-  const previewRows = [];
-  for (let k = 0; k < 5; k += 1) {
-    previewRows.push(
-      el('tr', {},
-        el('td', { class: 'label lane' + (k === 0 ? ' label-accent' : ' label-dim'), text: k === 0 ? 'Kế tiếp' : String(k + 1) }),
-        el('td', {
-          class: 'cell-num ' + (k === 0 ? 'num-next' : 'num-later'),
-          text: buildLocal(draft.prefix, seq + k, draft.suffix),
-        }),
-        el('td', { class: 'muted', text: k === 0 ? 'Cấp khi bấm “Lấy số gửi văn bản đi”' : '' })
-      )
-    );
-  }
-  const nextYearSeq = draft.resetYearly ? start : seq + 5;
-  previewRows.push(
-    el('tr', { class: 'row-turn' },
-      el('td', { class: 'label label-dim lane', text: 'Sổ ' + (year + 1) }),
-      el('td', { class: 'cell-num', text: buildLocal(draft.prefix, nextYearSeq, draft.suffix) }),
-      el('td', { class: 'muted', text: draft.resetYearly ? 'Bộ đếm về đầu vào 01/01/' + (year + 1) : 'Bộ đếm chạy tiếp qua năm mới' })
-    )
-  );
-
-  return [
-    el('div', { class: 'row-top' },
-      el('div', { class: 'stack' },
-        el('div', { class: 'row' },
-          el('span', { class: 'page-title', text: 'Cài đặt lấy số' }),
-          el('span', { class: 'admin-chip' }, icon('lock', 12, '#cc4600'), el('span', { text: 'Chỉ quản trị viên' }))
-        ),
-        el('span', { class: 'muted' },
-          'Đặt giá trị điền sẵn và trông bộ đếm của sổ ',
-          el('strong', { text: 'văn bản đi' }),
-          '. Tiền tố và hậu tố do người lấy số đặt lại ở từng văn bản.'
-        )
-      ),
-      el('div', { class: 'push stack ta-right' },
-        el('span', { class: 'label label-dim', text: 'Cập nhật lần cuối' }),
-        el('span', { class: 'muted', text: snap.updatedAt ? viDateTime(snap.updatedAt) : 'chưa từng sửa' }),
-        el('span', { class: 'muted', text: snap.updatedByName || '' })
-      )
+  return el('section', { class: 'card book-form' },
+    el('div', { class: 'book-form-head' },
+      el('strong', { text: f.id ? 'Sửa sổ' : 'Tạo sổ mới' }),
+      el('span', {
+        class: 'hint',
+        text: f.id
+          ? 'Đổi tên và cách đánh số. Số đã phát hành giữ nguyên như đã in trên giấy.'
+          : 'Sổ mới bắt đầu với bộ đếm riêng, không dính gì tới các sổ đang có.',
+      })
     ),
-
-    el('section', { class: 'section' },
-      el('div', { class: 'stack' },
-        el('span', { class: 'label label-accent', text: '1 · Mặc định điền sẵn khi lấy số' }),
-        el('span', { class: 'muted', text: 'Ô giữa là số thứ tự do hệ thống cấp — khóa, không sửa được. Hai ô hai bên là phần người lấy số tự đặt cho từng văn bản; ở đây chỉ đặt giá trị mở sẵn cho họ.' })
-      ),
-      el('div', { class: 'row-fields affix-row' },
-        affixField('Tiền tố', 'prefix', 'để trống'),
-        el('div', { class: 'field' },
-          el('span', { class: 'label label-accent', text: 'Số thứ tự' }),
-          el('div', { class: 'seq-locked' }, icon('lock', 14, '#cc4600'), el('span', { text: String(seq) }))
-        ),
-        affixField('Hậu tố', 'suffix', 'để trống'),
-        el('button', {
-          class: 'btn btn-ghost', type: 'button',
-          onclick: () => {
-            draft.suffix = '/' + year;
-            touch();
-          },
-          text: 'Chèn năm ' + year + ' vào hậu tố',
-        })
-      ),
-      el('div', { class: 'next-number' },
-        el('span', { class: 'label label-on-tint', text: 'Số kế tiếp' }),
-        el('span', { class: 'next-number-value', text: buildLocal(draft.prefix, seq, draft.suffix) }),
-        el('span', { class: 'muted', text: 'Điền sẵn cho văn bản đi tiếp theo trong sổ ' + year + ' — người lấy số sửa được' })
-      ),
-      el('div', { class: 'presets' },
-        el('span', { class: 'muted', text: 'Mẫu hay dùng' }),
-        AFFIX_PRESETS(year).map((p) =>
-          el('button', {
-            class: 'preset' + (p.prefix === draft.prefix && p.suffix === draft.suffix ? ' active' : ''),
-            type: 'button',
-            onclick: () => {
-              draft.prefix = p.prefix;
-              draft.suffix = p.suffix;
-              touch();
-            },
-            text: buildLocal(p.prefix, seq, p.suffix),
-          })
-        )
-      )
-    ),
-
-    el('section', { class: 'section' },
-      el('span', { class: 'label label-accent', text: '2 · Bộ đếm' }),
-      el('div', { class: 'row-fields' },
-        el('label', { class: 'field' },
-          el('span', { class: 'label', text: 'Bắt đầu từ' }),
+    el('div', { class: 'book-form-body' },
+      el('div', { class: 'filters' },
+        el('label', { class: 'field grow' },
+          el('span', { class: 'label', text: 'Tên sổ' }),
           el('input', {
-            class: 'input mono w120', type: 'number', min: '1', value: draft.startRaw,
-            fk: 'cfg-start',
-            oninput: (e) => {
-              draft.startRaw = e.target.value;
-              touch();
-            },
-          }),
-          el('span', { class: 'hint', text: 'Số nhỏ nhất được cấp' })
+            class: 'input',
+            type: 'text',
+            fk: 'book-name',
+            value: f.name,
+            placeholder: 'vd: Văn bản đi — Đảng ủy',
+            oninput: (e) => { f.name = e.target.value; },
+          })
         ),
         el('div', { class: 'field' },
-          el('span', { class: 'label', text: 'Reset đầu năm' }),
+          el('span', { class: 'label', text: 'Loại sổ' }),
           el('div', { class: 'toggle' },
-            el('button', {
-              class: draft.resetYearly ? 'active' : '', type: 'button',
-              onclick: () => { draft.resetYearly = true; touch(); }, text: 'Có',
-            }),
-            el('button', {
-              class: !draft.resetYearly ? 'active' : '', type: 'button',
-              onclick: () => { draft.resetYearly = false; touch(); }, text: 'Không',
-            })
-          ),
-          el('span', { class: 'hint', text: draft.resetYearly ? 'Ngày 01/01 số quay về ' + start : 'Số tăng liên tục qua các năm' })
-        )
-      ),
-      el('div', { class: 'rule' },
-        el('span', { class: 'rule-icon' }, icon('lock', 15, '#37505c')),
-        el('div', { class: 'rule-body' },
-          el('div', { class: 'rule-title' },
-            el('strong', { text: 'Số thứ tự tăng đều, không đệm 0' }),
-            el('span', { class: 'badge', text: 'Cố định' })
-          ),
-          el('p', {},
-            'Mỗi lần cấp, số thứ tự tăng đúng một đơn vị — ',
-            el('span', { class: 'mono', text: '1' }), ', ',
-            el('span', { class: 'mono', text: '2' }), ', … ',
-            el('span', { class: 'mono', text: '10' }),
-            ' — không phải ', el('del', { text: '01' }), ', ', el('del', { text: '02' }),
-            '. Tiền tố và hậu tố không đổi được phần số này, nên hai văn bản đi ',
-            'không bao giờ trùng số dù ai đặt tiền tố hậu tố thế nào. Số của ',
-            el('strong', { text: 'văn bản đến' }), ' giữ nguyên như cơ quan gửi ghi.'
+            seg('Văn bản đến', !di, () => { f.kind = 'den'; render(); }, f.lockedKind),
+            seg('Văn bản đi', di, () => { f.kind = 'di'; render(); }, f.lockedKind)
           )
-        )
-      )
-    ),
-
-    el('section', { class: 'section' },
-      el('div', { class: 'stack' },
-        el('span', { class: 'label label-accent', text: '3 · Xem trước' }),
-        el('span', { class: 'muted', text: 'Các số sẽ được cấp lần lượt nếu giữ cài đặt hiện tại.' })
-      ),
-      el('div', { class: 'table-wrap mw680' },
-        el('table', {},
-          el('thead', {}, el('tr', {},
-            el('th', { class: 'w104', text: 'Lần cấp' }),
-            el('th', { class: 'w190', text: 'Số văn bản' }),
-            el('th', { text: 'Ghi chú' })
-          )),
-          el('tbody', {}, previewRows)
-        )
-      )
-    ),
-
-    el('section', { class: 'section' },
-      el('span', { class: 'label label-accent', text: '4 · Bộ đếm sổ ' + year }),
-      el('div', { class: 'row' },
-        el('span', { class: 'muted' }, 'Đã ghi ', el('strong', { class: 'mono', text: String(snap.counter.issuedThisYear) }), ' văn bản đi'),
-        el('span', { class: 'muted' }, 'Số lớn nhất đã dùng ', el('strong', { class: 'mono', text: String(snap.counter.maxSeqUsed) })),
-        el('span', { class: 'muted' }, 'Bộ đếm đang ở ', el('strong', { class: 'mono', text: String(snap.counter.value) })),
-        !state.resetOpen
-          ? el('button', {
-            class: 'btn btn-danger push', type: 'button',
-            onclick: () => {
-              state.resetOpen = true;
-              state.resetToRaw = String(snap.counter.value);
-              render();
-            },
-            text: 'Đặt lại bộ đếm…',
-          })
+        ),
+        f.lockedKind
+          ? el('span', { class: 'hint', text: 'Sổ đã có văn bản nên không đổi được loại.' })
           : null
       ),
-      state.resetOpen
-        ? el('div', { class: 'danger-zone' },
-          el('div', { class: 'warn-row' },
-            icon('warn', 16, '#cc0000'),
-            el('p', { text: 'Đặt lại bộ đếm không sửa số của văn bản đã ghi vào sổ. Nếu đặt về một giá trị đã dùng, hệ thống sẽ nhảy tới số trống kế tiếp thay vì cấp trùng. Hành động được ghi vào nhật ký kèm tên quản trị viên.' })
+
+      di
+        ? el('div', { class: 'book-divider' },
+          el('span', { class: 'label label-accent', text: 'Cách đánh số của sổ này' }),
+          el('div', { class: 'book-num-row' },
+            affix('Tiền tố', 'prefix'),
+            el('div', { class: 'field' },
+              el('span', { class: 'label label-accent', text: 'Số thứ tự' }),
+              el('div', { class: 'book-seq-box', text: String(seqPreview) })
+            ),
+            affix('Hậu tố', 'suffix'),
+            el('button', {
+              class: 'btn btn-ghost',
+              type: 'button',
+              onclick: () => {
+                f.suffix = f.suffix + state.config.currentYear;
+                render();
+              },
+              text: 'Chèn năm ' + state.config.currentYear + ' vào hậu tố',
+            })
           ),
-          el('div', { class: 'row' },
+          el('div', { class: 'book-preview' },
+            el('span', { class: 'label label-accent', text: f.id ? 'Số kế tiếp' : 'Số đầu tiên của sổ' }),
+            el('span', { class: 'book-preview-num', text: buildLocal(f.prefix, seqPreview, f.suffix) }),
+            el('span', {
+              class: 'push muted',
+              text: f.resetYearly ? 'Reset về “bắt đầu từ” mỗi đầu năm' : 'Tăng liên tục qua các năm',
+            })
+          ),
+          el('div', { class: 'filters' },
             el('label', { class: 'field' },
-              el('span', { class: 'label', text: 'Số kế tiếp sẽ là' }),
+              el('span', { class: 'label', text: 'Bắt đầu từ' }),
               el('input', {
-                class: 'input mono w140', type: 'number', min: '1', value: state.resetToRaw,
-                fk: 'reset-to',
+                class: 'input mono w120',
+                type: 'number',
+                min: '1',
+                fk: 'book-start',
+                value: f.startRaw,
                 oninput: (e) => {
-                  state.resetToRaw = e.target.value;
+                  f.startRaw = e.target.value;
                   render();
                 },
               })
             ),
-            el('span', { class: 'muted reset-arrow' },
-              '→ ',
-              el('span', { class: 'mono reset-val', text: buildLocal(snap.numbering.segments, num(state.resetToRaw, 1), year) })
+            el('div', { class: 'field' },
+              el('span', { class: 'label', text: 'Reset đầu năm' }),
+              el('div', { class: 'toggle' },
+                seg('Có', f.resetYearly, () => { f.resetYearly = true; render(); }),
+                seg('Không', !f.resetYearly, () => { f.resetYearly = false; render(); })
+              )
             ),
-            el('div', { class: 'savebar-actions' },
-              el('button', { class: 'btn', type: 'button', onclick: () => { state.resetOpen = false; render(); }, text: 'Hủy' }),
-              el('button', {
-                class: 'btn btn-solid-danger', type: 'button',
-                onclick: async () => {
-                  try {
-                    const data = await api('POST', '/api/settings/numbering/reset-counter', { nextSeq: num(state.resetToRaw, 1) });
-                    state.numbering = data;
-                    state.resetOpen = false;
-                    toast(
-                      data.clamped
-                        ? 'Bộ đếm không lùi được: số ' + data.requestedSeq +
-                        ' đã có văn bản trong sổ dùng, nên bộ đếm giữ ở ' + data.next.soVanBan + '.'
-                        : data.adjusted
-                          ? 'Số ' + data.requestedSeq + ' đã bị chiếm — bộ đếm đặt tới ' + data.next.soVanBan + '.'
-                          : 'Đã đặt lại bộ đếm. Số kế tiếp: ' + data.next.soVanBan,
-                      data.clamped ? 'err' : 'ok'
-                    );
+            // Chỉ sửa được bộ đếm của sổ đã tồn tại: sổ mới chưa có bộ đếm nào
+            // để đặt lại, “bắt đầu từ” đã là câu trả lời.
+            f.id
+              ? el('label', { class: 'field' },
+                el('span', { class: 'label', text: 'Đặt lại bộ đếm' }),
+                el('input', {
+                  class: 'input mono w120',
+                  type: 'number',
+                  min: '1',
+                  fk: 'book-counter',
+                  value: f.counterRaw,
+                  oninput: (e) => {
+                    f.counterRaw = e.target.value;
                     render();
-                  } catch (err) {
-                    showError(err);
-                  }
-                },
-                text: 'Xác nhận đặt lại',
-              })
-            )
+                  },
+                }),
+                el('span', { class: 'hint', text: 'Không lùi được xuống dưới số đang có văn bản dùng.' })
+              )
+              : null
           )
         )
-        : null
-    ),
-
-    el('div', { class: 'section savebar-card' },
-      el('div', { class: 'savebar flat' },
-        el('span', {
-          class: 'savebar-status' + (dirty ? ' dirty' : ''),
-          text: state.numberingSavedAt ? 'Đã lưu lúc ' + state.numberingSavedAt
-            : dirty ? 'Có thay đổi chưa lưu'
-              : 'Cài đặt đang khớp với bản đã lưu',
-        }),
-        el('div', { class: 'savebar-actions' },
-          el('button', {
-            class: 'btn', type: 'button', disabled: !dirty,
-            onclick: () => {
-              state.draftNumbering = {
-                prefix: snap.numbering.prefix || '',
-                suffix: snap.numbering.suffix || '',
-                startRaw: String(snap.numbering.start),
-                resetYearly: snap.numbering.resetYearly,
-              };
-              state.numberingSavedAt = '';
-              render();
-            },
-            text: 'Hủy thay đổi',
-          }),
-          el('button', { class: 'btn btn-primary', type: 'button', disabled: !dirty, onclick: save, text: 'Lưu cài đặt' })
+        : el('div', { class: 'book-divider' },
+          el('div', { class: 'note' },
+            icon('alert', 16, '#2c4f6a'),
+            el('span', {
+              text:
+                'Sổ đến không có bộ đếm: số văn bản do cơ quan gửi ghi, văn thư nhập lại nguyên văn. ' +
+                'Vì vậy sổ đến không có tiền tố, hậu tố hay “bắt đầu từ”.',
+            })
+          )
         )
-      )
     ),
-  ];
+    el('div', { class: 'book-form-foot' },
+      state.bookFormError ? el('span', { class: 'savebar-status blocked', text: state.bookFormError }) : null,
+      el('span', { class: 'savebar-actions' },
+        el('button', { class: 'btn', type: 'button', onclick: closeBookForm, text: 'Hủy' }),
+        el('button', {
+          class: 'btn btn-primary',
+          type: 'button',
+          onclick: submitBookForm,
+          text: f.id ? 'Lưu sổ' : 'Tạo sổ',
+        })
+      )
+    )
+  );
 }
 
 const ROLE_ITEMS = {
@@ -1298,13 +1501,18 @@ function renderYearsPage() {
   return el('section', { class: 'section' },
     el('div', { class: 'stack' },
       el('span', { class: 'label label-accent', text: 'Sổ theo năm' }),
-      el('span', { class: 'muted', text: 'Văn bản các năm trước vẫn nằm trong hệ thống. Bấm “Mở sổ” để tra cứu.' })
+      el('span', {
+        class: 'muted',
+        text:
+          'Văn bản các năm trước vẫn nằm trong hệ thống. Bấm “Mở sổ” để tra cứu — ' +
+          'lọc theo năm áp cho sổ đang mở ở cột bên trái.',
+      })
     ),
     el('div', { class: 'table-wrap mw640' },
       el('table', {},
         el('thead', {}, el('tr', {},
           el('th', { text: 'Năm' }), el('th', { text: 'Văn bản đến' }),
-          el('th', { text: 'Văn bản đi' }), el('th', {})
+          el('th', { text: 'Văn bản đi (mọi sổ)' }), el('th', {})
         )),
         el('tbody', {}, state.years.map((y) =>
           el('tr', {},
@@ -1900,12 +2108,16 @@ function dialogShell(eyebrow, title, body, footLeft, footRight, narrow, extraCla
   return overlay;
 }
 
-function openDocDialog({ book, mode, doc }) {
+function openDocDialog({ bookId, mode, doc }) {
   const isIssue = mode === 'issue';
   const isEdit = mode === 'edit';
+  const book = bookById(isEdit ? doc.bookId : bookId);
   state.dialog = {
     kind: 'doc',
-    book: isEdit ? doc.book : book,
+    bookId: book ? book.id : bookId,
+    bookName: book ? book.name : '',
+    // Loại sổ quyết định hình dạng hộp thoại: sổ đi cấp số, sổ đến nhập số.
+    kind2: book ? book.kind : (isEdit ? doc.book : 'den'),
     mode,
     error: '',
     file: null,
@@ -2029,7 +2241,7 @@ function fileField(d) {
 
 function renderDocDialog(d) {
   const f = d.form;
-  const book = d.book;
+  const isDi = d.kind2 === 'di';
   // Số của sổ đi không sửa được: sửa số đã phát hành là sai nghiệp vụ, và từ
   // 11/09/2026 sổ đi không còn đường nhập số tay nào cả.
   const numberLocked = d.mode === 'edit' && d.doc && d.doc.book === 'di';
@@ -2050,7 +2262,7 @@ function renderDocDialog(d) {
 
   const submit = async () => {
     const fd = new FormData();
-    fd.set('book', book);
+    fd.set('book', String(d.bookId));
     if (d.mode === 'issue') {
       fd.set('mode', 'issue');
       fd.set('prefix', f.prefix);
@@ -2071,7 +2283,7 @@ function renderDocDialog(d) {
         ? await api('PUT', '/api/documents/' + d.doc.id, fd, true)
         : await api('POST', '/api/documents', fd, true);
       closeDialog();
-      state.book = book;
+      state.bookId = d.bookId;
       if (res.numberChange) {
         // Số lệch so với dự kiến: bắt người dùng xác nhận bằng hộp thoại, đừng
         // dùng toast — toast tự tắt và văn thư có thể đã ghi số cũ lên bản giấy.
@@ -2152,7 +2364,7 @@ function renderDocDialog(d) {
           hint: 'Giữ nguyên số của cơ quan gửi',
         }),
     field('Ngày gửi', 'ngayGui', { type: 'date' }),
-    field(book === 'di' ? 'Người gửi (người ký / trình)' : 'Người gửi (nơi gửi đến)', 'nguoiGui', {
+    field(isDi ? 'Người gửi (người ký / trình)' : 'Người gửi (nơi gửi đến)', 'nguoiGui', {
       placeholder: 'Đơn vị hoặc cá nhân',
     }),
     el('label', { class: 'field' },
@@ -2176,7 +2388,9 @@ function renderDocDialog(d) {
     ),
   ];
 
-  const eyebrow = d.mode === 'issue' ? 'Lấy số văn bản đi' : book === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi';
+  // Tên sổ đứng ngay trên hộp thoại: với nhiều sổ đi, "Lấy số văn bản đi" không
+  // còn đủ để biết số sắp cấp thuộc sổ nào.
+  const eyebrow = (d.mode === 'issue' ? 'Lấy số · ' : '') + (d.bookName || (isDi ? 'Sổ văn bản đi' : 'Sổ văn bản đến'));
   const title = d.mode === 'edit' ? 'Sửa thông tin văn bản'
     : d.mode === 'issue' ? 'Cấp số cho văn bản gửi đi' : 'Ghi văn bản vào sổ';
 
@@ -2478,9 +2692,17 @@ function renderConfirmDialog(d) {
   );
 }
 
+/** Tên sổ của một văn bản: nhật ký chở sẵn, trang sổ thì tra trong danh sách. */
+function docBookName(doc) {
+  if (doc.bookName) return doc.bookName;
+  const b = bookById(doc.bookId);
+  if (b) return b.name;
+  return doc.book === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi';
+}
+
 function confirmDelete(doc) {
   confirmDialog({
-    eyebrow: doc.book === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi',
+    eyebrow: docBookName(doc),
     title: 'Xóa văn bản khỏi sổ?',
     message:
       'Xóa “' + doc.soVanBan + ' — ' + doc.tenVanBan + '” khỏi sổ. ' +
@@ -2502,7 +2724,7 @@ function confirmDelete(doc) {
 
 function confirmRestore(doc) {
   confirmDialog({
-    eyebrow: doc.book === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi',
+    eyebrow: docBookName(doc),
     title: 'Khôi phục văn bản về sổ?',
     message:
       '“' + doc.soVanBan + ' — ' + doc.tenVanBan + '” trở lại sổ' +
@@ -2611,12 +2833,12 @@ function render() {
     return;
   }
 
-  app.append(renderHeader(), renderTabs());
+  app.append(renderHeader());
 
   let content;
   if (state.page === 'settings' && isAdmin()) {
     const inner =
-      state.settingsTab === 'layso' ? renderNumberingPage()
+      state.settingsTab === 'so' ? renderBooksPage()
         : state.settingsTab === 'taikhoan' ? renderUsersPage()
           : state.settingsTab === 'sonam' ? renderYearsPage()
             : renderAuditPage();
@@ -2626,7 +2848,7 @@ function render() {
     if (state.page === 'settings') state.page = 'so';
     content = renderBookPage();
   }
-  app.append(el('main', {}, content));
+  app.append(el('div', { class: 'shell' }, renderBookNav(), el('main', {}, content)));
   renderDialogs();
   restoreFocus(saved);
 }

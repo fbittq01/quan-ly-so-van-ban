@@ -22,7 +22,12 @@ B="http://localhost:$PORT" node test/api.test.mjs
 
 echo
 echo "===== GIAO DIỆN ====="
-B="http://localhost:$PORT" node test/ui.test.mjs
+# Playwright kèm theo bản trình duyệt mới hơn bản đã tải về được trên máy này
+# (npx playwright install gãy trên arm64). Dùng bản có sẵn nếu tìm thấy.
+if [ -z "${CHROME_PATH:-}" ]; then
+  CHROME_PATH=$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux/chrome 2>/dev/null | tail -1 || true)
+fi
+B="http://localhost:$PORT" CHROME_PATH="${CHROME_PATH:-}" node test/ui.test.mjs
 
 echo
 if grep -q '\[loi\]' "$TMP/server.log"; then
