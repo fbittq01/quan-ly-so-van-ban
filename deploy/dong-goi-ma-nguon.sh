@@ -22,8 +22,8 @@ MANG = [
     'README.md', 'deploy',
 ]
 # Không mang: node_modules (cài lại trên Windows), data/ và .env (dữ liệu và
-# cấu hình của máy này), test/shots (ảnh chụp), *.dc.html + canvas.json +
-# *.html ở gốc (file thiết kế).
+# cấu hình của máy này), test/shots (ảnh chụp), design/ (file thiết kế
+# *.dc.html + canvas.json).
 BO_TEN = {'dong-goi-ma-nguon.sh'}
 
 n = 0

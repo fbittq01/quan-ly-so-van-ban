@@ -15,6 +15,7 @@ const docRoutes = require('./routes/docs');
 const settingsRoutes = require('./routes/settings');
 const bookRoutes = require('./routes/books');
 const books = require('./books');
+const fields = require('./fields');
 const userRoutes = require('./routes/users');
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
@@ -72,6 +73,12 @@ app.get('/api/config', (req, res) => {
     maxFileBytes: docRoutes.MAX_FILE_BYTES,
     minPasswordLength: authLib.MIN_PASSWORD,
     currentYear: new Date().getFullYear(),
+    // Trường riêng của sổ: kiểu có thể chọn, bộ mặc định theo loại sổ (để form
+    // tạo sổ hiện sẵn), và giới hạn số trường trên bảng.
+    fieldTypes: fields.TYPE_LABEL,
+    defaultFields: { den: fields.defaultFields('den'), di: fields.defaultFields('di') },
+    maxTableFields: fields.MAX_TABLE,
+    maxFields: fields.MAX_FIELDS,
   });
 });
 

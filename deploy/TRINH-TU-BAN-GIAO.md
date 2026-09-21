@@ -31,9 +31,9 @@ bash deploy/dong-goi-ma-nguon.sh
 
 Gói chỉ có `server/ public/ package.json package-lock.json .env.example
 README.md deploy/`. Cố ý **không** có: `node_modules/` (cài trên Windows ở B2),
-`data/` và `.env` (dữ liệu và cấu hình của máy này), file thiết kế `*.dc.html`.
+`data/` và `.env` (dữ liệu và cấu hình của máy này), `design/` (file thiết kế).
 
-**A3. Kiểm tra gói trước khi giao** — mở `.zip` xem đúng 51 file, không có
+**A3. Kiểm tra gói trước khi giao** — mở `.zip` xem đúng 54 file, không có
 `.env`, không có `data/`. Giữ lại file `.sha256` để đối chiếu sau khi copy qua
 USB; USB hỏng âm thầm là chuyện có thật.
 

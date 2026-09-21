@@ -10,6 +10,7 @@ const { db, UPLOAD_DIR, audit } = require('../db');
 const auth = require('../auth');
 const numbering = require('../numbering');
 const books = require('../books');
+const fields = require('../fields');
 const convert = require('../convert');
 const {
   strip,
@@ -18,10 +19,8 @@ const {
   nowIso,
   isIsoDate,
   text,
-  multiline,
   badRequest,
   HttpError,
-  SECURITY_LEVELS,
 } = require('../util');
 
 const router = express.Router();
@@ -141,13 +140,9 @@ function isDuplicateSeq(err) {
   );
 }
 
-function searchTextFor(d) {
-  const p = String(d.ngay_gui || '').split('-');
-  const viDate = p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : '';
-  return strip(
-    [d.so_van_ban, d.nguoi_gui, d.ten_van_ban, d.ghi_chu, d.do_bao_mat, d.ngay_gui, viDate].join(' ')
-  );
-}
+// Cột tìm kiếm: lõi + mọi giá trị trong extra — công thức ở fields.js, vì bước
+// chuyển đổi trong db.js cũng phải dựng đúng chuỗi này.
+const searchTextFor = fields.docSearchText;
 
 function rowToJson(r) {
   return {
@@ -160,10 +155,11 @@ function rowToJson(r) {
     seq: r.seq,
     year: r.year,
     ngayGui: r.ngay_gui,
-    nguoiGui: r.nguoi_gui,
     tenVanBan: r.ten_van_ban,
-    doBaoMat: r.do_bao_mat,
-    ghiChu: r.ghi_chu,
+    // Giá trị các trường riêng của sổ, theo khóa trong book.fields. Ba cột cũ
+    // nguoi_gui / do_bao_mat / ghi_chu không còn ra JSON: nội dung của chúng
+    // nằm trong đây dưới khóa nguoiGui / doBaoMat / ghiChu.
+    extra: fields.parseExtra(r.extra),
     fileName: r.file_name,
     fileSize: r.file_size,
     hasFile: !!r.file_path,
@@ -181,25 +177,26 @@ function rowToJson(r) {
   };
 }
 
-/** Đọc và kiểm tra các trường của một văn bản từ body (JSON hoặc multipart). */
-function readFields(body, kind) {
+/**
+ * Đọc và kiểm tra các trường của một văn bản từ body (JSON hoặc multipart).
+ *
+ * Phần lõi (ngày gửi, tên văn bản) là của mọi sổ; phần còn lại kiểm theo bộ
+ * trường CỦA ĐÚNG SỔ ĐÓ — ở máy chủ, không phải ở trình duyệt. `existingExtra`
+ * khi sửa: giữ giá trị của trường đã ẩn, xem fields.readExtra.
+ */
+function readFields(body, book, existingExtra) {
   const ngayGui = String((body && body.ngayGui) || '').trim();
   if (!isIsoDate(ngayGui)) throw badRequest('Ngày gửi không hợp lệ.');
 
   const tenVanBan = text(body && body.tenVanBan, 500);
   if (!tenVanBan) throw badRequest('Chưa nhập tên văn bản.');
 
-  const doBaoMat = String((body && body.doBaoMat) || 'Thường');
-  if (!SECURITY_LEVELS.includes(doBaoMat)) throw badRequest('Độ bảo mật không hợp lệ.');
-
   return {
     ngayGui,
     tenVanBan,
-    doBaoMat,
-    nguoiGui: text(body && body.nguoiGui, 200),
-    ghiChu: multiline(body && body.ghiChu, 2000),
+    extra: fields.readExtra(book ? book.fields : [], body, existingExtra),
     year: Number.parseInt(ngayGui.slice(0, 4), 10),
-    book: kind,
+    book: book ? book.kind : null,
   };
 }
 
@@ -273,11 +270,19 @@ router.get('/', auth.requireAuth, (req, res, next) => {
     args.push(Number.parseInt(year, 10));
   }
 
-  const security = String(req.query.security || '').trim();
-  if (security) {
-    if (!SECURITY_LEVELS.includes(security)) return next(badRequest('Độ bảo mật không hợp lệ.'));
-    where.push('d.do_bao_mat = ?');
-    args.push(security);
+  // Lọc theo trường “chọn một” của sổ: ?f.<key>=<lựa chọn>. Khóa phải là
+  // trường select đang dùng của đúng sổ này, giá trị phải nằm trong lựa chọn —
+  // không có đường nào nhét chuỗi lạ vào json_extract.
+  for (const qk of Object.keys(req.query)) {
+    if (!qk.startsWith('f.')) continue;
+    const key = qk.slice(2);
+    const def = fields.visible(book.fields).find((d) => d.key === key && d.type === 'select');
+    if (!def) return next(badRequest('Không lọc được theo trường “' + key + '” ở sổ này.', 'bad_filter'));
+    const val = String(req.query[qk] || '').trim();
+    if (!val) continue;
+    if (!def.options.includes(val)) return next(badRequest('“' + def.label + '” không có lựa chọn này.', 'bad_filter'));
+    where.push('json_extract(d.extra, ?) = ?');
+    args.push('$.' + key, val);
   }
 
   const from = String(req.query.from || '').trim();
@@ -345,13 +350,11 @@ const WRITE_ROLES = ['admin', 'vanthu'];
 
 const insertStmt = db.prepare(
   `INSERT INTO documents
-     (book, book_id, so_van_ban, seq, seq_scope, year, ngay_gui, nguoi_gui, ten_van_ban,
-      do_bao_mat, ghi_chu, file_name, file_path, file_size, search_text,
-      created_at, created_by)
+     (book, book_id, so_van_ban, seq, seq_scope, year, ngay_gui, ten_van_ban, extra,
+      file_name, file_path, file_size, search_text, created_at, created_by)
    VALUES
-     (@book, @book_id, @so_van_ban, @seq, @seq_scope, @year, @ngay_gui, @nguoi_gui, @ten_van_ban,
-      @do_bao_mat, @ghi_chu, @file_name, @file_path, @file_size, @search_text,
-      @created_at, @created_by)`
+     (@book, @book_id, @so_van_ban, @seq, @seq_scope, @year, @ngay_gui, @ten_van_ban, @extra,
+      @file_name, @file_path, @file_size, @search_text, @created_at, @created_by)`
 );
 
 /**
@@ -381,7 +384,7 @@ router.post(
         );
       }
 
-      const f = readFields(req.body, book.kind);
+      const f = readFields(req.body, book, null);
       const affix = readAffixes(req.body, book);
 
       // Chỉ đúng những khóa mà câu INSERT khai báo: better-sqlite3 từ chối
@@ -394,10 +397,8 @@ router.post(
         seq: null,
         seq_scope: null,
         ngay_gui: f.ngayGui,
-        nguoi_gui: f.nguoiGui,
         ten_van_ban: f.tenVanBan,
-        do_bao_mat: f.doBaoMat,
-        ghi_chu: f.ghiChu,
+        extra: JSON.stringify(f.extra),
         file_name: req.file ? path.basename(req.file.originalname).slice(0, 260) : null,
         file_path: req.file ? req.file.filename : null,
         file_size: req.file ? req.file.size : null,
@@ -487,7 +488,7 @@ router.put(
       }
 
       const existingBook = books.get(existing.book_id);
-      const f = readFields(req.body, existing.book);
+      const f = readFields(req.body, existingBook, fields.parseExtra(existing.extra));
       // Số của sổ đi giữ nguyên, kể cả hàng cũ ghi tay từ trước 11/09/2026:
       // sửa số đã phát hành là sai nghiệp vụ, và giờ không còn đường nhập tay
       // nào để sửa qua. Chỉ số của sổ đến mới nhập lại được — nó là số của cơ
@@ -502,10 +503,8 @@ router.put(
         so_van_ban: soVanBan,
         year: existing.book === 'di' ? existing.year : f.year,
         ngay_gui: f.ngayGui,
-        nguoi_gui: f.nguoiGui,
         ten_van_ban: f.tenVanBan,
-        do_bao_mat: f.doBaoMat,
-        ghi_chu: f.ghiChu,
+        extra: JSON.stringify(f.extra),
         file_name: req.file
           ? path.basename(req.file.originalname).slice(0, 260)
           : dropFile
@@ -522,8 +521,7 @@ router.put(
         db.prepare(
           `UPDATE documents SET
              so_van_ban = @so_van_ban, year = @year, ngay_gui = @ngay_gui,
-             nguoi_gui = @nguoi_gui, ten_van_ban = @ten_van_ban,
-             do_bao_mat = @do_bao_mat, ghi_chu = @ghi_chu,
+             ten_van_ban = @ten_van_ban, extra = @extra,
              file_name = @file_name, file_path = @file_path, file_size = @file_size,
              search_text = @search_text, updated_at = @updated_at, updated_by = @updated_by
            WHERE id = @id`

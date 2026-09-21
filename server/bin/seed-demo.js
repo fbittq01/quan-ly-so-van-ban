@@ -15,7 +15,8 @@ const { db } = require('../db');
 const auth = require('../auth');
 const numbering = require('../numbering');
 const books = require('../books');
-const { strip, nowIso } = require('../util');
+const fields = require('../fields');
+const { nowIso } = require('../util');
 
 const force = process.argv.includes('--force');
 
@@ -64,13 +65,12 @@ const DU = [
   [10, '2026-08-05', 'Nguyễn Thị Hà — Văn phòng Đảng ủy', 'Kế hoạch học tập chuyên đề năm 2026', 'Thường', ''],
 ];
 
-function viDate(iso) {
-  const p = iso.split('-');
-  return p[2] + '/' + p[1] + '/' + p[0];
-}
-
-function searchText(parts, ngayGui) {
-  return strip(parts.concat([ngayGui, viDate(ngayGui)]).join(' '));
+/** Ba trường mặc định của sổ, đúng khóa mà fields.defaultFields đặt. */
+function extraOf(nguoi, baoMat, ghiChu) {
+  const e = { doBaoMat: baoMat };
+  if (nguoi) e.nguoiGui = nguoi;
+  if (ghiChu) e.ghiChu = ghiChu;
+  return e;
 }
 
 const insertUser = db.prepare(
@@ -81,9 +81,9 @@ const insertUser = db.prepare(
 );
 
 const insertDoc = db.prepare(
-  `INSERT INTO documents (book, book_id, so_van_ban, seq, seq_scope, year, ngay_gui, nguoi_gui,
-                          ten_van_ban, do_bao_mat, ghi_chu, search_text, created_at, created_by)
-   VALUES (@book, @book_id, @so, @seq, @scope, @year, @ngay, @nguoi, @ten, @bao_mat, @ghi_chu,
+  `INSERT INTO documents (book, book_id, so_van_ban, seq, seq_scope, year, ngay_gui,
+                          ten_van_ban, extra, search_text, created_at, created_by)
+   VALUES (@book, @book_id, @so, @seq, @scope, @year, @ngay, @ten, @extra,
            @search, @created, @by)`
 );
 
@@ -94,10 +94,10 @@ function ensureBook(name, kind, prefix, suffix, adminId) {
   const maxOrder = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM books`).get().m;
   const info = db
     .prepare(
-      `INSERT INTO books (name, kind, prefix, suffix, start_seq, reset_yearly, hidden, sort_order, created_at, created_by)
-       VALUES (?, ?, ?, ?, 1, 1, 0, ?, ?, ?)`
+      `INSERT INTO books (name, kind, prefix, suffix, start_seq, reset_yearly, hidden, sort_order, fields, created_at, created_by)
+       VALUES (?, ?, ?, ?, 1, 1, 0, ?, ?, ?, ?)`
     )
-    .run(name, kind, prefix, suffix, maxOrder + 1, nowIso(), adminId);
+    .run(name, kind, prefix, suffix, maxOrder + 1, JSON.stringify(fields.defaultFields(kind)), nowIso(), adminId);
   return books.get(info.lastInsertRowid);
 }
 
@@ -113,11 +113,12 @@ const seeded = db.transaction(() => {
   const bookDu = ensureBook('Văn bản đi — Đảng ủy', 'di', '', '-CV/ĐU', adminId);
 
   for (const [so, ngay, nguoi, ten, baoMat, ghiChu] of DEN) {
+    const extra = extraOf(nguoi, baoMat, ghiChu);
     insertDoc.run({
       book: 'den', book_id: bookDen.id, so, seq: null, scope: null,
-      year: Number.parseInt(ngay.slice(0, 4), 10), ngay, nguoi, ten,
-      bao_mat: baoMat, ghi_chu: ghiChu,
-      search: searchText([so, nguoi, ten, ghiChu, baoMat], ngay),
+      year: Number.parseInt(ngay.slice(0, 4), 10), ngay, ten,
+      extra: JSON.stringify(extra),
+      search: fields.docSearchText({ so_van_ban: so, ten_van_ban: ten, ngay_gui: ngay, extra }),
       created: nowIso(), by: haId,
     });
   }
@@ -129,10 +130,11 @@ const seeded = db.transaction(() => {
       const year = Number.parseInt(ngay.slice(0, 4), 10);
       const scope = numbering.scopeFor(book, year);
       const so = numbering.buildNumber(book.prefix, seq, suffixFor(year));
+      const extra = extraOf(nguoi, baoMat, ghiChu);
       insertDoc.run({
-        book: 'di', book_id: book.id, so, seq, scope, year, ngay, nguoi, ten,
-        bao_mat: baoMat, ghi_chu: ghiChu,
-        search: searchText([so, nguoi, ten, ghiChu, baoMat], ngay),
+        book: 'di', book_id: book.id, so, seq, scope, year, ngay, ten,
+        extra: JSON.stringify(extra),
+        search: fields.docSearchText({ so_van_ban: so, ten_van_ban: ten, ngay_gui: ngay, extra }),
         created: nowIso(), by: haId,
       });
       maxByScope.set(scope, Math.max(maxByScope.get(scope) || 0, seq));

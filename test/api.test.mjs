@@ -252,6 +252,16 @@ console.log('\n== sổ: sửa, ngừng dùng, xóa ==');
   });
   check('sửa tiền tố/hậu tố của sổ', upd.data?.book?.next?.soVanBan === '5-TN',
     upd.data?.book?.next?.soVanBan);
+  check('cột đính kèm mặc định hiện', upd.data?.book?.fileOnTable === true);
+
+  const anCot = await req('admin', 'PUT', '/api/books/' + id, {
+    name: 'Sổ đi thử nghiệm', kind: 'di', prefix: '', suffix: '-TN', start: 5, fileOnTable: false,
+  });
+  check('ẩn được cột đính kèm theo sổ', anCot.data?.book?.fileOnTable === false);
+  const giu = await req('admin', 'PUT', '/api/books/' + id, {
+    name: 'Sổ đi thử nghiệm', kind: 'di', prefix: '', suffix: '-TN', start: 5,
+  });
+  check('không gửi cờ thì giữ nguyên trạng thái ẩn', giu.data?.book?.fileOnTable === false);
 
   // Sổ rỗng thì xóa được.
   const del = await req('admin', 'DELETE', '/api/books/' + id);
@@ -363,7 +373,7 @@ console.log('\n== dữ liệu vào không hợp lệ ==');
 for (const [name, body] of [
   ['ngày sai', { book: DEN, soVanBan: '1/X', ngayGui: '2026-02-31', tenVanBan: 'X' }],
   ['thiếu tên văn bản', { book: DEN, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: '  ' }],
-  ['độ bảo mật lạ', { book: DEN, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X', doBaoMat: 'Siêu Mật' }],
+  ['độ bảo mật lạ', { book: DEN, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X', extra: { doBaoMat: 'Siêu Mật' } }],
   ['sổ lạ', { book: 999999, soVanBan: '1/X', ngayGui: '2026-09-10', tenVanBan: 'X' }],
   ['thiếu số văn bản', { book: DEN, ngayGui: '2026-09-10', tenVanBan: 'X' }],
 ]) {
@@ -380,7 +390,7 @@ console.log('\n== xóa mềm và khôi phục ==');
   // Ghi một văn bản đi có cấp số, rồi xóa nó và khôi phục lại.
   const made = await req('vanthu', 'POST', '/api/documents', {
     book: DI, mode: 'issue', ngayGui: '2026-09-10',
-    tenVanBan: 'Văn bản để thử khôi phục', nguoiGui: 'Kiểm thử',
+    tenVanBan: 'Văn bản để thử khôi phục', extra: { nguoiGui: 'Kiểm thử' },
   });
   check('ghi văn bản để thử', made.status === 201, String(made.status));
   const doc = made.data.document;
@@ -580,6 +590,128 @@ console.log('\n== bộ đếm không lùi qua số đang dùng ==');
   check('vẫn sửa lại được về sát sàn khi nhập nhầm',
     backDown.data.effectiveSeq === maxUsed + 1 && backDown.data.clamped === false,
     String(backDown.data.effectiveSeq));
+}
+
+console.log('\n== trường riêng của từng sổ ==');
+{
+  // Văn bản cũ: ba cột cứng ngày xưa nay nằm trong extra dưới khóa cũ.
+  const old = (await req('vanthu', 'GET', `/api/documents?book=${DEN}`)).data.documents[0];
+  check('văn bản cũ có extra.nguoiGui / doBaoMat', !!old?.extra?.nguoiGui && !!old?.extra?.doBaoMat,
+    JSON.stringify(old?.extra));
+  check('không còn nguoiGui ở tầng ngoài JSON', old?.nguoiGui === undefined && old?.doBaoMat === undefined);
+  const denBook = (await req('vanthu', 'GET', '/api/books')).data.books.find((b) => b.id === DEN);
+  check('sổ mang bộ trường mặc định', denBook?.fields?.map((d) => d.key).join(',') === 'nguoiGui,doBaoMat,ghiChu',
+    JSON.stringify(denBook?.fields?.map((d) => d.key)));
+
+  // Sổ hợp đồng: bộ trường hoàn toàn khác sổ đến / sổ đi.
+  const made = await req('admin', 'POST', '/api/books', {
+    name: 'Hợp đồng', kind: 'den',
+    fields: [
+      { label: 'Đối tác', type: 'text', required: true, table: true },
+      { label: 'Giá trị (VNĐ)', type: 'number', table: true },
+      { label: 'Hết hiệu lực', type: 'date' },
+      { label: 'Trạng thái', type: 'select', options: ['Đang xử lý', 'Đã ký', 'Đã thanh lý'], table: true },
+      { label: 'Ưu tiên', type: 'checkbox' },
+      // Không văn bản nào điền trường này — để thử "bỏ trường rỗng".
+      { label: 'Ghi chú nội bộ', type: 'textarea' },
+    ],
+  });
+  check('tạo sổ với bộ trường riêng', made.status === 201, made.status + ' ' + made.data?.error);
+  const HD = made.data?.book?.id;
+  const fk = Object.fromEntries((made.data?.book?.fields || []).map((d) => [d.label, d.key]));
+  check('mỗi trường được cấp mã', Object.values(fk).every((k) => /^f_[0-9a-f]{6}$/.test(k)), JSON.stringify(fk));
+
+  const vanThuSua = await req('vanthu', 'PUT', `/api/books/${HD}`, { name: 'Hợp đồng', fields: [] });
+  check('văn thư không sửa được bộ trường', vanThuSua.status === 403, String(vanThuSua.status));
+
+  const thieu = await req('vanthu', 'POST', '/api/documents', {
+    book: HD, soVanBan: 'HĐ-01', ngayGui: '2026-09-18', tenVanBan: 'Thiếu đối tác', extra: {},
+  });
+  check('chặn thiếu trường bắt buộc', thieu.status === 400 && thieu.data?.code === 'field_required',
+    thieu.status + ' ' + thieu.data?.error);
+
+  const saiChon = await req('vanthu', 'POST', '/api/documents', {
+    book: HD, soVanBan: 'HĐ-01', ngayGui: '2026-09-18', tenVanBan: 'Sai lựa chọn',
+    extra: { [fk['Đối tác']]: 'X', [fk['Trạng thái']]: 'Bay màu' },
+  });
+  check('chặn lựa chọn lạ', saiChon.status === 400 && saiChon.data?.code === 'bad_option', String(saiChon.status));
+
+  const saiNgay = await req('vanthu', 'POST', '/api/documents', {
+    book: HD, soVanBan: 'HĐ-01', ngayGui: '2026-09-18', tenVanBan: 'Sai ngày',
+    extra: { [fk['Đối tác']]: 'X', [fk['Hết hiệu lực']]: '31/12/2027' },
+  });
+  check('chặn ngày sai định dạng ở trường riêng', saiNgay.status === 400 && saiNgay.data?.code === 'bad_date', String(saiNgay.status));
+
+  const ok1 = await req('vanthu', 'POST', '/api/documents', {
+    book: HD, soVanBan: 'HĐ-01', ngayGui: '2026-09-18', tenVanBan: 'Hợp đồng xây nhà điều hành',
+    extra: {
+      [fk['Đối tác']]: 'Công ty Thành Đạt', [fk['Giá trị (VNĐ)']]: '1250000000',
+      [fk['Hết hiệu lực']]: '2027-12-31', [fk['Trạng thái']]: 'Đang xử lý', [fk['Ưu tiên']]: true,
+    },
+  });
+  const ok2 = await req('vanthu', 'POST', '/api/documents', {
+    book: HD, soVanBan: 'HĐ-02', ngayGui: '2026-09-18', tenVanBan: 'Hợp đồng bảo trì',
+    extra: { [fk['Đối tác']]: 'Công ty Minh Phát', [fk['Trạng thái']]: 'Đã ký' },
+  });
+  check('ghi hai hợp đồng', ok1.status === 201 && ok2.status === 201, ok1.status + ' ' + ok2.status);
+  const e1 = ok1.data?.document?.extra || {};
+  check('số lưu thành số, có/không thành boolean',
+    e1[fk['Giá trị (VNĐ)']] === 1250000000 && e1[fk['Ưu tiên']] === true, JSON.stringify(e1));
+  check('trường bỏ trống không lưu khóa', !(fk['Hết hiệu lực'] in (ok2.data?.document?.extra || {})));
+
+  const loc = await req('vanthu', 'GET', `/api/documents?book=${HD}&year=2026&f.${fk['Trạng thái']}=${encodeURIComponent('Đã ký')}`);
+  check('lọc theo trường chọn một', loc.data?.documents?.length === 1 && loc.data.documents[0].soVanBan === 'HĐ-02',
+    JSON.stringify(loc.data?.documents?.map((d) => d.soVanBan)));
+  const locLa = await req('vanthu', 'GET', `/api/documents?book=${HD}&f.khongco=x`);
+  check('chặn lọc theo khóa lạ', locLa.status === 400 && locLa.data?.code === 'bad_filter', String(locLa.status));
+  const tim = await req('vanthu', 'GET', `/api/documents?book=${HD}&year=2026&q=${encodeURIComponent('thanh dat')}`);
+  check('tìm không dấu thấy giá trị trong trường riêng', tim.data?.documents?.length === 1, String(tim.data?.documents?.length));
+
+  // Bộ trường khi đã có dữ liệu: khóa kiểu, khóa bỏ, cho ẩn.
+  const defs = made.data.book.fields;
+  const doiKieu = defs.map((d) => (d.label === 'Đối tác' ? { ...d, type: 'number' } : d));
+  const r1 = await req('admin', 'PUT', `/api/books/${HD}`, { name: 'Hợp đồng', fields: doiKieu });
+  check('không đổi kiểu trường đang có dữ liệu', r1.status === 400 && r1.data?.code === 'field_type_locked', r1.status + ' ' + r1.data?.code);
+  const r2 = await req('admin', 'PUT', `/api/books/${HD}`, { name: 'Hợp đồng', fields: defs.filter((d) => d.label !== 'Đối tác') });
+  check('không bỏ trường đang có dữ liệu', r2.status === 400 && r2.data?.code === 'field_in_use', r2.status + ' ' + r2.data?.code);
+  const r3 = await req('admin', 'PUT', `/api/books/${HD}`, {
+    name: 'Hợp đồng',
+    fields: defs.filter((d) => d.label !== 'Ghi chú nội bộ').map((d) => (d.label === 'Đối tác' ? { ...d, hidden: true, label: 'Đối tác (cũ)' } : d)),
+  });
+  check('ẩn trường có dữ liệu, bỏ trường rỗng, đổi tên: được', r3.status === 200, r3.status + ' ' + r3.data?.error);
+  check('bộ trường mới còn 5, đối tác đã ẩn',
+    r3.data?.book?.fields?.length === 5 && r3.data.book.fields.find((d) => d.key === fk['Đối tác'])?.hidden === true);
+
+  // Sửa văn bản sau khi ẩn: giá trị của trường đã ẩn phải còn nguyên.
+  const d1 = ok1.data.document;
+  const sua = await req('vanthu', 'PUT', '/api/documents/' + d1.id, {
+    soVanBan: 'HĐ-01', ngayGui: '2026-09-18', tenVanBan: 'Hợp đồng xây nhà điều hành (sửa)',
+    extra: { [fk['Trạng thái']]: 'Đã ký' },
+  });
+  check('sửa văn bản giữ giá trị trường đã ẩn',
+    sua.status === 200 && sua.data?.document?.extra?.[fk['Đối tác']] === 'Công ty Thành Đạt',
+    sua.status + ' ' + JSON.stringify(sua.data?.document?.extra));
+  check('trường bắt buộc đã ẩn thì không bắt nữa', sua.status === 200);
+
+  const quaNhieu = await req('admin', 'POST', '/api/books', {
+    name: 'Sổ quá nhiều cột', kind: 'den',
+    fields: ['A', 'B', 'C', 'D', 'E'].map((l) => ({ label: l, type: 'text', table: true })),
+  });
+  check('chặn quá 4 trường trên bảng', quaNhieu.status === 400 && quaNhieu.data?.code === 'too_many_table', String(quaNhieu.status));
+  const trong = await req('admin', 'POST', '/api/books', { name: 'Sổ chỉ có lõi', kind: 'den', fields: [] });
+  check('sổ trống chỉ phần lõi tạo được', trong.status === 201 && trong.data?.book?.fields?.length === 0, String(trong.status));
+  const loi = await req('vanthu', 'POST', '/api/documents', {
+    book: trong.data?.book?.id, soVanBan: 'L-1', ngayGui: '2026-09-18', tenVanBan: 'Chỉ lõi',
+  });
+  check('ghi được vào sổ chỉ có lõi', loi.status === 201 && JSON.stringify(loi.data?.document?.extra) === '{}', String(loi.status));
+
+  // Dọn: hai sổ này đã có văn bản nên không xóa được, ngừng dùng để bộ kiểm
+  // thử giao diện chạy sau vẫn thấy đúng ba sổ của dữ liệu mẫu.
+  for (const id of [HD, trong.data?.book?.id]) {
+    await req('admin', 'POST', `/api/books/${id}/hidden`, { hidden: true });
+  }
+  const vtBooks = (await req('vanthu', 'GET', '/api/books')).data.books;
+  check('dọn xong, văn thư lại thấy đúng ba sổ', vtBooks.length === 3, String(vtBooks.length));
 }
 
 console.log('\n== đăng xuất ==');

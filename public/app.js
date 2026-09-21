@@ -231,6 +231,70 @@ const SEC_CLASS = {
   'Tuyệt Mật': 'badge badge-red',
 };
 const ROLE_CLASS = { admin: 'badge badge-orange', vanthu: 'badge badge-blue', xem: 'badge' };
+
+// ------------------------------------------------------ trường riêng của sổ
+// Mỗi sổ mang bộ trường của mình (book.fields, máy chủ định nghĩa ở
+// server/fields.js). Giao diện KHÔNG viết cứng tên trường nào ngoài phần lõi
+// (số, ngày gửi, tên văn bản, đính kèm): bảng, bộ lọc và hộp thoại đều lặp
+// trên danh sách này.
+
+/** Trường đang dùng của sổ — trường đã ẩn không lên form, không lên bảng. */
+function liveFields(book) {
+  return ((book && book.fields) || []).filter((d) => !d.hidden);
+}
+
+function tableFields(book) {
+  return liveFields(book).filter((d) => d.table);
+}
+
+function fieldEmpty(def, v) {
+  if (v === null || v === undefined) return true;
+  if (def.type === 'checkbox') return v !== true;
+  if (def.type === 'number') return typeof v !== 'number';
+  return String(v).trim() === '';
+}
+
+/** Giá trị một trường dưới dạng chữ, để hiện ở chỗ chỉ đọc. */
+function fieldText(def, v) {
+  if (fieldEmpty(def, v)) return '';
+  if (def.type === 'date') return viDate(v);
+  if (def.type === 'checkbox') return 'Có';
+  if (def.type === 'number') return Number(v).toLocaleString('vi-VN');
+  return String(v);
+}
+
+/** Ô bảng cho một giá trị, theo kiểu trường. */
+function fieldCellNode(def, v) {
+  if (fieldEmpty(def, v)) return el('td', { class: 'cell-note', text: '—' });
+  switch (def.type) {
+    case 'date':
+    case 'number':
+      return el('td', { class: 'cell-mono', text: fieldText(def, v) });
+    case 'select':
+      // Độ bảo mật giữ màu cũ; lựa chọn khác dùng nhãn xám.
+      return el('td', {}, el('span', { class: SEC_CLASS[v] || 'badge', text: v }));
+    case 'checkbox':
+      return el('td', {}, el('span', { class: 'badge badge-blue', text: 'Có' }));
+    case 'textarea':
+      return el('td', { class: 'cell-note', text: v });
+    default:
+      return el('td', { text: String(v) });
+  }
+}
+
+/** Giá trị điền sẵn khi ghi mới: lựa chọn đầu của trường chọn một, còn lại trống. */
+function defaultExtra(book) {
+  const e = {};
+  for (const d of liveFields(book)) {
+    if (d.type === 'select' && d.options && d.options.length) e[d.key] = d.options[0];
+    if (d.type === 'checkbox') e[d.key] = false;
+  }
+  return e;
+}
+
+function cloneFields(defs) {
+  return JSON.parse(JSON.stringify(defs || []));
+}
 // ---------------------------------------------------------------------- api
 
 class ApiError extends Error {
@@ -290,7 +354,8 @@ const state = {
   books: [],
   bookId: null,
   settingsTab: 'so',
-  filters: { year: String(new Date().getFullYear()), q: '', security: '', from: '', to: '' },
+  // extra: { <key trường chọn một>: lựa chọn } — bộ lọc theo trường riêng của sổ.
+  filters: { year: String(new Date().getFullYear()), q: '', extra: {}, from: '', to: '' },
   documents: [],
   shown: 0,
   totalInBook: 0,
@@ -372,7 +437,11 @@ async function loadBook() {
   const qs = new URLSearchParams({ book: String(state.bookId) });
   if (f.year) qs.set('year', f.year);
   if (f.q) qs.set('q', f.q);
-  if (f.security) qs.set('security', f.security);
+  // Chỉ gửi khóa còn là trường chọn một của sổ ĐANG MỞ: bộ lọc sống qua lúc
+  // chuyển sổ, mà máy chủ từ chối khóa lạ.
+  for (const def of liveFields(currentBook())) {
+    if (def.type === 'select' && f.extra[def.key]) qs.set('f.' + def.key, f.extra[def.key]);
+  }
   if (f.from) qs.set('from', f.from);
   if (f.to) qs.set('to', f.to);
   const data = await api('GET', '/api/documents?' + qs.toString());
@@ -778,7 +847,7 @@ function renderFilters() {
           type: 'search',
           fk: 'filter-q',
           value: f.q,
-          placeholder: 'Tên văn bản · số · người gửi · ghi chú',
+          placeholder: 'Tên văn bản · số · mọi trường của sổ',
           oninput: (e) => {
             f.q = e.target.value;
             clearTimeout(searchTimer);
@@ -788,15 +857,25 @@ function renderFilters() {
           },
         })
       ),
-      el('label', { class: 'field' },
-        el('span', { class: 'label', text: 'Độ bảo mật' }),
-        el('select', { class: 'select', onchange: (e) => set('security', e.target.value, true) },
-          el('option', { value: '', text: 'Tất cả', selected: f.security === '' }),
-          state.config.securityLevels.map((s) =>
-            el('option', { value: s, text: s, selected: f.security === s })
+      // Một ô lọc cho mỗi trường “chọn một” của sổ đang mở.
+      liveFields(currentBook())
+        .filter((d) => d.type === 'select')
+        .map((def) =>
+          el('label', { class: 'field' },
+            el('span', { class: 'label', text: def.label }),
+            el('select', {
+              class: 'select',
+              fk: 'filter-' + def.key,
+              onchange: (e) => {
+                f.extra[def.key] = e.target.value;
+                refresh();
+              },
+            },
+              el('option', { value: '', text: 'Tất cả', selected: !f.extra[def.key] }),
+              def.options.map((o) => el('option', { value: o, text: o, selected: f.extra[def.key] === o }))
+            )
           )
-        )
-      ),
+        ),
       el('label', { class: 'field' },
         el('span', { class: 'label', text: 'Từ ngày' }),
         viDateField({ fk: 'filter-from', value: f.from, onvalue: (v) => set('from', v, true) })
@@ -809,7 +888,7 @@ function renderFilters() {
         class: 'btn',
         type: 'button',
         onclick: () => {
-          state.filters = { year: String(state.config.currentYear), q: '', security: '', from: '', to: '' };
+          state.filters = { year: String(state.config.currentYear), q: '', extra: {}, from: '', to: '' };
           refresh();
         },
         text: 'Xóa lọc',
@@ -904,14 +983,20 @@ function renderBookHead() {
 function renderBookTable() {
   const book = currentBook();
   const write = canWrite() && !!book && !book.hidden;
+  // Cột lõi + những trường sổ này chọn “hiện trên bảng” (tối đa 4) + đính kèm
+  // (trừ khi sổ này giấu cột đính kèm — vẫn đính kèm được trong hộp thoại).
+  const cols = tableFields(book);
+  const showFile = !book || book.fileOnTable !== false;
+  const thClass = (def) =>
+    def.type === 'date' || def.type === 'number' ? 'w110'
+      : def.type === 'select' || def.type === 'checkbox' ? 'w110'
+        : def.type === 'textarea' ? 'w190' : 'w160';
   const head = el('tr', {},
     el('th', { class: 'w110', text: 'Số văn bản' }),
     el('th', { class: 'w96', text: 'Ngày gửi' }),
-    el('th', { class: 'w160', text: book && book.kind === 'di' ? 'Người ký / đơn vị soạn' : 'Cơ quan gửi' }),
     el('th', { text: 'Tên văn bản' }),
-    el('th', { class: 'w110', text: 'Độ bảo mật' }),
-    el('th', { class: 'w140', text: 'Đính kèm' }),
-    el('th', { class: 'w190', text: 'Ghi chú' }),
+    cols.map((def) => el('th', { class: thClass(def), text: def.label })),
+    showFile ? el('th', { class: 'w140', text: 'Đính kèm' }) : null,
     write ? el('th', { class: 'w96' }) : null
   );
 
@@ -919,13 +1004,13 @@ function renderBookTable() {
     el('tr', {},
       el('td', { class: 'cell-num', text: d.soVanBan }),
       el('td', { class: 'cell-mono', text: viDate(d.ngayGui) }),
-      el('td', { text: d.nguoiGui || '—' }),
       el('td', { class: 'cell-title', text: d.tenVanBan }),
-      el('td', {}, el('span', { class: SEC_CLASS[d.doBaoMat] || 'badge', text: d.doBaoMat })),
-      el('td', { class: 'cell-file' + (d.hasFile ? '' : ' empty') },
-        d.hasFile ? fileCell(d) : '— chưa có —'
-      ),
-      el('td', { class: 'cell-note', text: d.ghiChu || '—' }),
+      cols.map((def) => fieldCellNode(def, (d.extra || {})[def.key])),
+      showFile
+        ? el('td', { class: 'cell-file' + (d.hasFile ? '' : ' empty') },
+          d.hasFile ? fileCell(d) : '— chưa có —'
+        )
+        : null,
       write
         ? el('td', { class: 'cell-actions' },
           el('button', { class: 'btn-link', type: 'button', onclick: () => openDocDialog({ bookId: d.bookId, mode: 'edit', doc: d }), text: 'Sửa' }),
@@ -1032,8 +1117,14 @@ function openBookForm(book) {
       suffix: book.suffix,
       startRaw: String(book.start),
       resetYearly: book.resetYearly,
+      fileOnTable: book.fileOnTable !== false,
       counterRaw: book.next ? String(book.next.seq) : '1',
       lockedKind: book.count > 0,
+      fields: cloneFields(book.fields),
+      // Trường đã có từ trước: có thể đang giữ dữ liệu, máy chủ quyết định
+      // đổi kiểu / bỏ được không. Giao diện chỉ nhắc.
+      existingKeys: book.fields.map((d) => d.key),
+      fieldsSource: null,
     }
     : {
       id: null,
@@ -1043,8 +1134,13 @@ function openBookForm(book) {
       suffix: '/' + state.config.currentYear,
       startRaw: '1',
       resetYearly: true,
+      fileOnTable: true,
       counterRaw: '1',
       lockedKind: false,
+      fields: cloneFields(state.config.defaultFields.di),
+      existingKeys: [],
+      // 'default' | 'blank' | <id sổ để sao bộ trường>
+      fieldsSource: 'default',
     };
   state.bookFormError = '';
   state.bookSavedAt = '';
@@ -1067,6 +1163,8 @@ async function submitBookForm() {
     suffix: f.suffix,
     start: num(f.startRaw, 1),
     resetYearly: f.resetYearly,
+    fileOnTable: f.fileOnTable,
+    fields: f.fields,
   };
   try {
     const saved = f.id
@@ -1167,6 +1265,12 @@ function renderBooksPage() {
             ' · hậu tố ' + (b.suffix ? '“' + b.suffix + '”' : '(để trống)') + ' · ' +
             (b.resetYearly ? 'reset đầu năm' : 'tăng liên tục')
             : 'Số do cơ quan gửi ghi — không có bộ đếm',
+        }),
+        el('span', {
+          class: 'book-hint',
+          text: liveFields(b).length === 0
+            ? 'Chỉ có phần lõi, không có trường riêng'
+            : 'Trường: ' + liveFields(b).map((d) => d.label).join(' · '),
         })
       ),
       el('td', {}, el('span', { class: di ? 'badge badge-orange' : 'badge badge-blue', text: di ? 'Đi' : 'Đến' })),
@@ -1232,6 +1336,205 @@ function renderBooksPage() {
   return [list, renderBookForm()];
 }
 
+/**
+ * Bộ trường khởi đầu của sổ MỚI, theo nguồn đã chọn.
+ * Chỉ áp cho sổ mới: sổ đang sửa giữ bộ trường thật của nó.
+ */
+function applyFieldsSource(f) {
+  if (f.id || f.fieldsSource == null) return;
+  if (f.fieldsSource === 'default') f.fields = cloneFields(state.config.defaultFields[f.kind]);
+  else if (f.fieldsSource === 'blank') f.fields = [];
+  else {
+    const src = bookById(Number(f.fieldsSource));
+    // Sao là COPY: từ đây hai sổ độc lập, sửa sổ này không kéo sổ kia.
+    f.fields = src ? cloneFields(src.fields) : [];
+  }
+}
+
+/**
+ * Trình sửa bộ trường của sổ, nằm trong form sổ.
+ *
+ * Nhập chữ (tên, lựa chọn) KHÔNG gọi render() — dựng lại form là mất con trỏ
+ * sau mỗi phím. Chỉ thay đổi cấu trúc (thêm, bỏ, đổi kiểu, đổi chỗ, ẩn) mới
+ * dựng lại.
+ */
+function renderFieldsEditor(f) {
+  const types = state.config.fieldTypes;
+  const maxTable = state.config.maxTableFields;
+  const onTable = f.fields.filter((d) => d.table && !d.hidden).length;
+  const seg = (label, active, onClick) =>
+    el('button', { class: active ? 'active' : '', type: 'button', onclick: onClick, text: label });
+
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= f.fields.length) return;
+    const t = f.fields[i];
+    f.fields[i] = f.fields[j];
+    f.fields[j] = t;
+    render();
+  };
+
+  const rows = f.fields.map((d, i) => {
+    const existing = d.key && f.existingKeys.includes(d.key);
+    return el('tr', { class: d.hidden ? 'field-row-off' : '' },
+      el('td', {},
+        el('input', {
+          class: 'input',
+          type: 'text',
+          fk: 'fld-label-' + i,
+          value: d.label || '',
+          placeholder: 'vd: Hạn xử lý',
+          oninput: (e) => { d.label = e.target.value; },
+        })
+      ),
+      el('td', {},
+        el('select', {
+          class: 'select',
+          fk: 'fld-type-' + i,
+          onchange: (e) => {
+            d.type = e.target.value;
+            if (d.type === 'select' && !Array.isArray(d.options)) d.options = [];
+            render();
+          },
+        },
+          Object.keys(types).map((t) => el('option', { value: t, text: types[t], selected: d.type === t }))
+        )
+      ),
+      el('td', {},
+        d.type === 'select'
+          ? el('textarea', {
+            class: 'textarea fld-options',
+            rows: '3',
+            fk: 'fld-options-' + i,
+            placeholder: 'Mỗi lựa chọn một dòng',
+            oninput: (e) => {
+              d.options = e.target.value.split('\n').map((x) => x.trim()).filter(Boolean);
+            },
+          }, (d.options || []).join('\n'))
+          : el('span', { class: 'hint', text: '—' })
+      ),
+      // Bọc trong div: đặt display:flex thẳng lên <td> là phá bố cục ô bảng.
+      el('td', {}, el('div', { class: 'fld-checks' },
+        el('label', { class: 'check' },
+          el('input', { type: 'checkbox', fk: 'fld-req-' + i, checked: !!d.required, onchange: (e) => { d.required = e.target.checked; } }),
+          ' Bắt buộc'
+        ),
+        el('label', { class: 'check' },
+          el('input', {
+            type: 'checkbox',
+            fk: 'fld-table-' + i,
+            checked: !!d.table,
+            // Vượt giới hạn thì máy chủ cũng chặn; chặn sớm ở đây để đỡ một vòng.
+            disabled: !d.table && !d.hidden && onTable >= maxTable,
+            onchange: (e) => { d.table = e.target.checked; render(); },
+          }),
+          ' Trên bảng'
+        )
+      )),
+      el('td', { class: 'cell-actions fld-actions' },
+        el('button', { class: 'btn-link', type: 'button', disabled: i === 0, onclick: () => move(i, -1), text: '↑' }),
+        el('button', { class: 'btn-link', type: 'button', disabled: i === f.fields.length - 1, onclick: () => move(i, 1), text: '↓' }),
+        el('button', {
+          class: 'btn-link',
+          type: 'button',
+          onclick: () => { d.hidden = !d.hidden; render(); },
+          text: d.hidden ? 'Hiện lại' : 'Ẩn',
+        }),
+        el('button', {
+          class: 'btn-link danger',
+          type: 'button',
+          title: existing ? 'Chỉ bỏ được khi chưa văn bản nào có giá trị; nếu không, dùng Ẩn' : '',
+          onclick: () => { f.fields.splice(i, 1); render(); },
+          text: 'Bỏ',
+        })
+      )
+    );
+  });
+
+  const sourceSelect = !f.id
+    ? el('label', { class: 'field' },
+      el('span', { class: 'label', text: 'Bắt đầu từ' }),
+      el('select', {
+        class: 'select',
+        fk: 'fld-source',
+        onchange: (e) => {
+          f.fieldsSource = e.target.value;
+          applyFieldsSource(f);
+          render();
+        },
+      },
+        el('option', { value: 'default', text: 'Bộ trường mặc định theo loại sổ', selected: f.fieldsSource === 'default' }),
+        el('option', { value: 'blank', text: 'Sổ trống — chỉ phần lõi', selected: f.fieldsSource === 'blank' }),
+        state.books.map((b) =>
+          el('option', { value: String(b.id), text: 'Sao bộ trường từ sổ “' + b.name + '”', selected: f.fieldsSource === String(b.id) })
+        )
+      )
+    )
+    : null;
+
+  return el('div', { class: 'book-divider' },
+    el('div', { class: 'filters' },
+      el('div', { class: 'field grow' },
+        el('span', { class: 'label label-accent', text: 'Các trường của sổ này' }),
+        el('span', {
+          class: 'hint',
+          text:
+            'Số văn bản, ngày gửi, tên văn bản và đính kèm thì sổ nào cũng có. Ngoài ra mỗi sổ tự đặt trường của mình — ' +
+            'sổ này không dính gì tới sổ khác. Tối đa ' + maxTable + ' trường hiện trên bảng; còn lại xem trong hộp thoại.',
+        })
+      ),
+      sourceSelect
+    ),
+    // Đính kèm là phần lõi nên không có hàng trong bảng trường; nó chỉ có một
+    // lựa chọn giống cờ “hiện trên bảng” của trường riêng.
+    el('div', { class: 'filters' },
+      el('div', { class: 'field' },
+        el('span', { class: 'label', text: 'Cột “Đính kèm” trên bảng' }),
+        el('div', { class: 'toggle', fk: 'book-file-table' },
+          seg('Hiện', f.fileOnTable !== false, () => { f.fileOnTable = true; render(); }),
+          seg('Ẩn', f.fileOnTable === false, () => { f.fileOnTable = false; render(); })
+        )
+      ),
+      el('span', { class: 'hint push' },
+        'Sổ không dùng bản scan thì ẩn cột cho bảng gọn. Vẫn đính kèm và xem tệp được trong hộp thoại ghi / sửa văn bản.')
+    ),
+    f.fields.length === 0
+      ? el('div', { class: 'note' }, icon('alert', 16, '#2c4f6a'),
+        el('span', { text: 'Sổ này chưa có trường riêng nào — văn bản chỉ có số, ngày gửi, tên và đính kèm.' }))
+      : el('div', { class: 'table-wrap fields-editor' },
+        el('table', {},
+          el('thead', {}, el('tr', {},
+            el('th', { text: 'Tên trường' }),
+            el('th', { class: 'w160', text: 'Kiểu' }),
+            el('th', { class: 'w190', text: 'Lựa chọn' }),
+            el('th', { class: 'w140' }),
+            el('th', { class: 'w160' })
+          )),
+          el('tbody', {}, rows)
+        )
+      ),
+    el('div', { class: 'filters' },
+      el('button', {
+        class: 'btn btn-secondary',
+        type: 'button',
+        disabled: f.fields.length >= state.config.maxFields,
+        onclick: () => {
+          f.fields.push({ label: '', type: 'text', required: false, table: onTable < maxTable, hidden: false });
+          render();
+          const inp = document.querySelector('[data-fk="fld-label-' + (f.fields.length - 1) + '"]');
+          if (inp) inp.focus();
+        },
+        text: '+ Thêm trường',
+      }),
+      f.id
+        ? el('span', { class: 'hint' },
+          'Trường đã có giá trị ở văn bản thì không bỏ và không đổi kiểu được — dùng “Ẩn”: trường biến khỏi form và bảng, ' +
+          'giá trị cũ vẫn còn và vẫn tìm được. Đổi tên, bắt buộc, thứ tự, lựa chọn thì tự do.')
+        : null
+    )
+  );
+}
+
 function renderBookForm() {
   const f = state.bookForm;
   if (!f) return null;
@@ -1290,8 +1593,8 @@ function renderBookForm() {
         el('div', { class: 'field' },
           el('span', { class: 'label', text: 'Loại sổ' }),
           el('div', { class: 'toggle' },
-            seg('Văn bản đến', !di, () => { f.kind = 'den'; render(); }, f.lockedKind),
-            seg('Văn bản đi', di, () => { f.kind = 'di'; render(); }, f.lockedKind)
+            seg('Văn bản đến', !di, () => { f.kind = 'den'; applyFieldsSource(f); render(); }, f.lockedKind),
+            seg('Văn bản đi', di, () => { f.kind = 'di'; applyFieldsSource(f); render(); }, f.lockedKind)
           )
         ),
         f.lockedKind
@@ -1379,7 +1682,8 @@ function renderBookForm() {
                 'Vì vậy sổ đến không có tiền tố, hậu tố hay “bắt đầu từ”.',
             })
           )
-        )
+        ),
+      renderFieldsEditor(f)
     ),
     el('div', { class: 'book-form-foot' },
       state.bookFormError ? el('span', { class: 'savebar-status blocked', text: state.bookFormError }) : null,
@@ -2131,10 +2435,9 @@ function openDocDialog({ bookId, mode, doc }) {
       suffix: isIssue && state.nextNumber ? (state.nextNumber.suffix || '') : '',
       soVanBan: isEdit ? doc.soVanBan : '',
       ngayGui: isEdit ? doc.ngayGui : todayIso(),
-      nguoiGui: isEdit ? doc.nguoiGui : '',
       tenVanBan: isEdit ? doc.tenVanBan : '',
-      doBaoMat: isEdit ? doc.doBaoMat : 'Thường',
-      ghiChu: isEdit ? doc.ghiChu : '',
+      // Giá trị các trường riêng của sổ, theo khóa trong book.fields.
+      extra: isEdit ? Object.assign({}, doc.extra || {}) : defaultExtra(book),
     },
     doc: doc || null,
   };
@@ -2260,6 +2563,45 @@ function renderDocDialog(d) {
       attrs && attrs.hint ? el('span', { class: 'hint', text: attrs.hint }) : null
     );
 
+  const book = bookById(d.bookId);
+  const stale = d.mode === 'edit'
+    ? ((book && book.fields) || []).filter((def) => def.hidden && !fieldEmpty(def, f.extra[def.key]))
+    : [];
+
+  /** Ô nhập cho một trường riêng của sổ, theo kiểu. fk = doc-<key>. */
+  const fieldInput = (def) => {
+    const v = f.extra[def.key];
+    const label = el('span', { class: 'label', text: def.label + (def.required ? ' *' : '') });
+    const setv = (val) => { f.extra[def.key] = val; };
+    const fk = 'doc-' + def.key;
+    switch (def.type) {
+      case 'textarea':
+        return el('label', { class: 'field full' }, label,
+          el('textarea', { class: 'textarea', rows: '3', fk, oninput: (e) => setv(e.target.value) }, v || ''));
+      case 'select':
+        return el('label', { class: 'field' }, label,
+          el('select', { class: 'select', fk, onchange: (e) => setv(e.target.value) },
+            def.required ? null : el('option', { value: '', text: '— không chọn —', selected: !v }),
+            def.options.map((o) => el('option', { value: o, text: o, selected: v === o }))
+          ));
+      case 'checkbox':
+        return el('div', { class: 'field' }, el('span', { class: 'label', text: def.label }),
+          el('label', { class: 'check check-tall' },
+            el('input', { type: 'checkbox', fk, checked: v === true, onchange: (e) => setv(e.target.checked) }),
+            ' Có'
+          ));
+      case 'date':
+        return el('label', { class: 'field' }, label,
+          el('input', { class: 'input', type: 'date', fk, value: v || '', oninput: (e) => setv(e.target.value), onchange: (e) => setv(e.target.value) }));
+      case 'number':
+        return el('label', { class: 'field' }, label,
+          el('input', { class: 'input mono', type: 'number', step: 'any', fk, value: v == null ? '' : String(v), oninput: (e) => setv(e.target.value) }));
+      default:
+        return el('label', { class: 'field' }, label,
+          el('input', { class: 'input', type: 'text', fk, value: v || '', oninput: (e) => setv(e.target.value) }));
+    }
+  };
+
   const submit = async () => {
     const fd = new FormData();
     fd.set('book', String(d.bookId));
@@ -2271,10 +2613,9 @@ function renderDocDialog(d) {
     if (d.expected) fd.set('expectedSoVanBan', d.expected);
     if (d.mode !== 'issue' && !numberLocked) fd.set('soVanBan', f.soVanBan);
     fd.set('ngayGui', f.ngayGui);
-    fd.set('nguoiGui', f.nguoiGui);
     fd.set('tenVanBan', f.tenVanBan);
-    fd.set('doBaoMat', f.doBaoMat);
-    fd.set('ghiChu', f.ghiChu);
+    // Một khóa JSON cho mọi trường riêng của sổ; máy chủ kiểm theo định nghĩa.
+    fd.set('extra', JSON.stringify(f.extra));
     if (d.dropFile) fd.set('dropFile', '1');
     if (d.file) fd.set('file', d.file);
 
@@ -2364,23 +2705,17 @@ function renderDocDialog(d) {
           hint: 'Giữ nguyên số của cơ quan gửi',
         }),
     field('Ngày gửi', 'ngayGui', { type: 'date' }),
-    field(isDi ? 'Người gửi (người ký / trình)' : 'Người gửi (nơi gửi đến)', 'nguoiGui', {
-      placeholder: 'Đơn vị hoặc cá nhân',
-    }),
-    el('label', { class: 'field' },
-      el('span', { class: 'label', text: 'Độ bảo mật' }),
-      el('select', { class: 'select', onchange: (e) => { f.doBaoMat = e.target.value; } },
-        state.config.securityLevels.map((s) => el('option', { value: s, text: s, selected: f.doBaoMat === s }))
-      )
-    ),
     field('Tên văn bản', 'tenVanBan', { full: true, placeholder: 'Trích yếu nội dung văn bản' }),
-    el('label', { class: 'field full' },
-      el('span', { class: 'label', text: 'Ghi chú' }),
-      el('textarea', {
-        class: 'textarea', rows: '3', placeholder: 'Nơi nhận, hạn xử lý, ghi chú nội bộ…',
-        fk: 'doc-ghiChu',
-        oninput: (e) => { f.ghiChu = e.target.value; },
-      }, f.ghiChu || '')
+    // Trường riêng của sổ, đúng thứ tự quản trị đã xếp.
+    liveFields(book).map(fieldInput),
+    // Trường đã ẩn nhưng văn bản này còn giá trị: hiện chỉ đọc, để người sửa
+    // biết nó có đó và không bị mất khi lưu.
+    stale.map((def) =>
+      el('div', { class: 'field' },
+        el('span', { class: 'label', text: def.label }),
+        el('input', { class: 'input', type: 'text', value: fieldText(def, f.extra[def.key]), disabled: true }),
+        el('span', { class: 'hint', text: 'Trường đã ẩn — giá trị giữ nguyên, không sửa được' })
+      )
     ),
     el('div', { class: 'field full' },
       el('span', { class: 'label', text: 'File đính kèm' }),

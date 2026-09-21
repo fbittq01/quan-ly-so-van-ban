@@ -5,6 +5,7 @@ const path = require('node:path');
 const Database = require('better-sqlite3');
 
 const { strip, AUDIT_ACTION_LABEL } = require('./util');
+const fields = require('./fields');
 
 const DATA_DIR = process.env.DATA_DIR
   ? path.resolve(process.env.DATA_DIR)
@@ -41,6 +42,11 @@ function addMissingColumns() {
     ['documents', 'deleted_at', 'TEXT'],
     ['documents', 'deleted_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL'],
     ['documents', 'book_id', 'INTEGER REFERENCES books(id)'],
+    // Trường riêng của từng sổ (18/09/2026): định nghĩa ở sổ, giá trị ở văn bản.
+    ['books', 'fields', "TEXT NOT NULL DEFAULT '[]'"],
+    // Ẩn cột đính kèm trên bảng theo từng sổ (18/09/2026).
+    ['books', 'file_on_table', 'INTEGER NOT NULL DEFAULT 1'],
+    ['documents', 'extra', "TEXT NOT NULL DEFAULT '{}'"],
     ['audit_log', 'doc_id', 'INTEGER'],
     ['audit_log', 'search_text', "TEXT NOT NULL DEFAULT ''"],
   ];
@@ -158,6 +164,20 @@ if (splitBooks) {
   console.log('  cập nhật    : tách sổ — “Văn bản đến” và “Văn bản đi” nay là dữ liệu, thêm sổ được');
 }
 
+// Tăng khi cần chạy lại bước chuyển trường (chưa từng cần). Phải khai báo
+// TRƯỚC lời gọi bên dưới: `const` không được hoisted.
+const FIELDS_VERSION = 1;
+
+// Phải đứng SAU splitBooksMigration: sổ phải tồn tại rồi mới gieo được bộ
+// trường cho nó.
+const movedFields = fieldsMigration();
+if (movedFields) {
+  console.log(
+    '  cập nhật    : trường riêng của sổ — gieo bộ trường cho ' + movedFields.books +
+      ' sổ, chuyển ' + movedFields.docs + ' văn bản sang extra'
+  );
+}
+
 /** Đọc một mục cài đặt (JSON) kèm thông tin ai sửa lần cuối. */
 function getSetting(key, fallback) {
   const row = db
@@ -249,6 +269,64 @@ function splitBooksMigration() {
 }
 
 /**
+ * Trường riêng của sổ: chuyển ba cột cứng cũ vào JSON, chạy đúng MỘT lần.
+ *
+ * Trước 18/09/2026 mọi văn bản có đúng ba trường ngoài lõi — nguoi_gui,
+ * do_bao_mat, ghi_chu — là cột cứng. Nay chúng là ba trường mặc định của sổ
+ * (fields.defaultFields) với khóa nguoiGui / doBaoMat / ghiChu, và giá trị
+ * nằm ở documents.extra. Ba việc trong một transaction:
+ *
+ *   1. sổ nào chưa có bộ trường (fields = '[]') nhận bộ mặc định theo loại
+ *   2. mọi văn bản chép ba cột cũ vào extra (không đè giá trị đã có trong
+ *      extra — phòng cơ sở dữ liệu chạy dở nửa chừng)
+ *   3. dựng lại search_text theo công thức mới cho toàn bộ văn bản
+ *
+ * Ba cột cũ GIỮ NGUYÊN trong bảng, không đọc không ghi nữa: bỏ cột trong
+ * SQLite là dựng lại cả bảng, không đáng cho một bản đang chạy thật.
+ */
+function fieldsMigration() {
+  const row = db.prepare(`SELECT value FROM settings WHERE key = ?`).get('fieldsVersion');
+  let have = 0;
+  if (row) {
+    try {
+      have = Number.parseInt(JSON.parse(row.value), 10) || 0;
+    } catch {
+      have = 0;
+    }
+  }
+  if (have >= FIELDS_VERSION) return null;
+
+  return db.transaction(() => {
+    const bookRows = db.prepare(`SELECT id, kind, fields FROM books`).all();
+    const setFields = db.prepare(`UPDATE books SET fields = ? WHERE id = ?`);
+    let seeded = 0;
+    for (const b of bookRows) {
+      if (fields.parseDefs(b.fields).length > 0) continue;
+      setFields.run(JSON.stringify(fields.defaultFields(b.kind)), b.id);
+      seeded += 1;
+    }
+
+    const docs = db
+      .prepare(`SELECT id, so_van_ban, ten_van_ban, ngay_gui, nguoi_gui, do_bao_mat, ghi_chu, extra FROM documents`)
+      .all();
+    const upd = db.prepare(`UPDATE documents SET extra = ?, search_text = ? WHERE id = ?`);
+    for (const d of docs) {
+      const extra = fields.parseExtra(d.extra);
+      if (extra.nguoiGui == null && d.nguoi_gui) extra.nguoiGui = d.nguoi_gui;
+      if (extra.doBaoMat == null && d.do_bao_mat) extra.doBaoMat = d.do_bao_mat;
+      if (extra.ghiChu == null && d.ghi_chu) extra.ghiChu = d.ghi_chu;
+      upd.run(JSON.stringify(extra), fields.docSearchText({ ...d, extra }), d.id);
+    }
+
+    db.prepare(
+      `INSERT INTO settings (key, value, updated_at, updated_by) VALUES (?, ?, ?, NULL)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+    ).run('fieldsVersion', JSON.stringify(FIELDS_VERSION), new Date().toISOString());
+    return { books: seeded, docs: docs.length };
+  })();
+}
+
+/**
  * Chuyển cấu hình lấy số kiểu cũ (mảng segments) sang kiểu tiền tố + hậu tố.
  *
  * Mô hình cũ cho ghép tự do nhiều thành phần quanh số thứ tự; mô hình mới chỉ
@@ -316,6 +394,7 @@ module.exports = {
   DEFAULT_NUMBERING,
   migrateNumberingSetting,
   splitBooksMigration,
+  fieldsMigration,
   getSetting,
   setSetting,
   audit,
