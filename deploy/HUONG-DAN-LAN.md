@@ -123,7 +123,7 @@ USB:\van-ban\
     .env.example
 ```
 
-Không cần mang: `test\`, `data\`, các file `*.dc.html`, `canvas.json` — đó là file
+Không cần mang: `test\`, `data\`, `design\` — đó là file
 kiểm thử và thiết kế.
 
 > Quét virus USB trước khi cắm vào máy chủ. Đây là đường duy nhất dữ liệu từ
@@ -521,7 +521,9 @@ danh sách quét thời gian thực. Cơ sở dữ liệu SQLite ghi liên tục
 ## Cập nhật lên bản mới (cũng qua USB)
 
 ```bat
-:: 1. Sao lưu trước khi đổi gì
+:: 1. Sao lưu trước khi đổi gì — PHẢI chạy bằng MÃ CŨ đang có trên máy chủ.
+::    backup.js nạp server\db.js, mà bản mới CHẠY NÂNG CẤP CƠ SỞ DỮ LIỆU ngay
+::    lúc nạp. Copy mã mới trước rồi mới sao lưu là sao lưu bản ĐÃ bị đổi.
 cd /d C:\apps\quan-ly-so-van-ban
 node server\bin\backup.js --out D:\sao-luu-van-ban
 
@@ -544,9 +546,36 @@ Hai điều đáng biết:
 
 - Đổi file trong `public\` **không cần** khởi động lại (máy chủ đọc từ đĩa mỗi
   request), còn đổi bất cứ gì trong `server\` thì bắt buộc restart.
-- `app.css` và `app.js` được đặt `maxAge: '1h'`, nên trình duyệt có thể còn dùng
-  bản cũ tới một giờ sau khi cập nhật; `index.html` là `no-cache` nên đổi ngay.
-  Ai cần thấy bản mới lập tức thì `Ctrl+Shift+R`.
+- Không cần dặn ai bấm `Ctrl+Shift+R`: `index.html` là `no-cache` và máy chủ tự
+  gắn `?v=<vân tay tệp>` vào `app.css` / `app.js` khi trả trang, nên cập nhật
+  xong là trình duyệt tải bản mới ngay.
+
+### Bản có nâng cấp cơ sở dữ liệu
+
+Một số bản mới đổi cấu trúc dữ liệu. Chúng tự nâng cấp **một lần** lúc khởi
+động và in ra dòng `cập nhật    : …` trong log. Với những bản này:
+
+- **Bản sao lưu ở bước 1 là đường lùi duy nhất.** Nâng cấp là một chiều: đem mã
+  cũ chạy lại trên cơ sở dữ liệu đã nâng cấp thì mã cũ không đọc được dữ liệu
+  mới và có thể **cấp lại số đã phát hành**. Lùi = phục hồi bản sao lưu **rồi**
+  mới đặt lại mã cũ, không bao giờ chỉ đổi mã.
+- Sau bước 5, đọc log và đối chiếu số kế tiếp của từng sổ với số mà bản cũ đang
+  hiện. Lệch là dừng lại ngay, đừng cho ai lấy số, phục hồi bản sao lưu.
+- Đừng chạy `node server\bin\backup.js` bằng mã mới rồi mới nhận ra cần lùi:
+  lúc đó cả bản sao lưu cũng đã là bản mới.
+
+Bản **nhiều sổ (18/09/2026)** là một bản như vậy. Nó tạo bảng `books`, thêm cột
+`documents.book_id`, và đổi tên phạm vi bộ đếm từ `2026` sang `<id sổ>:2026`.
+Sau khi bật lại, log phải có đúng hai dòng:
+
+```
+cập nhật    : thêm cột documents.book_id
+cập nhật    : tách sổ — "Văn bản đến" và "Văn bản đi" nay là dữ liệu, thêm sổ được
+```
+
+và ngay dưới là danh sách sổ, mỗi sổ một dòng. **Số kế tiếp của sổ "Văn bản đi"
+phải đúng bằng số bản cũ đang hiện.** Trang Cài đặt → Lấy số không còn; tiền tố,
+hậu tố và bộ đếm nay nằm trong Cài đặt → **Sổ**, riêng cho từng sổ.
 
 ## Sự cố thường gặp
 

@@ -236,6 +236,31 @@ vì những hàng đó là bằng chứng số đã từng được phát hành.
 Dùng lại một sổ thì bộ đếm **tiếp tục từ chỗ đã dừng**, không nhảy lùi về đè lên
 số đã phát hành.
 
+### Mỗi sổ một bộ trường
+
+Ngoài phần **lõi** mà sổ nào cũng có — số văn bản, ngày gửi, tên văn bản, đính
+kèm — mỗi sổ tự đặt **trường riêng** của mình: sổ đến cần "Cơ quan gửi", sổ hợp
+đồng cần "Đối tác · Giá trị · Hết hiệu lực", sổ đi cần "Người ký". Hai sổ không
+dính gì nhau; tạo sổ mới có thể *sao bộ trường từ một sổ đang có* làm điểm xuất
+phát, sao xong là độc lập.
+
+Kiểu trường: chữ một dòng, chữ nhiều dòng, ngày, số, chọn một (có danh sách lựa
+chọn — lọc được trên bảng), có/không. Mỗi trường chọn *bắt buộc* hay không và có
+*hiện trên bảng* hay không (tối đa 4 trường lên bảng; còn lại xem trong hộp thoại).
+Tìm kiếm không dấu quét cả giá trị của mọi trường riêng. Cột **Đính kèm** thuộc
+phần lõi nên không bỏ được, nhưng từng sổ chọn được *ẩn cột này khỏi bảng*
+(`books.file_on_table`, mặc định hiện) — sổ không dùng bản scan thì bảng gọn hơn;
+tệp vẫn đính kèm và xem được trong hộp thoại ghi / sửa văn bản.
+
+Định nghĩa nằm ở `books.fields` (JSON), giá trị ở `documents.extra` (JSON theo
+khóa trường), kiểm tra ở máy chủ (`server/fields.js`) theo bộ trường của đúng sổ
+đó. Quy tắc bảo toàn dữ liệu, cùng tinh thần với sổ: trường **đã có giá trị** ở
+văn bản thì không bỏ và không đổi kiểu được — chỉ **ẩn**; giá trị cũ còn nguyên,
+vẫn tìm được, hiện chỉ đọc khi sửa văn bản. Ba cột cũ `nguoi_gui`, `do_bao_mat`,
+`ghi_chu` đã chuyển vào `extra` dưới khóa `nguoiGui`, `doBaoMat`, `ghiChu` lúc
+khởi động lần đầu sau bản này (`fieldsMigration` trong `db.js`); cột vẫn còn trong
+bảng nhưng không đọc không ghi nữa.
+
 ## Cấp số văn bản đi
 
 Số văn bản đi là **tiền tố + số thứ tự + hậu tố** — chỉ vậy. Số thứ tự do hệ
@@ -360,13 +385,18 @@ server/
   schema.sql      lược đồ dữ liệu và các ràng buộc chống trùng số
   auth.js         băm mật khẩu scrypt, phiên, chặn theo vai trò, chống dò mật khẩu
   books.js        sổ: đọc, kiểm tra, tạo/sửa/ngừng dùng/xóa
+  fields.js       bộ trường riêng của từng sổ: định nghĩa, kiểm tra giá trị
   numbering.js    ghép số, bộ đếm của từng sổ, chiếm số nguyên tử
-  routes/         auth · docs · settings · users
+  convert.js      chuyển đính kèm .docx sang PDF để xem trong trình duyệt
+  routes/         auth · books · docs · settings · users
   bin/            init-admin · backup · seed-demo
 public/
   index.html      vỏ trang
   app.css         bảng màu và thang đo lấy từ bản thiết kế
   app.js          giao diện thuần, không cần bước build
+  fonts.css       phông chữ tự host (CSP chặn CDN)
+  vendor/pdfjs/   pdf.js tự host để xem đính kèm
+design/           bản thiết kế giao diện (*.dc.html + canvas.json), chỉ nằm trên máy dev (không đưa vào git)
 data/             vanban.db và uploads/ (không đưa vào git)
 ```
 

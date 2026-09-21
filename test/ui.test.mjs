@@ -237,7 +237,7 @@ const vt = await session('vanthu');
   check('chặn thiếu tên văn bản', (await page.locator('.dialog-error').innerText()).includes('tên văn bản'));
 
   await page.fill('.dialog input[placeholder="Trích yếu nội dung văn bản"]', 'Công văn thử qua giao diện');
-  await page.fill('.dialog input[placeholder="Đơn vị hoặc cá nhân"]', 'Nguyễn Thị Hà — Văn thư');
+  await page.fill('[data-fk="doc-nguoiGui"]', 'Nguyễn Thị Hà — Văn thư');
   await page.click('.dialog button:has-text("Cấp số & lưu vào sổ")');
   await page.waitForSelector('.toast');
   const t = await page.locator('.toast').first().innerText();
@@ -343,8 +343,9 @@ const ad = await session('admin');
   check('mở thẳng vào mục Sổ', (await page.locator('.subtab.active').innerText()).trim() === 'Sổ');
   check('KHÔNG còn mục Lấy số riêng',
     (await page.locator('.subtab:has-text("Lấy số")').count()) === 0);
-  check('bảng sổ liệt kê ba sổ', (await page.locator('tbody tr').count()) === 3,
-    String(await page.locator('tbody tr').count()));
+  const bookRows = page.locator('.table-wrap:not(.fields-editor) tbody tr');
+  const soBanDau = await bookRows.count();
+  check('bảng sổ liệt kê ít nhất ba sổ mẫu', soBanDau >= 3, String(soBanDau));
 
   // Mỗi sổ đi một số kế tiếp riêng, khác hẳn nhau — điểm cốt lõi của tính năng.
   const soKeTiep = await page.locator('tbody .cell-num').allInnerTexts();
@@ -370,8 +371,8 @@ const ad = await session('admin');
   await page.click('.book-form button:has-text("Tạo sổ")');
   await page.waitForSelector('.note-flash');
   check('tạo sổ xong có báo lại', (await page.locator('.note-flash').innerText()).includes('Công đoàn'));
-  check('bảng sổ có bốn dòng', (await page.locator('tbody tr').count()) === 4,
-    String(await page.locator('tbody tr').count()));
+  check('bảng sổ thêm một dòng', (await bookRows.count()) === soBanDau + 1,
+    String(await bookRows.count()));
   check('sổ mới hiện ngay ở cột bên trái',
     (await page.locator('.booknav-item:has-text("Công đoàn")').count()) === 1);
 
@@ -382,8 +383,8 @@ const ad = await session('admin');
     (await page.locator('.confirm-text').innerText()).includes('chưa số nào được phát hành'));
   await page.click('.dialog button:has-text("Xóa sổ")');
   await page.waitForTimeout(600);
-  check('xóa xong còn ba sổ', (await page.locator('tbody tr').count()) === 3,
-    String(await page.locator('tbody tr').count()));
+  check('xóa xong về như ban đầu', (await bookRows.count()) === soBanDau,
+    String(await bookRows.count()));
 
   // sửa hậu tố của một sổ đã có văn bản
   await page.click('tbody tr:has-text("Đảng ủy") button:has-text("Sửa")');

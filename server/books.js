@@ -3,6 +3,7 @@
 const { db, audit } = require('./db');
 const { badRequest, text, nowIso } = require('./util');
 const { cleanAffix, MAX_AFFIX_LEN } = require('./numbering');
+const fields = require('./fields');
 
 const MAX_NAME_LEN = 80;
 const KINDS = ['den', 'di'];
@@ -26,6 +27,12 @@ function toBook(r) {
     resetYearly: !!r.reset_yearly,
     hidden: !!r.hidden,
     sortOrder: r.sort_order,
+    // Bộ trường riêng của sổ, đi kèm mọi nơi sổ đi: giao diện dựng bảng và
+    // hộp thoại từ đây, docs.js kiểm giá trị gửi lên theo đây.
+    fields: fields.parseDefs(r.fields),
+    // Cột đính kèm có hiện trên bảng của sổ này không. Chỉ là chuyện hiển
+    // thị: tắt đi vẫn đính kèm được trong hộp thoại.
+    fileOnTable: r.file_on_table == null ? true : !!r.file_on_table,
   };
 }
 
@@ -81,6 +88,52 @@ function totalEverCount(bookId) {
     .get(bookId).n;
 }
 
+/** Số văn bản (kể cả đã xóa mềm) trong sổ có giá trị ở trường `key`. */
+function fieldUseCount(bookId, key) {
+  return db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM documents
+        WHERE book_id = ? AND json_extract(extra, ?) IS NOT NULL`
+    )
+    .get(bookId, '$.' + key).n;
+}
+
+/**
+ * Bộ trường mới của sổ, đã kiểm cả phần dính dữ liệu.
+ *
+ * Hai điều không được làm với một trường ĐÃ CÓ GIÁ TRỊ trong sổ, cùng tinh
+ * thần với việc khóa loại sổ:
+ *   - đổi kiểu: "Hạn xử lý" đang là ngày mà đổi thành số thì giá trị cũ vô
+ *     nghĩa, mà form lại không hiện nổi
+ *   - bỏ hẳn khỏi danh sách: giá trị cũ còn trong extra nhưng không còn nhãn
+ *     nào để hiện — đường ra là ẨN trường (hidden), giống ngừng dùng sổ
+ * Đổi nhãn, bắt buộc, thứ tự, hiện trên bảng, lựa chọn thì tự do.
+ */
+function validateFields(input, existing) {
+  const next = fields.normalizeDefs(input);
+  if (next == null) return null;
+  if (!existing) return next;
+
+  const byKey = new Map(next.map((d) => [d.key, d]));
+  for (const old of existing.fields) {
+    const nu = byKey.get(old.key);
+    if (nu && nu.type === old.type) continue;
+    const used = fieldUseCount(existing.id, old.key);
+    if (used === 0) continue;
+    if (!nu) {
+      throw badRequest(
+        'Trường “' + old.label + '” đang có giá trị ở ' + used + ' văn bản nên không bỏ được. Dùng “Ẩn” để thôi dùng trường này.',
+        'field_in_use'
+      );
+    }
+    throw badRequest(
+      'Trường “' + old.label + '” đang có giá trị ở ' + used + ' văn bản nên không đổi được kiểu. Ẩn nó và tạo trường mới nếu cần kiểu khác.',
+      'field_type_locked'
+    );
+  }
+  return next;
+}
+
 /**
  * Kiểm tra và chuẩn hóa dữ liệu một sổ do quản trị gửi lên.
  *
@@ -88,6 +141,9 @@ function totalEverCount(bookId) {
  * loại sổ (đổi 'di' thành 'den' thì đống số đã cấp mất chỗ dựa) — còn tiền tố,
  * hậu tố và cách reset thì đổi thoải mái, chúng chỉ ảnh hưởng số cấp từ giờ
  * trở đi, không sửa số đã in ra giấy.
+ *
+ * `fields` không gửi lên → giữ nguyên bộ trường đang có (khi sửa) hoặc lấy bộ
+ * mặc định theo loại (khi tạo). Gửi `[]` là sổ chỉ có phần lõi.
  */
 function validate(input, existing) {
   if (!input || typeof input !== 'object') throw badRequest('Thiếu thông tin sổ.');
@@ -109,10 +165,17 @@ function validate(input, existing) {
     .get(name, existing ? existing.id : null);
   if (clash) throw badRequest('Đã có sổ mang tên “' + name + '”.', 'dup_name');
 
+  let defs = validateFields(input.fields, existing);
+  if (defs == null) defs = existing ? existing.fields : fields.defaultFields(kind);
+  // Không gửi lên → giữ nguyên (khi sửa) hoặc bật (sổ mới).
+  const fileOnTable = input.fileOnTable === undefined
+    ? (existing ? existing.fileOnTable : true)
+    : input.fileOnTable !== false;
+
   // Sổ đến không cấp số nên mọi thứ về đánh số đều vô nghĩa với nó; ép về mặc
   // định thay vì lưu giá trị chết mà giao diện không bao giờ hiện.
   if (kind === 'den') {
-    return { name, kind, prefix: '', suffix: '', start: 1, resetYearly: true };
+    return { name, kind, prefix: '', suffix: '', start: 1, resetYearly: true, fields: defs, fileOnTable };
   }
 
   const start = Number.parseInt(input.start, 10);
@@ -127,6 +190,8 @@ function validate(input, existing) {
     suffix: cleanAffix(input.suffix),
     start,
     resetYearly: input.resetYearly !== false,
+    fields: defs,
+    fileOnTable,
   };
 }
 
@@ -135,8 +200,8 @@ function create(input, user) {
   const maxOrder = db.prepare(`SELECT COALESCE(MAX(sort_order), 0) AS m FROM books`).get().m;
   const info = db
     .prepare(
-      `INSERT INTO books (name, kind, prefix, suffix, start_seq, reset_yearly, hidden, sort_order, created_at, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+      `INSERT INTO books (name, kind, prefix, suffix, start_seq, reset_yearly, hidden, sort_order, fields, file_on_table, created_at, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`
     )
     .run(
       v.name,
@@ -146,6 +211,8 @@ function create(input, user) {
       v.start,
       v.resetYearly ? 1 : 0,
       maxOrder + 1,
+      JSON.stringify(v.fields),
+      v.fileOnTable ? 1 : 0,
       nowIso(),
       user.id
     );
@@ -154,7 +221,8 @@ function create(input, user) {
     user,
     'tao_so',
     book.name + ' · ' + (book.kind === 'di' ? 'văn bản đi' : 'văn bản đến') +
-      (book.kind === 'di' ? ' · số đầu tiên ' + book.prefix + book.start + book.suffix : ''),
+      (book.kind === 'di' ? ' · số đầu tiên ' + book.prefix + book.start + book.suffix : '') +
+      ' · ' + book.fields.length + ' trường: ' + book.fields.map((d) => d.label).join(', '),
     null
   );
   return book;
@@ -164,9 +232,13 @@ function update(id, input, user) {
   const existing = require_(id, false);
   const v = validate(input, existing);
   db.prepare(
-    `UPDATE books SET name = ?, kind = ?, prefix = ?, suffix = ?, start_seq = ?, reset_yearly = ?
+    `UPDATE books SET name = ?, kind = ?, prefix = ?, suffix = ?, start_seq = ?, reset_yearly = ?, fields = ?,
+        file_on_table = ?
       WHERE id = ?`
-  ).run(v.name, v.kind, v.prefix, v.suffix, v.start, v.resetYearly ? 1 : 0, existing.id);
+  ).run(
+    v.name, v.kind, v.prefix, v.suffix, v.start, v.resetYearly ? 1 : 0, JSON.stringify(v.fields),
+    v.fileOnTable ? 1 : 0, existing.id
+  );
   const book = get(existing.id);
 
   const changes = [];
@@ -177,8 +249,36 @@ function update(id, input, user) {
   if (existing.resetYearly !== book.resetYearly) {
     changes.push('reset đầu năm: ' + (book.resetYearly ? 'có' : 'không'));
   }
+  if (existing.fileOnTable !== book.fileOnTable) {
+    changes.push('cột đính kèm trên bảng: ' + (book.fileOnTable ? 'hiện' : 'ẩn'));
+  }
+  changes.push(...describeFieldChanges(existing.fields, book.fields));
   audit(user, 'sua_so', book.name + (changes.length ? ' · ' + changes.join(' · ') : ' · không đổi gì'), null);
   return book;
+}
+
+/** Dòng nhật ký cho từng thay đổi trong bộ trường, để đọc được ai đổi gì. */
+function describeFieldChanges(before, after) {
+  const out = [];
+  const oldBy = new Map(before.map((d) => [d.key, d]));
+  const newBy = new Map(after.map((d) => [d.key, d]));
+  for (const d of after) {
+    const o = oldBy.get(d.key);
+    if (!o) {
+      out.push('thêm trường “' + d.label + '” (' + (fields.TYPE_LABEL[d.type] || d.type) + ')');
+      continue;
+    }
+    if (o.label !== d.label) out.push('trường “' + o.label + '” đổi tên thành “' + d.label + '”');
+    if (o.type !== d.type) out.push('trường “' + d.label + '” đổi kiểu: ' + o.type + ' → ' + d.type);
+    if (!!o.hidden !== !!d.hidden) out.push((d.hidden ? 'ẩn' : 'hiện lại') + ' trường “' + d.label + '”');
+    if (!!o.required !== !!d.required) out.push('trường “' + d.label + '”: ' + (d.required ? 'bắt buộc' : 'không bắt buộc'));
+    if (!!o.table !== !!d.table) out.push('trường “' + d.label + '”: ' + (d.table ? 'hiện' : 'bỏ') + ' trên bảng');
+    if (d.type === 'select' && JSON.stringify(o.options || []) !== JSON.stringify(d.options || [])) {
+      out.push('trường “' + d.label + '” đổi lựa chọn: ' + d.options.join(' | '));
+    }
+  }
+  for (const o of before) if (!newBy.has(o.key)) out.push('bỏ trường “' + o.label + '”');
+  return out;
 }
 
 /**
@@ -241,6 +341,7 @@ module.exports = {
   counts,
   totalEverCount,
   validate,
+  fieldUseCount,
   create,
   update,
   setHidden,

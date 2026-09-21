@@ -48,6 +48,15 @@ CREATE TABLE IF NOT EXISTS books (
   reset_yearly INTEGER NOT NULL DEFAULT 1,
   hidden       INTEGER NOT NULL DEFAULT 0,
   sort_order   INTEGER NOT NULL DEFAULT 0,
+  -- Bộ trường RIÊNG của sổ này, mảng JSON — hình dạng ở fields.js. Sổ đến
+  -- cần "Cơ quan gửi · Hạn xử lý", sổ hợp đồng cần "Đối tác · Giá trị": trường
+  -- là dữ liệu của từng sổ, không phải cột cứng. Phần lõi (số, ngày, tên văn
+  -- bản, đính kèm) vẫn là cột của documents vì máy chủ cần chúng để cấp số.
+  fields       TEXT    NOT NULL DEFAULT '[]',
+  -- Đính kèm là phần lõi (mọi sổ đều nhận tệp) nhưng sổ nào không dùng bản
+  -- scan thì được giấu CỘT đính kèm khỏi bảng cho gọn — tệp đã có vẫn xem
+  -- được trong hộp thoại sửa. Cùng nghĩa với cờ `table` của trường riêng.
+  file_on_table INTEGER NOT NULL DEFAULT 1,
   created_at   TEXT    NOT NULL,
   created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL
 );
@@ -70,8 +79,14 @@ CREATE TABLE IF NOT EXISTS documents (
   seq_scope    TEXT,
   year         INTEGER NOT NULL,
   ngay_gui     TEXT    NOT NULL,
-  nguoi_gui    TEXT    NOT NULL DEFAULT '',
   ten_van_ban  TEXT    NOT NULL,
+  -- Giá trị các trường riêng của sổ, JSON { <key>: giá_trị } theo books.fields.
+  extra        TEXT    NOT NULL DEFAULT '{}',
+  -- BA CỘT CŨ, từ 18/09/2026 không đọc không ghi: nội dung đã chuyển vào extra
+  -- (fieldsMigration trong db.js) dưới khóa nguoiGui / doBaoMat / ghiChu. Giữ
+  -- lại vì bỏ cột trong SQLite là dựng lại cả bảng; DEFAULT bảo đảm INSERT
+  -- không cần nhắc tới chúng.
+  nguoi_gui    TEXT    NOT NULL DEFAULT '',
   do_bao_mat   TEXT    NOT NULL DEFAULT 'Thường'
                        CHECK (do_bao_mat IN ('Thường', 'Mật', 'Tối Mật', 'Tuyệt Mật')),
   ghi_chu      TEXT    NOT NULL DEFAULT '',
