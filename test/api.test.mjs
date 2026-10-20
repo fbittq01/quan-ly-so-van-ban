@@ -51,7 +51,8 @@ const bookList = (await req('admin', 'GET', '/api/books')).data.books;
 const DEN = bookList.find((b) => b.kind === 'den').id;
 const DI = bookList.find((b) => b.name === 'Văn bản đi').id;
 const DU = bookList.find((b) => b.name === 'Văn bản đi — Đảng ủy').id;
-check('ba sổ từ dữ liệu mẫu', !!DEN && !!DI && !!DU, JSON.stringify(bookList.map((b) => b.name)));
+const NB = bookList.find((b) => b.kind === 'noibo')?.id;
+check('bốn sổ từ dữ liệu mẫu', !!DEN && !!DI && !!DU && !!NB, JSON.stringify(bookList.map((b) => b.name)));
 
 console.log('\n== sổ đi chỉ vào sổ bằng đường lấy số ==');
 {
@@ -706,12 +707,255 @@ console.log('\n== trường riêng của từng sổ ==');
   check('ghi được vào sổ chỉ có lõi', loi.status === 201 && JSON.stringify(loi.data?.document?.extra) === '{}', String(loi.status));
 
   // Dọn: hai sổ này đã có văn bản nên không xóa được, ngừng dùng để bộ kiểm
-  // thử giao diện chạy sau vẫn thấy đúng ba sổ của dữ liệu mẫu.
+  // thử giao diện chạy sau vẫn thấy đúng bốn sổ của dữ liệu mẫu.
   for (const id of [HD, trong.data?.book?.id]) {
     await req('admin', 'POST', `/api/books/${id}/hidden`, { hidden: true });
   }
   const vtBooks = (await req('vanthu', 'GET', '/api/books')).data.books;
-  check('dọn xong, văn thư lại thấy đúng ba sổ', vtBooks.length === 3, String(vtBooks.length));
+  check('dọn xong, văn thư lại thấy đúng bốn sổ', vtBooks.length === 4, String(vtBooks.length));
+}
+
+console.log('\n== sổ nội bộ ==');
+{
+  const cfg = (await req('xem', 'GET', '/api/config')).data;
+  const defNb = cfg.defaultFields?.noibo || [];
+  check('cấu hình có bộ trường mặc định của sổ nội bộ',
+    ['loaiVanBan', 'nguoiKy', 'tinhTrang', 'thayThe', 'ngayHieuLuc'].every((k) => defNb.some((d) => d.key === k)),
+    JSON.stringify(defNb.map((d) => d.key)));
+
+  const nb = (await req('vanthu', 'GET', '/api/books')).data.books.find((b) => b.id === NB);
+  check('sổ nội bộ không có số kế tiếp', nb?.kind === 'noibo' && nb?.next === null, JSON.stringify(nb?.next));
+
+  const lay = await req('vanthu', 'POST', '/api/documents', {
+    book: NB, mode: 'issue', ngayGui: '2026-10-16', tenVanBan: 'Thử xin cấp số nội bộ',
+  });
+  check('sổ nội bộ không cấp số kể cả khi xin', lay.status === 201 && lay.data?.issued === false &&
+    lay.data?.document?.seq === null && lay.data?.document?.soVanBan === '',
+    lay.status + ' ' + JSON.stringify(lay.data?.document && { so: lay.data.document.soVanBan, seq: lay.data.document.seq }));
+  const ns = await req('vanthu', 'GET', `/api/documents/next-number?book=${NB}`);
+  check('hỏi số kế tiếp của sổ nội bộ bị từ chối', ns.status === 400 && ns.data?.code === 'no_counter', String(ns.status));
+
+  const xem = await req('xem', 'POST', '/api/documents', {
+    book: NB, soVanBan: '9/TB', ngayGui: '2026-10-16', tenVanBan: 'Chỉ xem ghi sổ nội bộ',
+  });
+  check('vai trò chỉ xem không ghi sổ nội bộ được', xem.status === 403, String(xem.status));
+
+  const coSo = await req('vanthu', 'POST', '/api/documents', {
+    book: NB, soVanBan: '15/TB-P1', ngayGui: '2026-10-16', tenVanBan: 'Thông báo nghỉ lễ nội bộ',
+    extra: { loaiVanBan: 'Thông báo', nguoiKy: 'Lê Quốc Bảo', tinhTrang: 'Còn hiệu lực' },
+  });
+  const doc = coSo.data?.document;
+  check('ghi văn bản nội bộ có số ghi tay', coSo.status === 201 && doc?.soVanBan === '15/TB-P1' && doc?.book === 'noibo' && doc?.seq === null,
+    coSo.status + ' ' + JSON.stringify(doc && { so: doc.soVanBan, book: doc.book }));
+  check('giá trị trường riêng của sổ nội bộ được lưu', doc?.extra?.loaiVanBan === 'Thông báo' && doc?.extra?.tinhTrang === 'Còn hiệu lực',
+    JSON.stringify(doc?.extra));
+
+  const khongSo = await req('vanthu', 'POST', '/api/documents', {
+    book: NB, ngayGui: '2026-10-16', tenVanBan: 'Biên bản họp giao ban tuần',
+    extra: { loaiVanBan: 'Biên bản', tinhTrang: 'Còn hiệu lực' },
+  });
+  check('ghi văn bản nội bộ KHÔNG số', khongSo.status === 201 && khongSo.data?.document?.soVanBan === '',
+    khongSo.status + ' ' + khongSo.data?.error);
+  const denTrong = await req('vanthu', 'POST', '/api/documents', { book: DEN, ngayGui: '2026-10-16', tenVanBan: 'Đến thiếu số' });
+  check('sổ đến vẫn bắt buộc có số', denTrong.status === 400, String(denTrong.status));
+
+  const bad = await req('vanthu', 'POST', '/api/documents', {
+    book: NB, ngayGui: '2026-10-16', tenVanBan: 'Tình trạng lạ', extra: { tinhTrang: 'Đang treo' },
+  });
+  check('tình trạng ngoài danh mục bị chặn', bad.status === 400 && bad.data?.code === 'bad_option', String(bad.status));
+
+  const sua = await req('vanthu', 'PUT', `/api/documents/${doc?.id}`, {
+    soVanBan: '16/TB-P1', ngayGui: '2026-10-16', tenVanBan: 'Thông báo nghỉ lễ nội bộ (sửa)',
+    extra: { loaiVanBan: 'Thông báo', nguoiKy: 'Lê Quốc Bảo', tinhTrang: 'Hết hiệu lực' },
+  });
+  check('sửa được số ghi tay của văn bản nội bộ', sua.status === 200 && sua.data?.document?.soVanBan === '16/TB-P1' &&
+    sua.data.document.extra.tinhTrang === 'Hết hiệu lực', sua.status + ' ' + sua.data?.document?.soVanBan);
+  const boSo = await req('vanthu', 'PUT', `/api/documents/${doc?.id}`, {
+    soVanBan: '', ngayGui: '2026-10-16', tenVanBan: 'Thông báo nghỉ lễ nội bộ (sửa)',
+    extra: { loaiVanBan: 'Thông báo', tinhTrang: 'Hết hiệu lực' },
+  });
+  check('xóa trắng số của văn bản nội bộ được', boSo.status === 200 && boSo.data?.document?.soVanBan === '', String(boSo.status));
+
+  const con = await req('xem', 'GET', `/api/documents?book=${NB}&f.tinhTrang=` + encodeURIComponent('Còn hiệu lực'));
+  check('lọc văn bản còn hiệu lực', con.status === 200 && con.data.documents.length === 3 &&
+    con.data.documents.every((d) => d.extra.tinhTrang === 'Còn hiệu lực'),
+    JSON.stringify(con.data?.documents?.map((d) => d.tenVanBan)));
+
+  const nam = (await req('xem', 'GET', '/api/documents/years')).data.years.find((y) => y.year === 2026);
+  check('thống kê năm có cột nội bộ', nam?.noibo === 7, JSON.stringify(nam));
+
+  const xoa = await req('vanthu', 'DELETE', `/api/documents/${khongSo.data?.document?.id}`);
+  check('xóa văn bản nội bộ không nhả số nào', xoa.status === 200 && xoa.data?.numberReleased === false, JSON.stringify(xoa.data));
+  const kp = await req('admin', 'POST', `/api/documents/${khongSo.data?.document?.id}/restore`);
+  check('khôi phục văn bản nội bộ không số', kp.status === 200 && !kp.data?.renumbered && kp.data?.document?.soVanBan === '',
+    kp.status + ' ' + JSON.stringify(kp.data?.renumbered));
+  const nk = (await req('admin', 'GET', '/api/settings/audit?q=' + encodeURIComponent('Biên bản họp giao ban'))).data;
+  check('nhật ký ghi “(không số)” cho văn bản không số',
+    JSON.stringify(nk || {}).includes('(không số)'), JSON.stringify(nk).slice(0, 200));
+
+  const doiLoai = await req('admin', 'PUT', `/api/books/${NB}`, { name: nb.name, kind: 'di', start: 1 });
+  check('sổ nội bộ đã có văn bản không đổi được loại', doiLoai.status === 400 && doiLoai.data?.code === 'kind_locked', String(doiLoai.status));
+
+  const moi = await req('admin', 'POST', '/api/books', { name: 'Sổ quyết định nội bộ', kind: 'noibo', prefix: 'X-', suffix: '/QĐ', start: 9 });
+  check('tạo sổ nội bộ mới: bộ trường mặc định, bỏ mọi thiết lập đánh số', moi.status === 201 && moi.data?.book?.kind === 'noibo' &&
+    moi.data.book.fields.some((d) => d.key === 'tinhTrang') && moi.data.book.next === null &&
+    moi.data.book.prefix === '' && moi.data.book.suffix === '' && moi.data.book.start === 1,
+    moi.status + ' ' + JSON.stringify(moi.data?.book && { p: moi.data.book.prefix, s: moi.data.book.suffix, st: moi.data.book.start }));
+  const dem = await req('admin', 'POST', `/api/books/${moi.data?.book?.id}/reset-counter`, { nextSeq: 5 });
+  check('sổ nội bộ không có bộ đếm để đặt lại', dem.status === 400 && dem.data?.code === 'no_counter', String(dem.status));
+  const xoaSo = await req('admin', 'DELETE', `/api/books/${moi.data?.book?.id}`);
+  check('xóa được sổ nội bộ rỗng', xoaSo.status === 200, String(xoaSo.status));
+}
+
+console.log('\n== khen thưởng ==');
+{
+  const users = (await req('admin', 'GET', '/api/users')).data.users;
+  const uid = (name) => users.find((x) => x.username === name).id;
+  const ADMIN = uid('admin'), HA = uid('hant'), MINH = uid('minhtv');
+  const QD = { hinhThuc: 'Giấy khen', cap: 'Đơn vị', soQd: '41/QĐ-TĐKT', ngayQd: '2026-09-05', nam: 2026 };
+
+  const meta = (await req('xem', 'GET', '/api/awards/meta')).data;
+  check('chỉ xem: không nhập hộ, không duyệt, không có danh sách người',
+    meta.canProxy === false && meta.canReview === false && meta.people.length === 0, JSON.stringify(meta));
+
+  // Chỉ xem gửi kèm id người khác: máy chủ bỏ qua, luôn là chính mình.
+  const own = await req('xem', 'POST', '/api/awards', { ...QD, userIds: [ADMIN] });
+  const ownA = own.data?.awards?.[0];
+  check('chỉ xem tự khai được, và chỉ cho chính mình',
+    own.status === 201 && own.data.awards.length === 1 && ownA.userId === MINH && ownA.status === 'cho',
+    own.status + ' ' + JSON.stringify(own.data));
+
+  const proxy = await req('vanthu', 'POST', '/api/awards', { ...QD, userIds: [ADMIN, HA] });
+  check('nhân viên nhập hộ một QĐ cho hai người → hai dòng chờ duyệt',
+    proxy.status === 201 && proxy.data.awards.length === 2 && proxy.data.awards.every((x) => x.status === 'cho'),
+    proxy.status + ' ' + JSON.stringify(proxy.data));
+
+  const dup = await req('vanthu', 'POST', '/api/awards', { ...QD, userIds: [MINH] });
+  check('trùng người + danh hiệu + số QĐ bị chặn', dup.status === 400 && dup.data?.code === 'duplicate', dup.status + ' ' + dup.data?.error);
+
+  const noQd = await req('xem', 'POST', '/api/awards', { ...QD, soQd: '' });
+  check('thiếu số QĐ bị chặn', noQd.status === 400 && noQd.data?.code === 'no_so_qd', noQd.data?.error);
+
+  const ap1 = await req('xem', 'POST', `/api/awards/${ownA.id}/approve`);
+  const ap2 = await req('vanthu', 'POST', `/api/awards/${ownA.id}/approve`);
+  check('chỉ Quản trị duyệt: chỉ xem và nhân viên đều 403', ap1.status === 403 && ap2.status === 403, ap1.status + '/' + ap2.status);
+  const pv = await req('vanthu', 'GET', '/api/awards?view=pending');
+  check('nhân viên không xem được hàng chờ duyệt', pv.status === 403, String(pv.status));
+
+  const pend = (await req('admin', 'GET', '/api/awards?view=pending')).data.awards;
+  check('Quản trị thấy 3 bản chờ duyệt', pend.length === 3, String(pend.length));
+
+  const noReason = await req('admin', 'POST', `/api/awards/${ownA.id}/return`, { reason: '  ' });
+  check('trả lại phải có lý do', noReason.status === 400 && noReason.data?.code === 'no_reason', noReason.data?.error);
+  const ret = await req('admin', 'POST', `/api/awards/${ownA.id}/return`, { reason: 'Thiếu file quyết định' });
+  check('trả lại kèm lý do', ret.data?.award?.status === 'tra' && ret.data.award.lyDoTra === 'Thiếu file quyết định',
+    JSON.stringify(ret.data));
+
+  const resend = await req('xem', 'PUT', `/api/awards/${ownA.id}`, { ...QD, ghiChu: 'Đã bổ sung' });
+  check('người khai sửa bản bị trả lại → quay về chờ duyệt, xóa lý do',
+    resend.data?.award?.status === 'cho' && resend.data.award.lyDoTra === '', JSON.stringify(resend.data));
+
+  const otherEdit = await req('xem', 'PUT', `/api/awards/${proxy.data.awards[0].id}`, QD);
+  check('không sửa được khen thưởng của người khác', otherEdit.status === 403, String(otherEdit.status));
+
+  const ok = await req('admin', 'POST', `/api/awards/${ownA.id}/approve`);
+  check('Quản trị duyệt', ok.data?.award?.status === 'duyet' && ok.data.award.reviewedByName === 'Lê Quốc Bảo',
+    JSON.stringify(ok.data));
+  const again = await req('admin', 'POST', `/api/awards/${ownA.id}/approve`);
+  check('duyệt lần hai báo không còn chờ', again.status === 400 && again.data?.code === 'not_pending', String(again.status));
+
+  const lockedEdit = await req('xem', 'PUT', `/api/awards/${ownA.id}`, QD);
+  const lockedDel = await req('xem', 'DELETE', `/api/awards/${ownA.id}`);
+  check('đã duyệt thì người khai không sửa, không rút được', lockedEdit.status === 403 && lockedDel.status === 403,
+    lockedEdit.status + '/' + lockedDel.status);
+
+  const direct = await req('admin', 'POST', '/api/awards', {
+    hinhThuc: 'Lao động tiên tiến', soQd: '=1+1', ngayQd: '2026-01-12', nam: 2025, userIds: [HA],
+  });
+  check('Quản trị ghi thì vào thẳng Đã duyệt', direct.data?.awards?.[0]?.status === 'duyet', JSON.stringify(direct.data));
+
+  const wd = await req('vanthu', 'DELETE', `/api/awards/${proxy.data.awards[0].id}`);
+  check('nhân viên rút được bản mình nhập hộ khi chưa duyệt', wd.status === 200, String(wd.status));
+  const mineHa = (await req('vanthu', 'GET', '/api/awards')).data.awards;
+  check('“của tôi” của nhân viên: bản nhập hộ còn lại + của mình', mineHa.length === 2, JSON.stringify(mineHa.map((x) => x.userName + ':' + x.status)));
+
+  const sum = (await req('xem', 'GET', '/api/awards/summary')).data;
+  const minhRow = sum.people.find((p) => p.id === MINH);
+  check('tổng hợp chỉ đếm bản đã duyệt', sum.total === 2 && sum.pendingCount === 1 && minhRow?.counts['Giấy khen'] === 1,
+    JSON.stringify({ total: sum.total, pending: sum.pendingCount, minh: minhRow }));
+  const sum25 = (await req('xem', 'GET', '/api/awards/summary?year=2025')).data;
+  check('tổng hợp lọc theo năm thi đua', sum25.total === 1 && sum25.totals['Lao động tiên tiến'] === 1, JSON.stringify(sum25.totals));
+
+  await req('admin', 'PUT', '/api/awards/settings', { summaryAll: false });
+  const hidden = await req('xem', 'GET', '/api/awards/summary');
+  const vtSees = await req('vanthu', 'GET', '/api/awards/summary');
+  check('Quản trị tắt tổng hợp cho Chỉ xem', hidden.status === 403 && vtSees.status === 200, hidden.status + '/' + vtSees.status);
+  await req('admin', 'PUT', '/api/awards/settings', { summaryAll: true });
+
+  const csvX = await fetch(B + '/api/awards/summary.csv?view=list', { headers: { Cookie: jars.get('xem'), 'X-VB-Request': '1' } });
+  const csvV = await fetch(B + '/api/awards/summary.csv?view=list', { headers: { Cookie: jars.get('vanthu'), 'X-VB-Request': '1' } });
+  // text() tự bỏ BOM, nên đọc byte.
+  const csvBytes = new Uint8Array(await csvV.arrayBuffer());
+  const csvBody = new TextDecoder('utf-8', { ignoreBOM: true }).decode(csvBytes);
+  check('chỉ xem không xuất được tệp', csvX.status === 403, String(csvX.status));
+  check('xuất CSV: có BOM, tiếng Việt, chặn công thức',
+    csvV.status === 200 && csvBytes[0] === 0xef && csvBytes[1] === 0xbb && csvBytes[2] === 0xbf && csvBody.includes('"Danh hiệu / hình thức"') && csvBody.includes(`"'=1+1"`),
+    csvBody.slice(0, 200));
+
+  // Cấp khen là chữ tự do.
+  const freeCap = await req('xem', 'POST', '/api/awards', { hinhThuc: 'Bằng khen', cap: 'Ban Thường vụ Tỉnh ủy', soQd: '900/QĐ-TU', ngayQd: '2026-05-05' });
+  check('cấp khen nhận chữ tự do', freeCap.data?.awards?.[0]?.cap === 'Ban Thường vụ Tỉnh ủy', JSON.stringify(freeCap.data));
+
+  // Danh mục danh hiệu do Quản trị cài đặt.
+  const f0 = await req('admin', 'GET', '/api/awards/forms');
+  check('danh mục mặc định kèm số đang dùng',
+    f0.data?.forms?.length === 5 && f0.data.forms.find((x) => x.name === 'Giấy khen').used >= 1, JSON.stringify(f0.data));
+  const fNo = await req('vanthu', 'PUT', '/api/awards/forms', { forms: [{ name: 'X' }] });
+  check('chỉ Quản trị sửa danh mục', fNo.status === 403, String(fNo.status));
+  const fDup = await req('admin', 'PUT', '/api/awards/forms', { forms: [{ name: 'Giấy khen', from: 'Giấy khen' }, { name: 'giay khen' }] });
+  check('danh mục chặn tên trùng (kể cả khác dấu)', fDup.status === 400 && fDup.data?.code === 'dup_name', fDup.data?.error);
+
+  const gkBefore = f0.data.forms.find((x) => x.name === 'Giấy khen').used;
+  const f1 = await req('admin', 'PUT', '/api/awards/forms', { forms: [
+    { name: 'Giấy khen của Thủ trưởng', from: 'Giấy khen' },
+    { name: 'Lao động tiên tiến', from: 'Lao động tiên tiến' },
+    { name: 'Chiến sĩ thi đua cơ sở', from: 'Chiến sĩ thi đua cơ sở' },
+    { name: 'Bằng khen', from: 'Bằng khen' },
+    { name: 'Chiến sĩ thi đua cấp tỉnh' },
+  ] });
+  check('đổi tên danh hiệu: khen thưởng đã ghi đổi theo',
+    f1.status === 200 && f1.data.moved >= gkBefore && f1.data.forms[0].used === gkBefore, JSON.stringify(f1.data));
+  const meta2 = (await req('xem', 'GET', '/api/awards/meta')).data;
+  check('hộp thoại nhận danh mục mới', meta2.forms.includes('Chiến sĩ thi đua cấp tỉnh') && !meta2.forms.includes('Khác'), JSON.stringify(meta2.forms));
+  const oldForm = await req('xem', 'POST', '/api/awards', { hinhThuc: 'Khác', soQd: '1/QĐ', ngayQd: '2026-05-05' });
+  check('danh hiệu đã bỏ khỏi danh mục không chọn mới được', oldForm.status === 400 && oldForm.data?.code === 'bad_form', String(oldForm.status));
+
+  // Bỏ “Bằng khen” khỏi danh mục: dòng cũ vẫn sửa được nếu giữ nguyên, và vẫn hiện trong tổng hợp.
+  const fbk = freeCap.data.awards[0];
+  await req('admin', 'POST', `/api/awards/${fbk.id}/approve`);
+  await req('admin', 'PUT', '/api/awards/forms', { forms: [
+    { name: 'Giấy khen của Thủ trưởng', from: 'Giấy khen của Thủ trưởng' },
+    { name: 'Lao động tiên tiến', from: 'Lao động tiên tiến' },
+  ] });
+  const keep = await req('admin', 'PUT', `/api/awards/${fbk.id}`, { hinhThuc: 'Bằng khen', cap: 'Tỉnh ủy', soQd: '900/QĐ-TU', ngayQd: '2026-05-05' });
+  check('dòng cũ mang danh hiệu đã bỏ vẫn sửa được khi giữ nguyên', keep.status === 200, keep.data?.error);
+  const sumOff = (await req('admin', 'GET', '/api/awards/summary')).data;
+  check('tổng hợp giữ cột danh hiệu đã bỏ nếu còn bản đã duyệt',
+    sumOff.forms.includes('Bằng khen') && sumOff.offList.includes('Bằng khen') && sumOff.totals['Bằng khen'] === 1, JSON.stringify({ f: sumOff.forms, off: sumOff.offList }));
+  const orph = (await req('admin', 'GET', '/api/awards/forms')).data;
+  check('trang cài đặt liệt kê danh hiệu ngoài danh mục', orph.orphans.some((o) => o.name === 'Bằng khen'), JSON.stringify(orph.orphans));
+  // Trả lại danh mục mặc định cho các phần sau.
+  const reset = await req('admin', 'PUT', '/api/awards/forms', { forms: [
+    { name: 'Lao động tiên tiến', from: 'Lao động tiên tiến' },
+    { name: 'Chiến sĩ thi đua cơ sở' },
+    { name: 'Giấy khen', from: 'Giấy khen của Thủ trưởng' },
+    { name: 'Bằng khen', from: 'Bằng khen' },
+    { name: 'Khác' },
+  ] });
+  check('trả danh mục về mặc định, tên cũ đổi ngược lại', reset.status === 200 && reset.data.orphans.length === 0, JSON.stringify(reset.data));
+
+  const delMinh = await req('admin', 'DELETE', `/api/users/${MINH}`);
+  check('tài khoản có khen thưởng không xóa được', delMinh.status === 400 && delMinh.data?.code === 'has_history', delMinh.data?.error);
 }
 
 console.log('\n== đăng xuất ==');

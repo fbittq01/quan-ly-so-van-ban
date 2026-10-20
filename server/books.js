@@ -1,12 +1,12 @@
 'use strict';
 
 const { db, audit } = require('./db');
-const { badRequest, text, nowIso } = require('./util');
+const { badRequest, text, nowIso, BOOK_KINDS, KIND_LABEL, issuesNumber } = require('./util');
 const { cleanAffix, MAX_AFFIX_LEN } = require('./numbering');
 const fields = require('./fields');
 
 const MAX_NAME_LEN = 80;
-const KINDS = ['den', 'di'];
+const KINDS = BOOK_KINDS;
 
 /**
  * Hàng `books` thô → đối tượng sổ dùng khắp máy chủ.
@@ -138,7 +138,8 @@ function validateFields(input, existing) {
  * Kiểm tra và chuẩn hóa dữ liệu một sổ do quản trị gửi lên.
  *
  * `existing` có khi đang sửa. Hai thứ không đổi được khi sổ đã có văn bản:
- * loại sổ (đổi 'di' thành 'den' thì đống số đã cấp mất chỗ dựa) — còn tiền tố,
+ * loại sổ (đổi 'di' thành 'den' thì đống số đã cấp mất chỗ dựa; đổi 'di' thành
+ * 'noibo' thì thống kê đi/nội bộ của các năm cũ đổi theo) — còn tiền tố,
  * hậu tố và cách reset thì đổi thoải mái, chúng chỉ ảnh hưởng số cấp từ giờ
  * trở đi, không sửa số đã in ra giấy.
  *
@@ -152,7 +153,7 @@ function validate(input, existing) {
   if (name.length < 3) throw badRequest('Tên sổ cần ít nhất 3 ký tự.');
 
   const kind = String(input.kind || (existing ? existing.kind : ''));
-  if (!KINDS.includes(kind)) throw badRequest('Loại sổ phải là “đến” hoặc “đi”.');
+  if (!KINDS.includes(kind)) throw badRequest('Loại sổ phải là “đến”, “đi” hoặc “nội bộ”.');
   if (existing && kind !== existing.kind && totalEverCount(existing.id) > 0) {
     throw badRequest(
       'Sổ đã có văn bản nên không đổi được loại. Tạo sổ mới nếu cần loại khác.',
@@ -172,9 +173,9 @@ function validate(input, existing) {
     ? (existing ? existing.fileOnTable : true)
     : input.fileOnTable !== false;
 
-  // Sổ đến không cấp số nên mọi thứ về đánh số đều vô nghĩa với nó; ép về mặc
-  // định thay vì lưu giá trị chết mà giao diện không bao giờ hiện.
-  if (kind === 'den') {
+  // Sổ đến và sổ nội bộ không cấp số nên mọi thứ về đánh số đều vô nghĩa với
+  // chúng; ép về mặc định thay vì lưu giá trị chết mà giao diện không hiện.
+  if (!issuesNumber(kind)) {
     return { name, kind, prefix: '', suffix: '', start: 1, resetYearly: true, fields: defs, fileOnTable };
   }
 
@@ -220,8 +221,8 @@ function create(input, user) {
   audit(
     user,
     'tao_so',
-    book.name + ' · ' + (book.kind === 'di' ? 'văn bản đi' : 'văn bản đến') +
-      (book.kind === 'di' ? ' · số đầu tiên ' + book.prefix + book.start + book.suffix : '') +
+    book.name + ' · ' + KIND_LABEL[book.kind] +
+      (issuesNumber(book.kind) ? ' · số đầu tiên ' + book.prefix + book.start + book.suffix : '') +
       ' · ' + book.fields.length + ' trường: ' + book.fields.map((d) => d.label).join(', '),
     null
   );

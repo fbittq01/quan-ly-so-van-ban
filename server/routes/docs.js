@@ -2,16 +2,14 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const crypto = require('node:crypto');
 const express = require('express');
-const multer = require('multer');
 
 const { db, UPLOAD_DIR, audit } = require('../db');
 const auth = require('../auth');
 const numbering = require('../numbering');
 const books = require('../books');
 const fields = require('../fields');
-const convert = require('../convert');
+const files = require('../files');
 const {
   strip,
   noLeadZero,
@@ -21,113 +19,16 @@ const {
   text,
   badRequest,
   HttpError,
+  issuesNumber,
+  numberOptional,
 } = require('../util');
 
 const router = express.Router();
 
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
-const ALLOWED_EXT = new Set([
-  '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.odt', '.ods',
-  '.jpg', '.jpeg', '.png', '.tif', '.tiff', '.txt',
-]);
-
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-    // Tên file trên đĩa do máy chủ sinh: tên gốc của người dùng không bao giờ
-    // đi vào đường dẫn hệ thống tệp.
-    filename: (req, file, cb) => {
-      const ext = path.extname(file.originalname || '').toLowerCase();
-      cb(null, crypto.randomBytes(16).toString('hex') + (ALLOWED_EXT.has(ext) ? ext : '.bin'));
-    },
-  }),
-  // BẮT BUỘC. Multer mặc định đọc tên tệp trong multipart theo latin1, còn
-  // trình duyệt luôn gửi UTF-8 — để mặc định thì “Quyết định.pdf” vào cơ sở dữ
-  // liệu thành “Quyáº¿t Äá»nh.pdf”, hỏng tên mọi tệp có dấu.
-  defParamCharset: 'utf8',
-  limits: { fileSize: MAX_FILE_BYTES, files: 1, fields: 40 },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '').toLowerCase();
-    if (!ALLOWED_EXT.has(ext)) {
-      cb(new HttpError(400, 'Định dạng file không được phép: ' + (ext || 'không rõ'), 'bad_file'));
-      return;
-    }
-    cb(null, true);
-  },
-});
-
-/**
- * Loại tệp xem được ngay trên web, và loại MIME trả về cho từng đuôi.
- *
- * Chỉ những gì trình duyệt tự dựng được. CỐ Ý bỏ .tif/.tiff (trình duyệt không
- * dựng được, sẽ tải xuống hoặc hiện trang trắng) và toàn bộ .doc/.docx/.xls/
- * .xlsx/.odt/.ods (phải có Office/Google Docs mới mở được). Những loại đó vẫn
- * tải xuống bình thường.
- *
- * .svg và .html KHÔNG có ở đây và không được phép tải lên: dựng chúng trong
- * origin của ứng dụng là mở đường cho script lạ.
- */
-const VIEWABLE_EXT = {
-  '.pdf': 'application/pdf',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.png': 'image/png',
-  '.txt': 'text/plain; charset=utf-8',
-};
-
-function inlineType(storedName) {
-  return VIEWABLE_EXT[path.extname(String(storedName || '')).toLowerCase()] || null;
-}
-
-/**
- * Tệp này xem được trên web dưới dạng PDF không.
- *
- * Gồm cả PDF gốc và những thứ LibreOffice dựng được (.doc, .docx, .xls…). Giao
- * diện dùng chung một trình xem cho cả hai: đường /xem-pdf trả PDF gốc hoặc bản
- * đã chuyển, phía trình duyệt không cần biết khác nhau.
- */
-function viewableAsPdf(storedName) {
-  const ext = path.extname(String(storedName || '')).toLowerCase();
-  return ext === '.pdf' || convert.canConvert(storedName);
-}
-
-/**
- * Header Content-Disposition với tên tệp tiếng Việt.
- *
- * filename= chỉ chở được ASCII nên phải kèm filename*= (RFC 5987) cho tên có
- * dấu. Lọc sạch dấu nháy, dấu gạch chéo và ký tự điều khiển: tên tệp do người
- * dùng đặt, không được để nó chèn thêm header.
- */
-/** “Bao-cao.docx” → “Bao-cao.docx.pdf”: tên bản xem nói rõ đây là bản chuyển. */
-function pdfName(name) {
-  const ten = String(name || 'dinh-kem');
-  return /\.pdf$/i.test(ten) ? ten : ten + '.pdf';
-}
-
-function contentDisposition(kind, name) {
-  const safe = String(name).replace(/[\r\n"\\]/g, '_').replace(/[\u0000-\u001f\u007f]/g, '');
-  const ascii = safe.replace(/[^\x20-\x7e]/g, '_') || 'dinh-kem';
-  return kind + '; filename="' + ascii + '"; filename*=UTF-8\'\'' + encodeURIComponent(safe);
-}
+const { MAX_FILE_BYTES, VIEWABLE_EXT, upload, removeFile, preConvert } = files;
 
 function currentYear() {
   return new Date().getFullYear();
-}
-
-function removeFile(storedName) {
-  if (!storedName) return;
-  const full = path.join(UPLOAD_DIR, path.basename(storedName));
-  // path.basename + kiểm tra tiền tố: không cho đường dẫn ra ngoài thư mục uploads.
-  if (!full.startsWith(UPLOAD_DIR + path.sep)) return;
-  fs.rm(full, { force: true }, () => {});
-  // Bỏ luôn bản PDF đã chuyển, nếu không thư mục nhớ đệm sẽ phình mãi.
-  convert.removeViewPdf(storedName);
-}
-
-/** Chuyển sẵn tệp Office vừa tải lên sang PDF, không bắt người lưu phải chờ. */
-function preConvert(file) {
-  if (!file) return;
-  convert.convertInBackground(path.join(UPLOAD_DIR, file.filename), file.filename);
 }
 
 /**
@@ -147,7 +48,7 @@ const searchTextFor = fields.docSearchText;
 function rowToJson(r) {
   return {
     id: r.id,
-    // book = LOẠI sổ ('den' | 'di'), bookId = sổ cụ thể. Giao diện cần cả hai:
+    // book = LOẠI sổ ('den' | 'di' | 'noibo'), bookId = sổ cụ thể. Giao diện cần cả hai:
     // loại quyết định hình dạng hộp thoại, sổ quyết định mở lại đúng chỗ nào.
     book: r.book,
     bookId: r.book_id,
@@ -160,16 +61,7 @@ function rowToJson(r) {
     // nguoi_gui / do_bao_mat / ghi_chu không còn ra JSON: nội dung của chúng
     // nằm trong đây dưới khóa nguoiGui / doBaoMat / ghiChu.
     extra: fields.parseExtra(r.extra),
-    fileName: r.file_name,
-    fileSize: r.file_size,
-    hasFile: !!r.file_path,
-    // Đuôi lấy từ file_path (tên do máy chủ sinh) chứ không từ file_name: đó là
-    // đuôi đã qua kiểm tra của fileFilter, còn tên gốc thì người dùng đặt sao cũng được.
-    fileViewable: !!(r.file_path && (inlineType(r.file_path) || viewableAsPdf(r.file_path))),
-    // Xem bằng trình xem PDF (PDF gốc, hoặc Office đã chuyển sang PDF).
-    fileAsPdf: !!(r.file_path && viewableAsPdf(r.file_path)),
-    // Tệp Office phải chuyển đổi; lần đầu mất mấy giây nên giao diện báo trước.
-    fileNeedsConvert: !!(r.file_path && convert.canConvert(r.file_path) && !convert.hasViewPdf(r.file_path)),
+    ...files.fileFlags(r),
     createdAt: r.created_at,
     createdByName: r.created_by_name || null,
     updatedAt: r.updated_at,
@@ -201,15 +93,21 @@ function readFields(body, book, existingExtra) {
 }
 
 /**
- * Số văn bản nhập tay — CHỈ còn sổ văn bản đến.
- * Số đó do cơ quan gửi đặt nên giữ nguyên, không chuẩn hóa gì. Sổ văn bản đi
- * không còn đường nhập tay: mọi số đều do hệ thống cấp (bỏ nút “Ghi thủ công”
- * ngày 11/09/2026).
+ * Số văn bản nhập tay — sổ đến và sổ nội bộ.
+ * Giữ nguyên như người ghi gõ, không chuẩn hóa gì. Sổ đến bắt buộc có số (số
+ * của cơ quan gửi); sổ nội bộ thì không — để trống là văn bản không đánh số.
+ * Sổ văn bản đi không có đường nhập tay: mọi số đều do hệ thống cấp (bỏ nút
+ * “Ghi thủ công” ngày 11/09/2026).
  */
-function readSoVanBan(body) {
+function readSoVanBan(body, kind) {
   const raw = text(body && body.soVanBan, 100);
-  if (!raw) throw badRequest('Chưa nhập số văn bản.');
+  if (!raw && !numberOptional(kind)) throw badRequest('Chưa nhập số văn bản.');
   return raw;
+}
+
+/** Số văn bản để ghi nhật ký — văn bản nội bộ không số thì nói rõ. */
+function soForLog(so) {
+  return so || '(không số)';
 }
 
 /**
@@ -233,7 +131,7 @@ function readAffixes(body, book) {
 router.get('/next-number', auth.requireAuth, (req, res, next) => {
   try {
     const book = books.require(req.query.book, false);
-    if (book.kind !== 'di') throw badRequest('Sổ đến không cấp số.', 'no_counter');
+    if (!issuesNumber(book.kind)) throw badRequest('Sổ “' + book.name + '” không cấp số.', 'no_counter');
     const year = currentYear();
     const peek = numbering.peekNext(book, year);
     return res.json({
@@ -334,13 +232,14 @@ router.get('/years', auth.requireAuth, (req, res) => {
     .prepare(
       `SELECT year,
               SUM(CASE WHEN book = 'den' THEN 1 ELSE 0 END) AS den,
-              SUM(CASE WHEN book = 'di'  THEN 1 ELSE 0 END) AS di
+              SUM(CASE WHEN book = 'di'  THEN 1 ELSE 0 END) AS di,
+              SUM(CASE WHEN book = 'noibo' THEN 1 ELSE 0 END) AS noibo
          FROM documents WHERE deleted_at IS NULL GROUP BY year ORDER BY year DESC`
     )
     .all();
-  const years = rows.map((r) => ({ year: r.year, den: r.den, di: r.di }));
+  const years = rows.map((r) => ({ year: r.year, den: r.den, di: r.di, noibo: r.noibo }));
   const y = currentYear();
-  if (!years.some((r) => r.year === y)) years.unshift({ year: y, den: 0, di: 0 });
+  if (!years.some((r) => r.year === y)) years.unshift({ year: y, den: 0, di: 0, noibo: 0 });
   res.json({ years });
 });
 
@@ -374,12 +273,13 @@ router.post(
     try {
       // Ghi thì sổ đã ngừng dùng bị chặn hẳn — đó là ý nghĩa của "ngừng dùng".
       const book = books.require(req.body && req.body.book, true);
-      const issue = book.kind === 'di' && String((req.body && req.body.mode) || '') === 'issue';
-      if (book.kind === 'di' && !issue) {
-        // Ranh giới thật, không chỉ là chuyện giao diện đã bỏ nút: sổ văn bản
-        // đi chỉ có một đường vào sổ là hệ thống cấp số.
+      const numbered = issuesNumber(book.kind);
+      const issue = numbered && String((req.body && req.body.mode) || '') === 'issue';
+      if (numbered && !issue) {
+        // Ranh giới thật, không chỉ là chuyện giao diện đã bỏ nút: sổ văn
+        // bản đi chỉ có một đường vào sổ là hệ thống cấp số.
         throw badRequest(
-          'Sổ văn bản đi không nhận số ghi tay — dùng nút “Lấy số ở sổ này”.',
+          'Sổ “' + book.name + '” không nhận số ghi tay — dùng nút “Lấy số ở sổ này”.',
           'manual_disabled'
         );
       }
@@ -414,7 +314,7 @@ router.post(
           base.seq = allocated.seq;
           base.seq_scope = allocated.scope;
         } else {
-          base.so_van_ban = readSoVanBan(req.body);
+          base.so_van_ban = readSoVanBan(req.body, book.kind);
         }
         base.search_text = searchTextFor(base);
         const info = insertStmt.run(base);
@@ -439,7 +339,7 @@ router.post(
       audit(
         req.user,
         issue ? 'cap_so' : 'ghi_so',
-        book.name + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban,
+        book.name + ' · ' + soForLog(row.so_van_ban) + ' · ' + row.ten_van_ban,
         row.id
       );
       // Số dự kiến hiện lúc mở hộp thoại có thể lệch với số thực cấp: người
@@ -491,17 +391,18 @@ router.put(
       const f = readFields(req.body, existingBook, fields.parseExtra(existing.extra));
       // Số của sổ đi giữ nguyên, kể cả hàng cũ ghi tay từ trước 11/09/2026:
       // sửa số đã phát hành là sai nghiệp vụ, và giờ không còn đường nhập tay
-      // nào để sửa qua. Chỉ số của sổ đến mới nhập lại được — nó là số của cơ
-      // quan gửi, ghi nhầm thì phải sửa được.
-      const soVanBan =
-        existing.book === 'di' ? existing.so_van_ban : readSoVanBan(req.body);
+      // nào để sửa qua. Hàng nào đã có số thứ tự do hệ thống cấp cũng vậy, dù
+      // nằm ở sổ nào. Số của sổ đến và sổ nội bộ thì nhập lại được — đó là số
+      // người ghi gõ tay, ghi nhầm thì phải sửa được.
+      const locked = issuesNumber(existing.book) || existing.seq != null;
+      const soVanBan = locked ? existing.so_van_ban : readSoVanBan(req.body, existing.book);
 
       const dropFile = String((req.body && req.body.dropFile) || '') === '1';
       const oldPath = existing.file_path;
       const next2 = {
         id,
         so_van_ban: soVanBan,
-        year: existing.book === 'di' ? existing.year : f.year,
+        year: locked ? existing.year : f.year,
         ngay_gui: f.ngayGui,
         ten_van_ban: f.tenVanBan,
         extra: JSON.stringify(f.extra),
@@ -542,7 +443,7 @@ router.put(
       audit(
         req.user,
         'sua_van_ban',
-        (existingBook ? existingBook.name : existing.book) + ' · ' + row.so_van_ban,
+        (existingBook ? existingBook.name : existing.book) + ' · ' + soForLog(row.so_van_ban),
         id
       );
       return res.json({ document: rowToJson(row) });
@@ -585,7 +486,7 @@ router.delete(
       audit(
         req.user,
         'xoa_van_ban',
-        (book ? book.name : row.book) + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban,
+        (book ? book.name : row.book) + ' · ' + soForLog(row.so_van_ban) + ' · ' + row.ten_van_ban,
         id
       );
     })();
@@ -655,7 +556,7 @@ router.post(
         audit(
           req.user,
           'khoi_phuc_van_ban',
-          (book ? book.name : row.book) + ' · ' + row.so_van_ban + ' · ' + row.ten_van_ban +
+          (book ? book.name : row.book) + ' · ' + soForLog(row.so_van_ban) + ' · ' + row.ten_van_ban +
             (renumbered ? ' · số cũ đã có chủ, cấp lại số ' + renumbered.to : ''),
           id
         );
@@ -712,39 +613,7 @@ const fileHandler = (req, res, next) => {
   if (row.deleted_at && req.user.role !== 'admin') {
     return next(new HttpError(404, 'Văn bản này không có file đính kèm.', 'not_found'));
   }
-  const full = path.join(UPLOAD_DIR, path.basename(row.file_path));
-  if (!full.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(full)) {
-    return next(new HttpError(404, 'File đính kèm không còn trên máy chủ.', 'not_found'));
-  }
-
-  const name = row.file_name || 'dinh-kem';
-  const type = inlineType(row.file_path);
-  // ?xem=1 để xem ngay trong trình duyệt; không có thì tải xuống như trước.
-  // Chỉ mở sẵn những loại trình duyệt tự dựng được — .docx mà trả inline thì
-  // trình duyệt cũng chỉ tải xuống, nhưng mất tên tệp gốc.
-  if (String(req.query.xem || '') !== '1' || !type) {
-    return res.download(full, name);
-  }
-
-  res.setHeader('Content-Type', type);
-  res.setHeader('Content-Disposition', contentDisposition('inline', name));
-  // Chỉ đúng một directive. ĐỪNG thêm 'sandbox', 'object-src' hay 'script-src'
-  // vào đây: cả ba đều làm Chrome chặn luôn trình xem PDF của chính nó
-  // (“This page has been blocked by Chromium”) — đã thử và thấy. Thứ giữ an
-  // toàn cho tệp dựng trong origin của ứng dụng là ba lớp khác:
-  //   1. fileFilter chỉ nhận đuôi trong ALLOWED_EXT — không bao giờ có .svg,
-  //      .html, .js, nên không có tệp nào chạy được script trong origin này.
-  //   2. Chỉ VIEWABLE_EXT được trả inline, kèm Content-Type khai rõ.
-  //   3. X-Content-Type-Options: nosniff (đặt cho toàn ứng dụng) — trình duyệt
-  //      không được tự đoán lại loại tệp, .txt mãi là text/plain.
-  // JavaScript nhúng trong PDF thì chạy trong tiến trình riêng của trình xem,
-  // không với được vào DOM hay cookie phiên của trang.
-  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-  // Mặc định DENY của toàn ứng dụng chặn cả iframe của chính chúng ta.
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  return res.sendFile(full, (err) => {
-    if (err && !res.headersSent) next(err);
-  });
+  return files.sendAttachment(req, res, next, row);
 };
 
 router.get('/:id/file', auth.requireAuth, fileHandler);
@@ -769,35 +638,7 @@ router.get('/:id/xem-pdf', auth.requireAuth, (req, res, next) => {
   if (row.deleted_at && req.user.role !== 'admin') {
     return next(new HttpError(404, 'Văn bản này không có file đính kèm.', 'not_found'));
   }
-  const full = path.join(UPLOAD_DIR, path.basename(row.file_path));
-  if (!full.startsWith(UPLOAD_DIR + path.sep) || !fs.existsSync(full)) {
-    return next(new HttpError(404, 'File đính kèm không còn trên máy chủ.', 'not_found'));
-  }
-  if (!viewableAsPdf(row.file_path)) {
-    return next(new HttpError(400, 'Loại tệp này không xem được trên web.', 'khong_xem_duoc'));
-  }
-
-  // Header giống đường xem inline: xem phần ghi chú dài ở fileHandler.
-  const sendPdf = (duongDan) => {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', contentDisposition('inline', pdfName(row.file_name)));
-    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-    return res.sendFile(duongDan, (err) => {
-      if (err && !res.headersSent) next(err);
-    });
-  };
-
-  if (!convert.canConvert(row.file_path)) return sendPdf(full);
-
-  return convert.ensureViewPdf(full, row.file_path).then(sendPdf, (err) => {
-    console.error('[xem-pdf] ' + row.file_path + ': ' + err.message);
-    next(new HttpError(
-      500,
-      'Không chuyển được tệp này sang PDF để xem. Tệp vẫn tải về được bình thường.',
-      'khong_chuyen_duoc'
-    ));
-  });
+  return files.sendViewPdf(req, res, next, row);
 });
 
 module.exports = { router, MAX_FILE_BYTES, VIEWABLE_EXT };

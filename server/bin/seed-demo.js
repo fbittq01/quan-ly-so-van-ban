@@ -66,6 +66,14 @@ const DU = [
 ];
 
 /** Ba trường mặc định của sổ, đúng khóa mà fields.defaultFields đặt. */
+// Sổ nội bộ: [số ghi tay (có thể trống), ngày ban hành, loại, người ký, tên, tình trạng, thay thế số]
+const NB = [
+  ['12/QĐ-P1', '2026-09-15', 'Quyết định', 'Lê Quốc Bảo — Chánh Văn phòng', 'Quyết định phân công nhiệm vụ cán bộ Phòng 1', 'Còn hiệu lực', '01/QĐ-P1'],
+  ['', '2026-08-20', 'Thông báo', 'Trần Văn Minh — Phó Chánh VP', 'Thông báo lịch trực cơ quan tháng 9/2026', 'Hết hiệu lực', ''],
+  ['QC-01', '2026-03-02', 'Quy chế', 'Lê Quốc Bảo — Chánh Văn phòng', 'Quy chế quản lý và sử dụng tài sản công của Phòng', 'Còn hiệu lực', ''],
+  ['01/QĐ-P1', '2026-01-05', 'Quyết định', 'Lê Quốc Bảo — Chánh Văn phòng', 'Quyết định phân công nhiệm vụ cán bộ năm 2026', 'Bị thay thế', ''],
+];
+
 function extraOf(nguoi, baoMat, ghiChu) {
   const e = { doBaoMat: baoMat };
   if (nguoi) e.nguoiGui = nguoi;
@@ -111,6 +119,7 @@ const seeded = db.transaction(() => {
   const bookDen = books.all().find((b) => b.kind === 'den');
   const bookDi = books.all().find((b) => b.kind === 'di');
   const bookDu = ensureBook('Văn bản đi — Đảng ủy', 'di', '', '-CV/ĐU', adminId);
+  const bookNb = ensureBook('Văn bản nội bộ', 'noibo', '', '', adminId);
 
   for (const [so, ngay, nguoi, ten, baoMat, ghiChu] of DEN) {
     const extra = extraOf(nguoi, baoMat, ghiChu);
@@ -146,6 +155,19 @@ const seeded = db.transaction(() => {
   seedOut(bookDi, DI, (year) => '/' + year);
   seedOut(bookDu, DU, () => bookDu.suffix);
 
+  // Sổ nội bộ không cấp số: không seq, không bộ đếm.
+  for (const [so, ngay, loai, nguoiKy, ten, tinhTrang, thayThe] of NB) {
+    const year = Number.parseInt(ngay.slice(0, 4), 10);
+    const extra = { loaiVanBan: loai, nguoiKy, tinhTrang, doBaoMat: 'Thường' };
+    if (thayThe) extra.thayThe = thayThe;
+    insertDoc.run({
+      book: 'noibo', book_id: bookNb.id, so, seq: null, scope: null, year, ngay, ten,
+      extra: JSON.stringify(extra),
+      search: fields.docSearchText({ so_van_ban: so, ten_van_ban: ten, ngay_gui: ngay, extra }),
+      created: nowIso(), by: haId,
+    });
+  }
+
   // Bộ đếm phải đứng sau số lớn nhất đã dùng, nếu không lần lấy số đầu tiên
   // sẽ phải nhảy qua một loạt số đã chiếm.
   for (const [scope, max] of maxByScope) {
@@ -154,7 +176,7 @@ const seeded = db.transaction(() => {
        ON CONFLICT(scope) DO UPDATE SET next_seq = excluded.next_seq`
     ).run(scope, max + 1);
   }
-  return { bookDi, bookDu };
+  return { bookDi, bookDu, bookNb };
 })();
 
 const year = new Date().getFullYear();
@@ -162,6 +184,7 @@ console.log('Đã nạp dữ liệu thử.');
 console.log('  văn bản đến : ' + DEN.length);
 console.log('  văn bản đi  : ' + DI.length + ' (' + seeded.bookDi.name + ')');
 console.log('              : ' + DU.length + ' (' + seeded.bookDu.name + ')');
+console.log('  nội bộ      : ' + NB.length + ' (' + seeded.bookNb.name + ')');
 console.log('  số kế tiếp  : ' + numbering.peekNext(seeded.bookDi, year).soVanBan +
   ' · ' + numbering.peekNext(seeded.bookDu, year).soVanBan);
 console.log('');

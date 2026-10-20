@@ -8,7 +8,7 @@ const express = require('express');
 
 const { db } = require('./db');
 const authLib = require('./auth');
-const { HttpError, SECURITY_LEVELS, ROLE_LABEL, AUDIT_ACTION_LABEL } = require('./util');
+const { HttpError, SECURITY_LEVELS, ROLE_LABEL, AUDIT_ACTION_LABEL, issuesNumber } = require('./util');
 
 const authRoutes = require('./routes/auth');
 const docRoutes = require('./routes/docs');
@@ -17,6 +17,8 @@ const bookRoutes = require('./routes/books');
 const books = require('./books');
 const fields = require('./fields');
 const userRoutes = require('./routes/users');
+const awardRoutes = require('./routes/awards');
+const files = require('./files');
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 // 0.0.0.0 để các máy khác trong mạng nội bộ vào được; đặt HOST=127.0.0.1 nếu
@@ -70,13 +72,17 @@ app.get('/api/config', (req, res) => {
     securityLevels: SECURITY_LEVELS,
     roleLabels: ROLE_LABEL,
     auditLabels: AUDIT_ACTION_LABEL,
-    maxFileBytes: docRoutes.MAX_FILE_BYTES,
+    maxFileBytes: files.MAX_FILE_BYTES,
     minPasswordLength: authLib.MIN_PASSWORD,
     currentYear: new Date().getFullYear(),
     // Trường riêng của sổ: kiểu có thể chọn, bộ mặc định theo loại sổ (để form
     // tạo sổ hiện sẵn), và giới hạn số trường trên bảng.
     fieldTypes: fields.TYPE_LABEL,
-    defaultFields: { den: fields.defaultFields('den'), di: fields.defaultFields('di') },
+    defaultFields: {
+      den: fields.defaultFields('den'),
+      di: fields.defaultFields('di'),
+      noibo: fields.defaultFields('noibo'),
+    },
     maxTableFields: fields.MAX_TABLE,
     maxFields: fields.MAX_FIELDS,
   });
@@ -87,6 +93,7 @@ app.use('/api/documents', docRoutes.router);
 app.use('/api/settings', settingsRoutes.router);
 app.use('/api/books', bookRoutes.router);
 app.use('/api/users', userRoutes.router);
+app.use('/api/awards', awardRoutes.router);
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 // app.css/app.js được nhớ đệm 1 giờ, nên sau khi cập nhật người dùng vẫn có thể
@@ -145,7 +152,7 @@ app.use((err, req, res, _next) => {
     return res.status(400).json({
       error:
         'File đính kèm vượt quá ' +
-        Math.round(docRoutes.MAX_FILE_BYTES / (1024 * 1024)) +
+        Math.round(files.MAX_FILE_BYTES / (1024 * 1024)) +
         ' MB.',
       code: 'file_too_large',
     });
@@ -176,9 +183,9 @@ function describeStartup() {
   // dòng "mẫu số" chung như trước.
   list.forEach((b, i) => {
     const head = i === 0 ? '  sổ          : ' : '                ';
-    const mau = b.kind === 'di'
+    const mau = issuesNumber(b.kind)
       ? b.prefix + '<số>' + b.suffix + (b.resetYearly ? ' · reset đầu năm' : ' · tăng liên tục')
-      : 'số theo cơ quan gửi';
+      : b.kind === 'noibo' ? 'không cấp số, số ghi tay nếu có' : 'số theo cơ quan gửi';
     console.log(head + b.name + ' — ' + mau + ' · ' + (counts.get(b.id) || 0) + ' văn bản' +
       (b.hidden ? ' · NGỪNG DÙNG' : ''));
   });

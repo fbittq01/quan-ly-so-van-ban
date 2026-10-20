@@ -222,6 +222,17 @@ router.delete('/:id', (req, res, next) => {
       );
     }
 
+    // Khen thưởng gắn với người: xóa tài khoản là mất dòng tổng hợp của họ.
+    const awards = db
+      .prepare(`SELECT COUNT(*) AS n FROM awards WHERE user_id = ? OR created_by = ?`)
+      .get(id, id).n;
+    if (awards > 0) {
+      throw badRequest(
+        'Tài khoản này có ' + awards + ' khen thưởng đã khai hoặc nhập. Hãy khóa tài khoản thay vì xóa.',
+        'has_history'
+      );
+    }
+
     db.prepare(`DELETE FROM users WHERE id = ?`).run(id);
     audit(req.user, 'xoa_tai_khoan', target.username);
     return res.json({ ok: true, users: listUsers() });

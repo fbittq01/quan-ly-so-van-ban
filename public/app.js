@@ -186,9 +186,9 @@ function fileSize(bytes) {
  * Gắn thêm tên tệp vào cuối đường dẫn để thanh công cụ của trình xem PDF hiện
  * tên văn bản thật. Máy chủ bỏ qua đoạn này, tệp vẫn tìm theo id.
  */
-function fileUrl(id, xem, name) {
+function fileUrl(id, xem, name, base) {
   const slug = name ? '/' + encodeURIComponent(name) : '';
-  return '/api/documents/' + id + '/file' + slug + (xem ? '?xem=1' : '');
+  return (base || '/api/documents') + '/' + id + '/file' + slug + (xem ? '?xem=1' : '');
 }
 
 /**
@@ -197,8 +197,8 @@ function fileUrl(id, xem, name) {
  * CỐ Ý không có đuôi tệp và không có tham số truy vấn — tiện ích chặn quảng cáo
  * chặn dạng “…/ten.pdf?xem=1”. Đừng thêm gì vào đây.
  */
-function xemPdfUrl(id) {
-  return '/api/documents/' + id + '/xem-pdf';
+function xemPdfUrl(id, base) {
+  return (base || '/api/documents') + '/' + id + '/xem-pdf';
 }
 
 /**
@@ -211,7 +211,7 @@ function xemPdfUrl(id) {
 function fileCell(d) {
   const size = d.fileSize ? el('span', { class: 'hint', text: ' · ' + fileSize(d.fileSize) }) : null;
   if (!d.fileViewable) {
-    return el('a', { href: fileUrl(d.id), title: 'Tải ' + d.fileName + ' (loại tệp này phải mở bằng máy)' },
+    return el('a', { href: fileUrl(d.id, false, null, d.fileBase), title: 'Tải ' + d.fileName + ' (loại tệp này phải mở bằng máy)' },
       d.fileName, size);
   }
   return el('span', { class: 'file-cell' },
@@ -220,7 +220,7 @@ function fileCell(d) {
       title: 'Xem ' + d.fileName + ' ngay trên web',
       onclick: () => openFileViewer(d),
     }, d.fileName, size),
-    el('a', { class: 'file-dl', href: fileUrl(d.id), title: 'Tải ' + d.fileName + ' về máy', text: 'Tải' })
+    el('a', { class: 'file-dl', href: fileUrl(d.id, false, null, d.fileBase), title: 'Tải ' + d.fileName + ' về máy', text: 'Tải' })
   );
 }
 
@@ -283,6 +283,44 @@ function fieldCellNode(def, v) {
 }
 
 /** Giá trị điền sẵn khi ghi mới: lựa chọn đầu của trường chọn một, còn lại trống. */
+/**
+ * Loại sổ — bản phía trình duyệt của BOOK_KINDS / issuesNumber / numberOptional
+ * ở server/util.js.
+ *
+ * Mọi chỗ cần hỏi “sổ này có cấp số không” gọi issuesNumber; mọi chỗ cần nhãn,
+ * huy hiệu, tên cột ngày hay lời nhắc về số đọc kindMeta. Đừng so `kind` trực
+ * tiếp. Sổ nội bộ KHÔNG cấp số: số/ký hiệu ghi tay và được để trống.
+ */
+const KIND_META = {
+  den: {
+    label: 'Văn bản đến', short: 'Đến', group: 'Sổ đến', badge: 'badge badge-blue', date: 'Ngày gửi', book: 'Sổ văn bản đến',
+    add: '+ Ghi văn bản đến',
+    numberNote: 'Số do cơ quan gửi ghi — hệ thống không cấp số cho sổ đến',
+    numberLabel: 'Số văn bản', numberPlaceholder: 'VD: 2145/UBND-VP', numberHint: 'Giữ nguyên số của cơ quan gửi',
+  },
+  di: { label: 'Văn bản đi', short: 'Đi', group: 'Sổ đi', badge: 'badge badge-orange', date: 'Ngày gửi', book: 'Sổ văn bản đi' },
+  noibo: {
+    label: 'Văn bản nội bộ', short: 'Nội bộ', group: 'Sổ nội bộ', badge: 'badge badge-green', date: 'Ngày ban hành', book: 'Sổ văn bản nội bộ',
+    add: '+ Ghi văn bản nội bộ',
+    numberNote: 'Không cấp số — số/ký hiệu ghi tay nếu văn bản có, để trống nếu không',
+    numberLabel: 'Số / ký hiệu', numberPlaceholder: 'VD: 12/QĐ-P1', numberHint: 'Không bắt buộc — để trống nếu văn bản không đánh số',
+  },
+};
+const BOOK_KINDS = ['den', 'di', 'noibo'];
+
+function kindMeta(kind) {
+  return KIND_META[kind] || KIND_META.den;
+}
+
+function issuesNumber(kind) {
+  return kind === 'di';
+}
+
+/** Số văn bản để hiện trong câu chữ: văn bản nội bộ không số thì nói rõ. */
+function soLabel(doc) {
+  return doc.soVanBan || '(không số)';
+}
+
 function defaultExtra(book) {
   const e = {};
   for (const d of liveFields(book)) {
@@ -377,6 +415,17 @@ const state = {
   loginForm: { username: '', password: '', showPw: false },
   pwError: '',
   pwForm: { current: '', next1: '', next2: '' },
+  // Khen thưởng: page = 'khenthuong'. awardTab: 'mine' | 'pending' | 'summary'.
+  awardMeta: null,
+  awardTab: 'mine',
+  awards: [],
+  awardSummary: null,
+  awardYear: '',
+  awardView: 'matrix',
+  // Thẻ chờ duyệt đang mở ô “lý do trả lại”: { id, reason, error }.
+  awardReturn: null,
+  // Cài đặt → Khen thưởng: danh mục đang sửa { items: [{ name, from, used }], orphans, saved, error }.
+  awardForms: null,
 };
 
 const toasts = [];
@@ -464,7 +513,7 @@ async function loadYears() {
  */
 async function loadNextNumber() {
   const book = currentBook();
-  if (!book || book.kind !== 'di') {
+  if (!book || !issuesNumber(book.kind)) {
     state.nextNumber = null;
     return;
   }
@@ -504,8 +553,13 @@ async function refresh() {
     const booksFirst = !state.bookId;
     const booksDone = loadBooks();
     if (booksFirst) await booksDone;
+    // Số bản chờ duyệt trên cột sổ: tải kèm mọi lần làm mới. Ngoài trang khen
+    // thưởng thì lỗi ở đây bỏ qua — chỉ là một con số, đừng làm hỏng trang sổ.
+    const metaDone = state.page === 'khenthuong' ? null : loadAwardMeta().catch(() => {});
 
-    if (state.page === 'so') {
+    if (state.page === 'khenthuong') {
+      await Promise.all([booksDone, loadAwardMeta().then(loadAwards)]);
+    } else if (state.page === 'so') {
       await Promise.all([booksDone, loadBook(), loadNextNumber()]);
     } else if (state.settingsTab === 'taikhoan') {
       await Promise.all([booksDone, loadUsers()]);
@@ -513,9 +567,12 @@ async function refresh() {
       await Promise.all([booksDone, loadYears()]);
     } else if (state.settingsTab === 'nhatky') {
       await Promise.all([booksDone, loadAudit()]);
+    } else if (state.settingsTab === 'khenthuong') {
+      await Promise.all([booksDone, loadAwardForms()]);
     } else {
       await booksDone;
     }
+    if (metaDone) await metaDone;
   } catch (err) {
     showError(err);
   } finally {
@@ -749,8 +806,7 @@ function renderHeader() {
  */
 function renderBookNav() {
   const groups = [
-    ['Sổ đến', state.books.filter((b) => !b.hidden && b.kind === 'den')],
-    ['Sổ đi', state.books.filter((b) => !b.hidden && b.kind === 'di')],
+    ...BOOK_KINDS.map((k) => [kindMeta(k).group, state.books.filter((b) => !b.hidden && b.kind === k)]),
     ['Ngừng dùng', state.books.filter((b) => b.hidden)],
   ];
 
@@ -793,6 +849,22 @@ function renderBookNav() {
         text: '+ Thêm sổ',
       })
       : null,
+    el('div', { class: 'booknav-group', text: 'Thi đua – khen thưởng' }),
+    el('button', {
+      class: 'booknav-item' + (state.page === 'khenthuong' ? ' active' : ''),
+      type: 'button',
+      onclick: () => {
+        if (state.page === 'khenthuong') return;
+        state.page = 'khenthuong';
+        refresh();
+      },
+    },
+      el('span', { class: 'booknav-name', text: 'Khen thưởng' }),
+      // Chỉ Quản trị có số chờ duyệt (máy chủ trả 0 cho người khác).
+      state.awardMeta && state.awardMeta.pendingCount > 0
+        ? el('span', { class: 'booknav-hot', title: state.awardMeta.pendingCount + ' bản khai chờ duyệt', text: String(state.awardMeta.pendingCount) })
+        : null
+    ),
     el('div', { class: 'booknav-spacer' }),
     // Mục Cài đặt chỉ hiện với quản trị. Máy chủ vẫn chặn riêng, đây chỉ là
     // cho gọn mắt.
@@ -929,21 +1001,22 @@ function renderFilters() {
 function renderBookHead() {
   const book = currentBook();
   if (!book) return null;
-  const di = book.kind === 'di';
+  const di = issuesNumber(book.kind);
+  const meta = kindMeta(book.kind);
   const write = canWrite() && !book.hidden;
 
   return el('section', { class: 'section section-tight bookhead' },
     el('div', { class: 'bookhead-title' },
       el('div', { class: 'bookhead-name' },
         el('span', { text: book.name }),
-        el('span', { class: di ? 'badge badge-orange' : 'badge badge-blue', text: di ? 'Văn bản đi' : 'Văn bản đến' }),
+        el('span', { class: meta.badge, text: meta.label }),
         book.hidden ? el('span', { class: 'badge', text: 'Ngừng dùng' }) : null
       ),
       el('span', {
         class: 'hint',
         text: di
           ? 'Bộ đếm riêng của sổ này · ' + (book.resetYearly ? 'reset đầu năm' : 'tăng liên tục qua các năm')
-          : 'Số do cơ quan gửi ghi — hệ thống không cấp số cho sổ đến',
+          : meta.numberNote,
       })
     ),
     write && di
@@ -965,7 +1038,7 @@ function renderBookHead() {
         class: 'btn btn-secondary push',
         type: 'button',
         onclick: () => openDocDialog({ bookId: book.id, mode: 'manual' }),
-        text: '+ Ghi văn bản đến',
+        text: meta.add,
       })
       : null,
     book.hidden && canWrite()
@@ -992,8 +1065,8 @@ function renderBookTable() {
       : def.type === 'select' || def.type === 'checkbox' ? 'w110'
         : def.type === 'textarea' ? 'w190' : 'w160';
   const head = el('tr', {},
-    el('th', { class: 'w110', text: 'Số văn bản' }),
-    el('th', { class: 'w96', text: 'Ngày gửi' }),
+    el('th', { class: 'w110', text: book && book.kind === 'noibo' ? kindMeta(book.kind).numberLabel : 'Số văn bản' }),
+    el('th', { class: 'w96', text: book ? kindMeta(book.kind).date : 'Ngày gửi' }),
     el('th', { text: 'Tên văn bản' }),
     cols.map((def) => el('th', { class: thClass(def), text: def.label })),
     showFile ? el('th', { class: 'w140', text: 'Đính kèm' }) : null,
@@ -1002,7 +1075,7 @@ function renderBookTable() {
 
   const rows = state.documents.map((d) =>
     el('tr', {},
-      el('td', { class: 'cell-num', text: d.soVanBan }),
+      el('td', { class: 'cell-num' + (d.soVanBan ? '' : ' empty'), text: d.soVanBan || '—' }),
       el('td', { class: 'cell-mono', text: viDate(d.ngayGui) }),
       el('td', { class: 'cell-title', text: d.tenVanBan }),
       cols.map((def) => fieldCellNode(def, (d.extra || {})[def.key])),
@@ -1045,7 +1118,7 @@ function renderBookPage() {
     renderBookHead(),
     renderFilters(),
     renderBookTable(),
-    book.kind === 'di'
+    issuesNumber(book.kind)
       ? el('p', { class: 'hint m0' },
         'Định dạng số của sổ này: tiền tố ' + (book.prefix ? '“' + book.prefix + '”' : '(để trống)') +
         ' + số thứ tự + hậu tố ' + (book.suffix ? '“' + book.suffix + '”' : '(để trống)') +
@@ -1053,6 +1126,902 @@ function renderBookPage() {
         (book.resetYearly ? 'reset đầu năm' : 'tăng liên tục qua các năm'))
       : null,
   ];
+}
+
+// ------------------------------------------------------------ khen thưởng
+//
+// Không phải một sổ: ai cũng tự khai được, mỗi dòng là của một người, và CHỈ
+// Quản trị duyệt. Máy chủ (routes/awards.js) giữ mọi ranh giới quyền; ở đây
+// chỉ ẩn nút cho gọn mắt.
+
+const AWARD_BASE = '/api/awards';
+const AWARD_STATUS_CLASS = { cho: 'badge badge-orange', duyet: 'badge badge-blue', tra: 'badge badge-red' };
+
+/** Khen thưởng từ máy chủ → đối tượng mà ô đính kèm và khung xem tệp hiểu. */
+function awardItem(a) {
+  return Object.assign({}, a, {
+    fileBase: AWARD_BASE,
+    soVanBan: 'QĐ ' + a.soQd,
+    tenVanBan: a.hinhThuc + ' · ' + a.userName,
+  });
+}
+
+/** Ngày (dd/mm/yyyy) của một mốc thời gian ISO, theo giờ máy người dùng. */
+function viDay(ts) {
+  return ts ? viDateTime(ts).slice(0, 10) : '—';
+}
+
+async function loadAwardMeta() {
+  state.awardMeta = await api('GET', AWARD_BASE + '/meta');
+}
+
+async function loadAwards() {
+  const m = state.awardMeta;
+  if (state.awardTab === 'pending' && !(m && m.canReview)) state.awardTab = 'mine';
+  if (state.awardTab === 'summary' && !(m && m.canSummary)) state.awardTab = 'mine';
+  if (state.awardTab === 'summary') {
+    const data = await api('GET', AWARD_BASE + '/summary' + (state.awardYear ? '?year=' + state.awardYear : ''));
+    data.rows = data.rows.map(awardItem);
+    state.awardSummary = data;
+  } else {
+    const data = await api('GET', AWARD_BASE + '?view=' + state.awardTab);
+    state.awards = data.awards.map(awardItem);
+  }
+}
+
+function renderAwardsPage() {
+  const m = state.awardMeta;
+  if (!m) {
+    return [el('section', { class: 'section' }, el('span', { class: 'muted', text: state.loading ? 'Đang tải…' : 'Chưa tải được khen thưởng.' }))];
+  }
+  const intro = m.canReview
+    ? 'Duyệt các bản khai, hoặc ghi thẳng khen thưởng đã có quyết định. Chỉ bản đã duyệt mới tính vào tổng hợp.'
+    : m.canProxy
+      ? 'Khai báo khen thưởng của bạn, hoặc nhập hộ một quyết định khen nhiều người. Quản trị duyệt xong mới tính vào tổng hợp.'
+      : 'Khai báo khen thưởng của bạn kèm bản scan quyết định. Quản trị duyệt xong mới tính vào tổng hợp.';
+
+  const tabs = [['mine', 'Của tôi', m.mineCount, false]];
+  if (m.canReview) tabs.push(['pending', 'Chờ duyệt', m.pendingCount, m.pendingCount > 0]);
+  if (m.canSummary) tabs.push(['summary', 'Tổng hợp', null, false]);
+
+  const head = el('section', { class: 'section award-head' },
+    el('div', { class: 'award-head-row' },
+      el('div', { class: 'bookhead-title' },
+        el('div', { class: 'bookhead-name' }, el('span', { text: 'Khen thưởng' })),
+        el('span', { class: 'muted award-intro', text: intro })
+      ),
+      el('button', {
+        class: 'btn btn-primary push', type: 'button',
+        onclick: () => openAwardDialog(null),
+        text: m.canProxy ? '+ Khai báo / nhập hộ' : '+ Khai báo khen thưởng',
+      })
+    ),
+    el('div', { class: 'award-tabs', role: 'tablist' },
+      tabs.map(([key, label, count, hot]) =>
+        el('button', {
+          class: 'tab' + (state.awardTab === key ? ' active' : ''),
+          type: 'button',
+          role: 'tab',
+          'aria-selected': state.awardTab === key ? 'true' : 'false',
+          onclick: () => {
+            if (state.awardTab === key) return;
+            state.awardTab = key;
+            state.awardReturn = null;
+            refresh();
+          },
+        },
+          label,
+          count == null ? null : el('span', { class: hot ? 'tab-hot' : 'tab-count', text: String(count) })
+        )
+      )
+    )
+  );
+
+  const body = state.awardTab === 'pending' ? renderAwardPending()
+    : state.awardTab === 'summary' ? renderAwardSummary()
+      : renderAwardMine();
+  return [head, body];
+}
+
+/** Ô quyết định: số, ngày, tệp. Dùng chung cho bảng “Của tôi” và thẻ chờ duyệt. */
+function awardDecisionNode(a) {
+  return [
+    el('div', { class: 'cell-num', text: a.soQd }),
+    el('div', { class: 'cell-mono award-sub', text: viDate(a.ngayQd) + (a.coQuan ? ' · ' : '') },
+      a.coQuan ? el('span', { class: 'award-issuer', text: a.coQuan }) : null),
+    a.hasFile
+      ? el('div', { class: 'cell-file' }, fileCell(a))
+      : el('div', { class: 'award-nofile', text: 'Chưa đính kèm quyết định' }),
+  ];
+}
+
+function confirmWithdrawAward(a) {
+  const admin = isAdmin();
+  confirmDialog({
+    eyebrow: 'Khen thưởng',
+    title: admin ? 'Xóa khen thưởng này?' : 'Rút bản khai này?',
+    message: a.hinhThuc + ' · QĐ ' + a.soQd + ' · ' + a.userName + '. ' +
+      (admin ? 'Dòng này không còn tính vào tổng hợp. Nhật ký vẫn giữ dấu vết.' : 'Bạn có thể khai lại sau.'),
+    confirmLabel: admin ? 'Xóa' : 'Rút bản khai',
+    danger: true,
+    onConfirm: async () => {
+      await api('DELETE', AWARD_BASE + '/' + a.id);
+      closeDialog();
+      toast(admin ? 'Đã xóa khen thưởng.' : 'Đã rút bản khai.', 'ok');
+      refresh();
+    },
+  });
+}
+
+function renderAwardMine() {
+  const me = state.user.id;
+  const admin = isAdmin();
+  const rows = state.awards.map((a) => {
+    const proxy = a.createdById === me && a.userId !== me;
+    const viaOther = a.userId === me && a.createdById !== me && a.createdByName;
+    return el('tr', {},
+      el('td', {},
+        el('div', { class: 'award-person', text: a.userName + (a.userId === me ? ' (tôi)' : '') }),
+        proxy ? el('div', { class: 'hint', text: 'Bạn nhập hộ' }) : null,
+        viaOther ? el('div', { class: 'hint', text: 'Do ' + a.createdByName + ' nhập hộ' }) : null
+      ),
+      el('td', {},
+        el('div', { class: 'cell-title', text: a.hinhThuc }),
+        a.ghiChu ? el('div', { class: 'cell-note', text: a.ghiChu }) : null
+      ),
+      el('td', { text: a.cap || '—' }),
+      el('td', { class: 'cell-mono', text: String(a.nam) }),
+      el('td', {}, awardDecisionNode(a)),
+      el('td', {},
+        el('span', { class: AWARD_STATUS_CLASS[a.status], text: a.statusLabel }),
+        a.status === 'tra' && a.lyDoTra ? el('div', { class: 'award-reason', text: 'Lý do: ' + a.lyDoTra }) : null,
+        a.status === 'duyet' && a.reviewedByName
+          ? el('div', { class: 'hint', text: 'Duyệt ' + viDay(a.reviewedAt) + ' · ' + a.reviewedByName })
+          : null,
+        a.status === 'cho' ? el('div', { class: 'hint', text: 'Gửi ' + viDay(a.createdAt) + ' · chưa tính vào tổng hợp' }) : null
+      ),
+      el('td', { class: 'cell-actions' },
+        a.canEdit
+          ? [
+            el('button', {
+              class: 'btn-link', type: 'button', onclick: () => openAwardDialog(a),
+              text: a.status === 'tra' && !admin ? 'Sửa & gửi lại' : 'Sửa',
+            }),
+            el('button', {
+              class: 'btn-link danger', type: 'button', onclick: () => confirmWithdrawAward(a),
+              text: admin ? 'Xóa' : 'Rút',
+            }),
+          ]
+          : el('span', { class: 'hint inline-icon', title: 'Đã duyệt — chỉ Quản trị sửa được' },
+            icon('lock', 13, '#9b9d96'), 'Đã khóa')
+      )
+    );
+  });
+
+  return el('section', { class: 'table-wrap' },
+    el('table', { class: 'award-table' },
+      el('thead', {}, el('tr', {},
+        el('th', { class: 'w160', text: 'Người được khen' }),
+        el('th', { text: 'Danh hiệu / hình thức' }),
+        el('th', { class: 'w140', text: 'Cấp' }),
+        el('th', { class: 'w70', text: 'Năm' }),
+        el('th', { class: 'w220', text: 'Quyết định' }),
+        el('th', { class: 'w220', text: 'Trạng thái' }),
+        el('th', { class: 'w140' })
+      )),
+      el('tbody', {}, rows)
+    ),
+    state.awards.length === 0
+      ? el('div', {
+        class: 'empty-state',
+        text: state.loading ? 'Đang tải…' : 'Chưa có khen thưởng nào. Bấm “Khai báo” ở trên và đính kèm quyết định.',
+      })
+      : null
+  );
+}
+
+async function approveAward(a) {
+  try {
+    await api('POST', AWARD_BASE + '/' + a.id + '/approve');
+    toast('Đã duyệt: ' + a.userName + ' — ' + a.hinhThuc + '.', 'ok');
+    refresh();
+  } catch (err) {
+    showError(err);
+  }
+}
+
+async function returnAward(a) {
+  const r = state.awardReturn;
+  if (!r.reason.trim()) {
+    r.error = 'Ghi lý do để người khai biết phải sửa gì.';
+    render();
+    return;
+  }
+  try {
+    await api('POST', AWARD_BASE + '/' + a.id + '/return', { reason: r.reason });
+    state.awardReturn = null;
+    toast('Đã trả lại bản khai của ' + a.userName + '.', 'ok');
+    refresh();
+  } catch (err) {
+    if (err.status === 401) return;
+    r.error = err.message;
+    render();
+  }
+}
+
+function renderAwardPending() {
+  const list = state.awards;
+  const cards = list.map((a) => {
+    const r = state.awardReturn && state.awardReturn.id === a.id ? state.awardReturn : null;
+    return el('article', { class: 'award-card' },
+      el('div', { class: 'award-card-main' },
+        el('div', { class: 'award-card-who' },
+          el('span', { class: 'award-card-name', text: a.userName }),
+          a.userTitle ? el('span', { class: 'muted', text: a.userTitle }) : null
+        ),
+        el('div', { class: 'award-card-form', text: a.hinhThuc }),
+        el('div', { class: 'award-card-meta' },
+          el('span', { text: [a.cap ? 'Cấp ' + a.cap : '', 'Năm thi đua ' + a.nam, a.coQuan].filter(Boolean).join(' · ') }),
+          el('span', { class: 'mono', text: 'QĐ ' + a.soQd + ' ngày ' + viDate(a.ngayQd) })
+        ),
+        a.hasFile
+          ? el('div', { class: 'cell-file' }, fileCell(a))
+          : el('span', { class: 'badge badge-red award-card-badge', text: 'Chưa đính kèm quyết định' }),
+        a.ghiChu ? el('p', { class: 'award-card-note', text: a.ghiChu }) : null,
+        el('div', { class: 'hint', text: (a.createdById === a.userId ? 'Tự khai' : 'Nhập hộ bởi ' + (a.createdByName || '—')) + ' · gửi ' + viDay(a.createdAt) })
+      ),
+      r
+        ? null
+        : el('div', { class: 'award-card-actions' },
+          el('button', { class: 'btn-link', type: 'button', onclick: () => openAwardDialog(a), text: 'Sửa' }),
+          el('button', {
+            class: 'btn btn-danger', type: 'button',
+            onclick: () => {
+              state.awardReturn = {
+                id: a.id,
+                reason: a.hasFile ? '' : 'Thiếu file quyết định — đính kèm bản scan rồi gửi lại.',
+                error: '',
+              };
+              render();
+            },
+            text: 'Trả lại',
+          }),
+          el('button', { class: 'btn btn-primary', type: 'button', onclick: () => approveAward(a), text: 'Duyệt' })
+        ),
+      r
+        ? el('div', { class: 'award-return' },
+          el('label', { class: 'field' },
+            el('span', { class: 'label award-return-label', text: 'Lý do trả lại' }),
+            el('input', {
+              class: 'input', type: 'text', fk: 'award-return', maxlength: '300',
+              value: r.reason, placeholder: 'VD: Số quyết định không khớp bản scan',
+              oninput: (e) => { r.reason = e.target.value; },
+              onkeydown: (e) => { if (e.key === 'Enter') returnAward(a); },
+            })
+          ),
+          r.error ? el('span', { class: 'dialog-error', text: r.error }) : null,
+          el('div', { class: 'award-return-actions' },
+            el('span', { class: 'hint', text: 'Người khai thấy lý do này, sửa rồi gửi lại.' }),
+            el('button', { class: 'btn', type: 'button', onclick: () => { state.awardReturn = null; render(); }, text: 'Thôi' }),
+            el('button', { class: 'btn btn-solid-danger', type: 'button', onclick: () => returnAward(a), text: 'Gửi trả lại' })
+          )
+        )
+        : null
+    );
+  });
+
+  return [
+    el('span', {
+      class: 'muted',
+      text: list.length ? list.length + ' bản khai chờ duyệt · gửi trước xếp trước' : '',
+    }),
+    cards,
+    list.length === 0
+      ? el('section', { class: 'table-wrap' },
+        el('div', { class: 'empty-state', text: state.loading ? 'Đang tải…' : 'Không còn bản khai nào chờ duyệt.' }))
+      : null,
+  ];
+}
+
+function renderAwardSummary() {
+  const s = state.awardSummary;
+  const m = state.awardMeta;
+  if (!s) return el('section', { class: 'section' }, el('span', { class: 'muted', text: 'Đang tải…' }));
+
+  const years = s.years.map(String);
+  const cur = String(state.config.currentYear);
+  if (!years.includes(cur)) years.unshift(cur);
+  const qs = new URLSearchParams();
+  if (state.awardYear) qs.set('year', state.awardYear);
+  if (state.awardView === 'list') qs.set('view', 'list');
+
+  const filters = el('section', { class: 'section section-tight' },
+    el('div', { class: 'filters' },
+      el('label', { class: 'field' },
+        el('span', { class: 'label', text: 'Năm thi đua' }),
+        el('select', {
+          class: 'select', fk: 'award-year',
+          onchange: (e) => { state.awardYear = e.target.value; refresh(); },
+        },
+          el('option', { value: '', text: 'Tất cả các năm', selected: !state.awardYear }),
+          years.map((y) => el('option', { value: y, text: 'Năm ' + y, selected: state.awardYear === y }))
+        )
+      ),
+      el('div', { class: 'field' },
+        el('span', { class: 'label', text: 'Cách xem' }),
+        el('div', { class: 'subtabs' },
+          [['matrix', 'Theo người'], ['list', 'Danh sách chi tiết']].map(([key, label]) =>
+            el('button', {
+              class: 'subtab' + (state.awardView === key ? ' active' : ''), type: 'button',
+              'aria-pressed': state.awardView === key ? 'true' : 'false',
+              onclick: () => { state.awardView = key; render(); },
+              text: label,
+            })
+          )
+        )
+      ),
+      m.canProxy
+        ? el('div', { class: 'filters-actions' },
+          el('a', { class: 'btn btn-secondary', href: AWARD_BASE + '/summary.csv?' + qs.toString(), text: 'Xuất Excel (CSV)' }))
+        : null
+    ),
+    el('div', { class: 'filters-foot' },
+      el('span', {
+        class: 'muted',
+        text: s.total + ' khen thưởng đã duyệt' + (s.year ? ' · năm thi đua ' + s.year : '') + '. Chỉ tính bản đã duyệt.',
+      }),
+      s.pendingCount > 0 ? el('span', { class: 'badge badge-orange', text: s.pendingCount + ' bản đang chờ duyệt — chưa tính' }) : null,
+      m.canReview
+        ? el('label', { class: 'checkline push' },
+          el('input', {
+            type: 'checkbox', fk: 'award-summary-all', checked: m.summaryAll,
+            onchange: async (e) => {
+              try {
+                const res = await api('PUT', AWARD_BASE + '/settings', { summaryAll: e.target.checked });
+                m.summaryAll = res.summaryAll;
+                toast(res.summaryAll ? 'Vai trò Chỉ xem nay xem được tổng hợp.' : 'Đã ẩn tổng hợp với vai trò Chỉ xem.', 'ok');
+              } catch (err) {
+                showError(err);
+                e.target.checked = m.summaryAll;
+              }
+            },
+          }),
+          el('span', { text: 'Vai trò Chỉ xem được xem tổng hợp' })
+        )
+        : null
+    )
+  );
+
+  if (state.awardView === 'list') {
+    const rows = s.rows.slice().sort((a, b) => a.userName.localeCompare(b.userName, 'vi') || b.ngayQd.localeCompare(a.ngayQd));
+    return [filters, el('section', { class: 'table-wrap' },
+      el('table', {},
+        el('thead', {}, el('tr', {},
+          el('th', { class: 'w160', text: 'Họ tên' }),
+          el('th', { text: 'Danh hiệu / hình thức' }),
+          el('th', { class: 'w140', text: 'Cấp' }),
+          el('th', { class: 'w70', text: 'Năm' }),
+          el('th', { class: 'w140', text: 'Số QĐ' }),
+          el('th', { class: 'w110', text: 'Ngày QĐ' }),
+          el('th', { class: 'w190', text: 'Cơ quan ban hành' }),
+          el('th', { class: 'w140', text: 'Quyết định' })
+        )),
+        el('tbody', {}, rows.map((a) => el('tr', {},
+          el('td', { class: 'award-person', text: a.userName }),
+          el('td', { text: a.hinhThuc }),
+          el('td', { text: a.cap || '—' }),
+          el('td', { class: 'cell-mono', text: String(a.nam) }),
+          el('td', { class: 'cell-num', text: a.soQd }),
+          el('td', { class: 'cell-mono', text: viDate(a.ngayQd) }),
+          el('td', { class: 'cell-note', text: a.coQuan || '—' }),
+          el('td', { class: 'cell-file' + (a.hasFile ? '' : ' empty') }, a.hasFile ? fileCell(a) : '—')
+        )))
+      ),
+      rows.length === 0 ? el('div', { class: 'empty-state', text: 'Chưa có khen thưởng nào được duyệt trong năm này.' }) : null
+    )];
+  }
+
+  const n = (v) => el('td', { class: 'award-num' + (v ? '' : ' zero'), text: v ? String(v) : '—' });
+  return [filters, el('section', { class: 'table-wrap' },
+    el('table', { class: 'award-matrix' },
+      el('thead', {}, el('tr', {},
+        el('th', { class: 'w220', text: 'Họ tên' }),
+        s.forms.map((f) => (s.offList || []).includes(f)
+          ? el('th', { class: 'award-num off', title: 'Không còn trong danh mục — vẫn giữ cột vì còn khen thưởng đã duyệt', text: f + ' *' })
+          : el('th', { class: 'award-num', text: f })),
+        el('th', { class: 'award-num w90', text: 'Cộng' })
+      )),
+      el('tbody', {}, s.people.map((p) => el('tr', {},
+        el('td', {},
+          el('div', { class: 'award-person', text: p.name }),
+          p.title ? el('div', { class: 'hint', text: p.title }) : null
+        ),
+        s.forms.map((f) => n(p.counts[f] || 0)),
+        el('td', { class: 'award-num award-total' + (p.total ? '' : ' zero'), text: p.total ? String(p.total) : '—' })
+      ))),
+      el('tfoot', {}, el('tr', {},
+        el('th', { scope: 'row', text: 'Cộng cả phòng' }),
+        s.forms.map((f) => el('td', { class: 'award-num award-total', text: String(s.totals[f] || 0) })),
+        el('td', { class: 'award-num award-grand', text: String(s.total) })
+      ))
+    )
+  )];
+}
+
+// ------------------------------------------- cài đặt → khen thưởng (Quản trị)
+
+async function loadAwardForms() {
+  const data = await api('GET', AWARD_BASE + '/forms');
+  state.awardForms = awardFormsState(data);
+}
+
+/** Dữ liệu máy chủ → bản đang sửa. `saved` là ảnh chụp để biết có gì chưa lưu. */
+function awardFormsState(data) {
+  const items = data.forms.map((x) => ({ name: x.name, from: x.name, used: x.used }));
+  const usage = {};
+  data.forms.forEach((x) => { usage[x.name] = x.used; });
+  return { items, orphans: data.orphans, usage, saved: JSON.stringify(items.map((x) => x.name)), error: '' };
+}
+
+function renderAwardSettingsPage() {
+  const st = state.awardForms;
+  if (!st) return el('section', { class: 'section' }, el('span', { class: 'muted', text: 'Đang tải…' }));
+  const items = st.items;
+  const dirty = JSON.stringify(items.map((x) => x.name)) !== st.saved || items.some((x) => x.from && x.from !== x.name);
+  const move = (i, dir) => {
+    const j = i + dir;
+    [items[i], items[j]] = [items[j], items[i]];
+    render();
+  };
+
+  const save = async () => {
+    st.error = '';
+    try {
+      const res = await api('PUT', AWARD_BASE + '/forms', {
+        forms: items.map((x) => ({ name: x.name, from: x.from })),
+      });
+      state.awardForms = awardFormsState(res);
+      toast('Đã lưu danh mục' + (res.moved ? ' — ' + res.moved + ' khen thưởng đổi tên theo.' : '.'), 'ok');
+      // Hộp thoại khai báo đọc danh mục từ meta.
+      loadAwardMeta().catch(() => {});
+      render();
+    } catch (err) {
+      if (err.status === 401) return;
+      st.error = err.message;
+      render();
+    }
+  };
+
+  const rows = items.map((x, i) =>
+    el('tr', {},
+      el('td', { class: 'cell-mono', text: String(i + 1) }),
+      el('td', {},
+        el('input', {
+          class: 'input award-form-name', type: 'text', fk: 'awf-' + i, value: x.name, maxlength: '80',
+          placeholder: 'Tên danh hiệu / hình thức',
+          oninput: (e) => { x.name = e.target.value; },
+          onchange: () => render(),
+        }),
+        x.from && x.from !== x.name.trim()
+          ? el('div', { class: 'hint award-form-rename', text: 'Đổi từ “' + x.from + '”' + (x.used ? ' — ' + x.used + ' khen thưởng đổi tên theo' : '') })
+          : null
+      ),
+      el('td', { class: x.used ? 'cell-mono' : 'hint', text: x.used ? x.used + ' dòng' : x.from ? 'chưa dùng' : 'mục mới' }),
+      el('td', { class: 'cell-actions fld-actions' },
+        el('button', { class: 'btn-link', type: 'button', disabled: i === 0, 'aria-label': 'Lên', onclick: () => move(i, -1), text: '↑' }),
+        el('button', { class: 'btn-link', type: 'button', disabled: i === items.length - 1, 'aria-label': 'Xuống', onclick: () => move(i, 1), text: '↓' }),
+        el('button', {
+          class: 'btn-link danger', type: 'button',
+          title: x.used ? 'Các khen thưởng đã ghi giữ nguyên tên này; chỉ không chọn mới được nữa' : '',
+          onclick: () => { items.splice(i, 1); render(); },
+          text: 'Bỏ',
+        })
+      )
+    )
+  );
+
+  // Mục đang có khen thưởng mà bị bỏ khỏi danh mục: nhắc rằng dữ liệu vẫn giữ.
+  const removedUsed = JSON.parse(st.saved).some((n) => st.usage[n] > 0 && !items.some((x) => x.from === n));
+
+  return [
+    el('section', { class: 'section' },
+      el('div', { class: 'bookhead-title' },
+        el('div', { class: 'bookhead-name' }, el('span', { text: 'Danh hiệu / hình thức khen thưởng' })),
+        el('span', {
+          class: 'muted',
+          text: 'Danh sách để chọn khi khai báo, đồng thời là các cột của bảng tổng hợp, theo đúng thứ tự này. ' +
+            'Đổi tên một mục thì mọi khen thưởng đã ghi đổi theo. Bỏ một mục thì khen thưởng đã ghi giữ nguyên, chỉ không chọn mới được nữa.',
+        })
+      ),
+      el('div', { class: 'table-wrap' },
+        el('table', { class: 'award-forms' },
+          el('thead', {}, el('tr', {},
+            el('th', { class: 'w70', text: '#' }),
+            el('th', { text: 'Tên' }),
+            el('th', { class: 'w140', text: 'Đang dùng' }),
+            el('th', { class: 'w140' })
+          )),
+          el('tbody', {}, rows)
+        )
+      ),
+      el('div', {},
+        el('button', {
+          class: 'btn btn-secondary', type: 'button',
+          onclick: () => { items.push({ name: '', from: null, used: 0 }); render(); },
+          text: '+ Thêm danh hiệu',
+        })
+      ),
+      st.orphans.length
+        ? el('div', { class: 'note' },
+          icon('alert', 16),
+          el('div', {},
+            el('div', { text: 'Còn trong dữ liệu nhưng không có trong danh mục:' }),
+            el('div', { class: 'award-orphans' },
+              st.orphans.map((o) => el('span', { class: 'award-orphan' },
+                el('span', { text: o.name + ' · ' + o.used + ' dòng' }),
+                items.some((x) => x.from === o.name)
+                  ? null
+                  : el('button', {
+                    class: 'btn-link', type: 'button',
+                    onclick: () => { items.push({ name: o.name, from: o.name, used: o.used }); render(); },
+                    text: 'Đưa lại vào danh mục',
+                  })
+              ))
+            )
+          )
+        )
+        : null,
+      el('div', { class: 'savebar' },
+        st.error
+          ? el('span', { class: 'savebar-status blocked', text: st.error })
+          : el('span', {
+            class: 'savebar-status' + (dirty ? ' dirty' : ''),
+            text: dirty
+              ? 'Có thay đổi chưa lưu' + (removedUsed ? ' · mục bị bỏ vẫn giữ trong các khen thưởng đã ghi' : '')
+              : 'Đã lưu',
+          }),
+        el('span', { class: 'savebar-actions' },
+          el('button', { class: 'btn', type: 'button', disabled: !dirty, onclick: () => { refresh(); }, text: 'Hoàn tác' }),
+          el('button', { class: 'btn btn-primary', type: 'button', disabled: !dirty, onclick: save, text: 'Lưu danh mục' })
+        )
+      )
+    ),
+  ];
+}
+
+// ----------------------------------------------- hộp thoại khai báo khen thưởng
+
+function openAwardDialog(award) {
+  const m = state.awardMeta;
+  const edit = !!award;
+  state.dialog = {
+    kind: 'award',
+    mode: edit ? 'edit' : 'new',
+    // fileField đọc tệp hiện có từ d.doc.
+    doc: award,
+    file: null,
+    dropFile: false,
+    error: '',
+    pick: !edit && !!(m && m.canProxy),
+    form: {
+      userIds: edit ? [award.userId] : (m && m.canProxy ? [] : [state.user.id]),
+      hinhThuc: edit ? award.hinhThuc : '',
+      cap: edit ? award.cap : '',
+      nam: String(edit ? award.nam : state.config.currentYear),
+      soQd: edit ? award.soQd : '',
+      ngayQd: edit ? award.ngayQd : '',
+      coQuan: edit ? award.coQuan : '',
+      ghiChu: edit ? award.ghiChu : '',
+    },
+  };
+  renderDialogs();
+}
+
+/** Bỏ dấu, hạ chữ thường — để lọc tên “ha” ra “Hà”. */
+function plain(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+
+/**
+ * Chọn người được khen (Quản trị, nhân viên): ô chip + menu danh sách.
+ *
+ * Người đã chọn là chip trong ô (× để bỏ); bấm vào ô hoặc gõ tên thì mở menu
+ * để tích thêm — một quyết định có thể khen vài chục người, nên danh sách chỉ
+ * hiện khi cần chứ không dàn sẵn trong hộp thoại.
+ *
+ * Mọi thao tác sửa thẳng DOM, không dựng lại hộp thoại: dựng lại thì menu
+ * đóng, mất chữ đang gõ và khung cuộn nhảy về đầu.
+ */
+function awardPeoplePicker(d) {
+  const f = d.form;
+  const people = state.awardMeta.people.filter((p) => !p.locked || f.userIds.includes(p.id));
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const keyOf = new Map(people.map((p) => [p.id, plain(p.fullName + ' ' + p.title)]));
+  const nameOf = (p) => p.fullName + (p.id === state.user.id ? ' (tôi)' : '');
+  let shown = people;
+  let active = 0;
+
+  const input = el('input', {
+    class: 'chip-input', type: 'text', fk: 'award-pick-q', autocomplete: 'off',
+    role: 'combobox', 'aria-expanded': 'false', 'aria-controls': 'award-pick-menu', 'aria-autocomplete': 'list',
+    'aria-label': 'Tìm và thêm người được khen',
+  });
+  const box = el('div', { class: 'chip-box', onclick: () => input.focus() });
+  const list = el('div', { class: 'chip-list' });
+  const empty = el('div', { class: 'chip-empty hint', text: 'Không có ai khớp.' });
+  const matchInfo = el('span', { class: 'hint' });
+  const menu = el('div', {
+    class: 'chip-menu', id: 'award-pick-menu', role: 'listbox', 'aria-multiselectable': 'true',
+    // Bấm trong menu không được làm ô nhập mất focus (menu sẽ đóng).
+    onmousedown: (e) => e.preventDefault(),
+  },
+    el('div', { class: 'chip-menu-head' },
+      matchInfo,
+      el('button', { class: 'btn-link', type: 'button', onclick: () => setShown(true), text: 'Chọn tất cả' }),
+      el('button', { class: 'btn-link', type: 'button', onclick: () => setShown(false), text: 'Bỏ chọn' })
+    ),
+    list,
+    empty
+  );
+  menu.hidden = true;
+  const count = el('span', { class: 'hint' });
+  const root = el('div', { class: 'chip-picker' }, box, menu);
+
+  function select(id, on) {
+    const set = new Set(f.userIds);
+    if (on) set.add(id); else set.delete(id);
+    f.userIds = people.filter((p) => set.has(p.id)).map((p) => p.id);
+  }
+
+  function paintChips() {
+    box.textContent = '';
+    for (const id of f.userIds) {
+      const p = byId.get(id);
+      if (!p) continue;
+      box.append(el('span', { class: 'chip' },
+        el('span', { class: 'chip-name', text: nameOf(p) }),
+        el('button', {
+          class: 'chip-x', type: 'button', 'aria-label': 'Bỏ ' + p.fullName,
+          onclick: (e) => {
+            e.stopPropagation();
+            select(id, false);
+            paint();
+            input.focus();
+          },
+        }, icon('x', 12))
+      ));
+    }
+    input.placeholder = f.userIds.length ? 'Thêm người…' : 'Gõ tên hoặc bấm để chọn người…';
+    box.append(input);
+    const n = f.userIds.length;
+    count.textContent = n === 0
+      ? 'Một quyết định khen nhiều người: chọn đủ người, mỗi người thành một dòng riêng.'
+      : 'Đã chọn ' + n + ' người' + (n > 1 ? ' — tạo ' + n + ' dòng cùng một quyết định.' : '.');
+  }
+
+  function paintMenu() {
+    const q = plain(input.value.trim());
+    shown = q ? people.filter((p) => keyOf.get(p.id).includes(q)) : people;
+    if (active >= shown.length) active = Math.max(0, shown.length - 1);
+    list.textContent = '';
+    shown.forEach((p, i) => {
+      const on = f.userIds.includes(p.id);
+      list.append(el('div', {
+        class: 'chip-opt' + (on ? ' on' : '') + (i === active ? ' active' : ''),
+        id: 'award-opt-' + p.id, role: 'option', 'aria-selected': on ? 'true' : 'false',
+        onclick: () => { active = i; toggle(p); },
+      },
+        el('span', { class: 'chip-tick' }, on ? icon('check', 12) : null),
+        el('span', { class: 'chip-opt-name', text: nameOf(p) }),
+        p.title ? el('span', { class: 'chip-opt-title', text: p.title }) : null
+      ));
+    });
+    empty.hidden = shown.length > 0;
+    matchInfo.textContent = q ? shown.length + ' người khớp' : people.length + ' người';
+    input.setAttribute('aria-activedescendant', shown[active] ? 'award-opt-' + shown[active].id : '');
+    const cur = list.children[active];
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
+  }
+
+  function paint() {
+    paintChips();
+    if (!menu.hidden) paintMenu();
+  }
+
+  function open() {
+    if (!menu.hidden) return;
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    root.classList.add('open');
+    paintMenu();
+  }
+
+  function close() {
+    menu.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+    root.classList.remove('open');
+  }
+
+  function toggle(p) {
+    select(p.id, !f.userIds.includes(p.id));
+    // Gõ tên rồi chọn: xóa chữ để gõ người kế tiếp, menu vẫn mở.
+    if (input.value) {
+      input.value = '';
+      active = 0;
+    }
+    paint();
+    input.focus();
+  }
+
+  // “Chọn tất cả” chỉ áp cho những người đang hiện trong menu: lọc “phó” rồi
+  // chọn tất cả là chọn đúng các phó phòng.
+  function setShown(on) {
+    const set = new Set(f.userIds);
+    shown.forEach((p) => { if (on) set.add(p.id); else set.delete(p.id); });
+    f.userIds = people.filter((p) => set.has(p.id)).map((p) => p.id);
+    paint();
+    input.focus();
+  }
+
+  input.addEventListener('focus', open);
+  input.addEventListener('blur', close);
+  input.addEventListener('input', () => { active = 0; open(); paintMenu(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      open();
+      if (shown.length) active = (active + (e.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length;
+      paintMenu();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!menu.hidden && shown[active]) toggle(shown[active]);
+    } else if (e.key === 'Escape' && !menu.hidden) {
+      // Esc lần đầu chỉ đóng menu, không đóng cả hộp thoại.
+      e.stopPropagation();
+      close();
+    } else if (e.key === 'Backspace' && !input.value && f.userIds.length) {
+      select(f.userIds[f.userIds.length - 1], false);
+      paint();
+    }
+  });
+
+  paintChips();
+  return el('fieldset', { class: 'field full award-people' },
+    el('legend', { class: 'label', text: 'Người được khen *' }),
+    root,
+    count
+  );
+}
+
+function renderAwardDialog(d) {
+  const m = state.awardMeta;
+  const f = d.form;
+  const a = d.doc;
+  const admin = isAdmin();
+  const label = (t) => el('span', { class: 'label', text: t });
+
+  const submit = async () => {
+    const fd = new FormData();
+    if (d.pick) fd.set('userIds', JSON.stringify(f.userIds));
+    for (const k of ['hinhThuc', 'cap', 'nam', 'soQd', 'ngayQd', 'coQuan', 'ghiChu']) fd.set(k, f[k] || '');
+    if (d.dropFile) fd.set('dropFile', '1');
+    if (d.file) fd.set('file', d.file);
+    try {
+      const res = d.mode === 'edit'
+        ? await api('PUT', AWARD_BASE + '/' + a.id, fd, true)
+        : await api('POST', AWARD_BASE, fd, true);
+      closeDialog();
+      if (d.mode === 'edit') {
+        toast(admin ? 'Đã lưu thay đổi.' : 'Đã gửi lại — bản khai quay về Chờ duyệt.', 'ok');
+      } else {
+        const n = res.awards.length;
+        toast(res.approved
+          ? 'Đã ghi ' + n + ' khen thưởng — ' + f.hinhThuc + ', QĐ ' + f.soQd + '.'
+          : 'Đã gửi ' + n + ' bản khai — chờ Quản trị duyệt.', 'ok');
+        if (state.awardTab !== 'summary') state.awardTab = 'mine';
+      }
+      state.page = 'khenthuong';
+      refresh();
+    } catch (err) {
+      if (err.status === 401) return;
+      d.error = err.message;
+      renderDialogs();
+    }
+  };
+
+  const fixedName = a ? a.userName : state.user.fullName;
+  const body = [
+    a && a.status === 'tra' && a.lyDoTra
+      ? el('div', { class: 'note note-error full' }, icon('alert', 16), el('span', { text: 'Quản trị trả lại: ' + a.lyDoTra }))
+      : null,
+    d.pick
+      ? awardPeoplePicker(d)
+      : el('div', { class: 'field full' },
+        label('Người được khen'),
+        el('input', { class: 'input', type: 'text', value: fixedName, disabled: true }),
+        a ? null : el('span', { class: 'hint', text: 'Bạn khai khen thưởng của chính mình.' })
+      ),
+    el('label', { class: 'field' },
+      label('Danh hiệu / hình thức *'),
+      el('select', { class: 'select', fk: 'aw-hinhThuc', onchange: (e) => { f.hinhThuc = e.target.value; } },
+        el('option', { value: '', text: '— Chọn —', selected: !f.hinhThuc }),
+        m.forms.map((o) => el('option', { value: o, text: o, selected: f.hinhThuc === o })),
+        // Dòng cũ mang danh hiệu Quản trị đã bỏ khỏi danh mục: vẫn giữ được.
+        f.hinhThuc && !m.forms.includes(f.hinhThuc)
+          ? el('option', { value: f.hinhThuc, text: f.hinhThuc + ' (không còn trong danh mục)', selected: true })
+          : null
+      )
+    ),
+    el('label', { class: 'field' },
+      label('Cấp khen'),
+      el('input', {
+        class: 'input', type: 'text', fk: 'aw-cap', value: f.cap, maxlength: '120',
+        placeholder: 'VD: Cơ sở, Tỉnh, Bộ', oninput: (e) => { f.cap = e.target.value; },
+      })
+    ),
+    el('label', { class: 'field' },
+      label('Số quyết định *'),
+      el('input', {
+        class: 'input mono', type: 'text', fk: 'aw-soQd', value: f.soQd, maxlength: '100',
+        placeholder: 'VD: 41/QĐ-TĐKT', oninput: (e) => { f.soQd = e.target.value; },
+      })
+    ),
+    el('label', { class: 'field' },
+      label('Ngày quyết định *'),
+      viDateField({ fk: 'aw-ngayQd', value: f.ngayQd, onvalue: (v) => { f.ngayQd = v; } })
+    ),
+    el('label', { class: 'field' },
+      label('Năm thi đua *'),
+      el('input', {
+        class: 'input mono', type: 'number', fk: 'aw-nam', value: f.nam, min: '1990', max: String(state.config.currentYear + 1),
+        oninput: (e) => { f.nam = e.target.value; },
+      }),
+      el('span', { class: 'hint', text: 'Năm được xét — có thể khác năm ký quyết định' })
+    ),
+    el('label', { class: 'field' },
+      label('Cơ quan ban hành'),
+      el('input', {
+        class: 'input', type: 'text', fk: 'aw-coQuan', value: f.coQuan, maxlength: '200',
+        placeholder: 'VD: Thủ trưởng đơn vị', oninput: (e) => { f.coQuan = e.target.value; },
+      })
+    ),
+    el('label', { class: 'field full' },
+      label('Thành tích / ghi chú'),
+      el('textarea', {
+        class: 'textarea', rows: '2', fk: 'aw-ghiChu', maxlength: '1000', placeholder: 'Không bắt buộc',
+        oninput: (e) => { f.ghiChu = e.target.value; },
+      }, f.ghiChu || '')
+    ),
+    el('div', { class: 'field full' },
+      label('Quyết định khen thưởng (bản scan)'),
+      fileField(d)
+    ),
+  ];
+
+  const foot = d.error
+    ? el('span', { class: 'dialog-error', text: d.error })
+    : el('span', {
+      class: 'hint',
+      text: admin
+        ? 'Quản trị ghi — tính vào tổng hợp ngay, không qua bước duyệt.'
+        : 'Gửi xong, bản khai chờ Quản trị duyệt rồi mới tính vào tổng hợp.',
+    });
+
+  return dialogShell(
+    'Khen thưởng',
+    d.mode === 'edit'
+      ? (a.status === 'tra' && !admin ? 'Sửa và gửi lại' : 'Sửa khen thưởng')
+      : d.pick ? 'Khai báo / nhập hộ khen thưởng' : 'Khai báo khen thưởng',
+    body,
+    foot,
+    [
+      el('button', { class: 'btn', type: 'button', onclick: closeDialog, text: 'Hủy' }),
+      el('button', {
+        class: 'btn btn-primary', type: 'button', onclick: submit,
+        text: admin ? 'Lưu' : d.mode === 'edit' ? 'Gửi lại để duyệt' : 'Gửi khai báo',
+      }),
+    ]
+  );
 }
 
 // ------------------------------------------------------- trang cài đặt
@@ -1065,6 +2034,7 @@ function renderSettingsTabs() {
     ['taikhoan', 'Tài khoản'],
     ['sonam', 'Sổ theo năm'],
     ['nhatky', 'Nhật ký'],
+    ['khenthuong', 'Khen thưởng'],
   ];
   return el('div', { class: 'subtabs' },
     tabs.map(([key, label]) =>
@@ -1175,7 +2145,7 @@ async function submitBookForm() {
     // có thể bị chặn lại (không cho lùi qua số đang dùng) mà việc lưu sổ vẫn
     // phải thành công. Gọi sau, và báo riêng nếu giá trị thực khác giá trị gõ.
     let clampNote = '';
-    if (f.id && f.kind === 'di') {
+    if (f.id && issuesNumber(f.kind)) {
       const want = num(f.counterRaw, 0);
       const now = saved.book.next ? saved.book.next.seq : 0;
       if (want > 0 && want !== now) {
@@ -1254,7 +2224,8 @@ function confirmDeleteBook(book) {
 /** Bảng sổ + form tạo/sửa. Chỉ quản trị vào được (máy chủ chặn riêng). */
 function renderBooksPage() {
   const rows = state.books.map((b) => {
-    const di = b.kind === 'di';
+    const di = issuesNumber(b.kind);
+    const meta = kindMeta(b.kind);
     return el('tr', {},
       el('td', {},
         el('strong', { class: b.hidden ? 'book-name-off' : '', text: b.name }),
@@ -1264,7 +2235,7 @@ function renderBooksPage() {
             ? 'Tiền tố ' + (b.prefix ? '“' + b.prefix + '”' : '(để trống)') +
             ' · hậu tố ' + (b.suffix ? '“' + b.suffix + '”' : '(để trống)') + ' · ' +
             (b.resetYearly ? 'reset đầu năm' : 'tăng liên tục')
-            : 'Số do cơ quan gửi ghi — không có bộ đếm',
+            : meta.numberNote,
         }),
         el('span', {
           class: 'book-hint',
@@ -1273,7 +2244,7 @@ function renderBooksPage() {
             : 'Trường: ' + liveFields(b).map((d) => d.label).join(' · '),
         })
       ),
-      el('td', {}, el('span', { class: di ? 'badge badge-orange' : 'badge badge-blue', text: di ? 'Đi' : 'Đến' })),
+      el('td', {}, el('span', { class: meta.badge, text: meta.short })),
       el('td', { class: 'cell-num', text: di && b.next ? b.next.soVanBan : '—' }),
       el('td', { class: 'cell-mono', text: String(b.count) }),
       el('td', {}, el('span', { class: b.hidden ? 'badge' : 'badge badge-blue', text: b.hidden ? 'Ngừng dùng' : 'Đang dùng' })),
@@ -1538,7 +2509,7 @@ function renderFieldsEditor(f) {
 function renderBookForm() {
   const f = state.bookForm;
   if (!f) return null;
-  const di = f.kind === 'di';
+  const di = issuesNumber(f.kind);
   const start = num(f.startRaw, 1);
   const seqPreview = f.id ? num(f.counterRaw, start) : start;
 
@@ -1593,14 +2564,25 @@ function renderBookForm() {
         el('div', { class: 'field' },
           el('span', { class: 'label', text: 'Loại sổ' }),
           el('div', { class: 'toggle' },
-            seg('Văn bản đến', !di, () => { f.kind = 'den'; applyFieldsSource(f); render(); }, f.lockedKind),
-            seg('Văn bản đi', di, () => { f.kind = 'di'; applyFieldsSource(f); render(); }, f.lockedKind)
+            BOOK_KINDS.map((k) =>
+              seg(kindMeta(k).label, f.kind === k, () => { f.kind = k; applyFieldsSource(f); render(); }, f.lockedKind))
           )
         ),
         f.lockedKind
           ? el('span', { class: 'hint', text: 'Sổ đã có văn bản nên không đổi được loại.' })
           : null
       ),
+      f.kind === 'noibo'
+        ? el('div', { class: 'note' },
+          icon('alert', 16, '#2f6b45'),
+          el('span', {
+            text:
+              'Sổ nội bộ dành cho văn bản ban hành trong đơn vị, không gửi ra ngoài (quyết định, thông báo, quy chế…). ' +
+              'Hệ thống không cấp số: số/ký hiệu ghi tay nếu văn bản có, để trống nếu không. ' +
+              'Bộ trường mặc định có “Tình trạng” để lọc ra văn bản còn hiệu lực.',
+          })
+        )
+        : null,
 
       di
         ? el('div', { class: 'book-divider' },
@@ -1673,16 +2655,18 @@ function renderBookForm() {
               : null
           )
         )
-        : el('div', { class: 'book-divider' },
-          el('div', { class: 'note' },
-            icon('alert', 16, '#2c4f6a'),
-            el('span', {
-              text:
-                'Sổ đến không có bộ đếm: số văn bản do cơ quan gửi ghi, văn thư nhập lại nguyên văn. ' +
-                'Vì vậy sổ đến không có tiền tố, hậu tố hay “bắt đầu từ”.',
-            })
-          )
-        ),
+        : f.kind === 'noibo'
+          ? null
+          : el('div', { class: 'book-divider' },
+            el('div', { class: 'note' },
+              icon('alert', 16, '#2c4f6a'),
+              el('span', {
+                text:
+                  'Sổ đến không có bộ đếm: số văn bản do cơ quan gửi ghi, văn thư nhập lại nguyên văn. ' +
+                  'Vì vậy sổ đến không có tiền tố, hậu tố hay “bắt đầu từ”.',
+              })
+            )
+          ),
       renderFieldsEditor(f)
     ),
     el('div', { class: 'book-form-foot' },
@@ -1701,9 +2685,9 @@ function renderBookForm() {
 }
 
 const ROLE_ITEMS = {
-  admin: [['Xem và ghi cả hai sổ', 1], ['Lấy số văn bản đi', 1], ['Cài đặt lấy số', 2], ['Thêm và khóa tài khoản', 2]],
-  vanthu: [['Xem và ghi cả hai sổ', 1], ['Lấy số văn bản đi', 1], ['Cài đặt lấy số', 0], ['Thêm và khóa tài khoản', 0]],
-  xem: [['Xem cả hai sổ', 1], ['Lấy số văn bản đi', 0], ['Cài đặt lấy số', 0], ['Thêm và khóa tài khoản', 0]],
+  admin: [['Xem và ghi mọi sổ', 1], ['Lấy số văn bản đi', 1], ['Cài đặt lấy số', 2], ['Thêm và khóa tài khoản', 2], ['Duyệt khen thưởng', 2]],
+  vanthu: [['Xem và ghi mọi sổ', 1], ['Lấy số văn bản đi', 1], ['Cài đặt lấy số', 0], ['Thêm và khóa tài khoản', 0], ['Khai báo, nhập hộ khen thưởng', 1]],
+  xem: [['Xem mọi sổ', 1], ['Lấy số văn bản đi', 0], ['Cài đặt lấy số', 0], ['Thêm và khóa tài khoản', 0], ['Tự khai khen thưởng', 1]],
 };
 
 function renderUsersPage() {
@@ -1816,13 +2800,14 @@ function renderYearsPage() {
       el('table', {},
         el('thead', {}, el('tr', {},
           el('th', { text: 'Năm' }), el('th', { text: 'Văn bản đến' }),
-          el('th', { text: 'Văn bản đi (mọi sổ)' }), el('th', {})
+          el('th', { text: 'Văn bản đi (mọi sổ)' }), el('th', { text: 'Nội bộ (mọi sổ)' }), el('th', {})
         )),
         el('tbody', {}, state.years.map((y) =>
           el('tr', {},
             el('td', { class: 'cell-mono', text: String(y.year) }),
             el('td', { class: 'cell-mono', text: String(y.den) }),
             el('td', { class: 'cell-mono', text: String(y.di) }),
+            el('td', { class: 'cell-mono', text: String(y.noibo || 0) }),
             el('td', {}, el('button', {
               class: 'btn-link', type: 'button',
               onclick: () => {
@@ -1850,6 +2835,7 @@ function auditLabel(action) {
 const AUDIT_FILTER_ACTIONS = [
   'xoa_van_ban', 'khoi_phuc_van_ban', 'cap_so', 'ghi_so',
   'sua_van_ban', 'sua_cai_dat_lay_so', 'dat_lai_bo_dem', 'dang_nhap',
+  'khai_khen_thuong', 'duyet_khen_thuong', 'tra_khen_thuong', 'rut_khen_thuong',
 ];
 
 /** Ô lọc của trang Nhật ký. */
@@ -1964,15 +2950,15 @@ function renderRestoreBlock(entry) {
   const d = r.doc;
   return el('div', { class: 'restore-box' },
     el('span', {
-      class: 'badge ' + (d.book === 'di' ? 'badge-orange' : 'badge-blue'),
-      text: d.book === 'di' ? 'Văn bản đi' : 'Văn bản đến',
+      class: kindMeta(d.book).badge,
+      text: kindMeta(d.book).label,
     }),
-    el('span', { class: 'restore-num mono', text: d.soVanBan }),
+    el('span', { class: 'restore-num mono', text: soLabel(d) }),
     el('div', { class: 'restore-main' },
       el('span', { class: 'restore-title', text: d.tenVanBan }),
       el('span', {
         class: 'hint',
-        text: 'Ngày gửi ' + viDate(d.ngayGui) + ' · ' +
+        text: kindMeta(d.book).date + ' ' + viDate(d.ngayGui) + ' · ' +
           (d.fileName ? 'đính kèm ' + d.fileName : 'không có đính kèm') +
           (d.numberFree === false
             ? ' · số ' + d.soVanBan + ' đã có chủ, khôi phục sẽ cấp số ' + (d.nextNumber || 'khác')
@@ -2282,7 +3268,7 @@ function pdfViewer(doc) {
    * bỏ qua header này hoàn toàn, chỉ điều hướng hay iframe mới đọc tới nó.
    */
   function tepBytes() {
-    return fetch(xemPdfUrl(doc.id), { credentials: 'same-origin' }).then((res) => {
+    return fetch(xemPdfUrl(doc.id, doc.fileBase), { credentials: 'same-origin' }).then((res) => {
       if (!res.ok) {
         // Máy chủ đã có thông báo tiếng Việt cho trường hợp không chuyển được.
         return res.json().catch(() => null).then((data) => {
@@ -2346,18 +3332,18 @@ function pdfViewer(doc) {
 function renderFileDialog(d) {
   const doc = d.doc;
   const name = doc.fileName || '';
-  const src = fileUrl(doc.id, true, doc.fileName);
+  const src = fileUrl(doc.id, true, doc.fileName, doc.fileBase);
   const isImage = /\.(jpe?g|png)$/i.test(name);
 
   const body = doc.fileAsPdf
     ? pdfViewer(doc)
     : el('div', { class: 'viewer full' },
       isImage
-        ? el('img', { class: 'viewer-img', src, alt: 'Đính kèm của ' + doc.soVanBan })
+        ? el('img', { class: 'viewer-img', src, alt: 'Đính kèm của ' + soLabel(doc) })
         : el('iframe', {
           class: 'viewer-frame',
           src,
-          title: 'Đính kèm của ' + doc.soVanBan,
+          title: 'Đính kèm của ' + soLabel(doc),
           referrerpolicy: 'no-referrer',
         })
     );
@@ -2365,10 +3351,10 @@ function renderFileDialog(d) {
   // Tệp Office: cả khung xem và “Mở tab mới” đều dùng bản PDF đã chuyển, chứ
   // mở tệp .docx gốc trong tab mới thì trình duyệt chỉ tải nó về.
   const laChuyenDoi = doc.fileAsPdf && !/\.pdf$/i.test(name);
-  const srcXem = doc.fileAsPdf ? xemPdfUrl(doc.id) : src;
+  const srcXem = doc.fileAsPdf ? xemPdfUrl(doc.id, doc.fileBase) : src;
 
   return dialogShell(
-    'Đính kèm · ' + doc.soVanBan,
+    'Đính kèm · ' + soLabel(doc),
     doc.fileName,
     body,
     el('span', { class: 'muted' },
@@ -2379,7 +3365,7 @@ function renderFileDialog(d) {
     ),
     [
       el('a', { class: 'btn', href: srcXem, target: '_blank', rel: 'noopener', text: 'Mở tab mới' }),
-      el('a', { class: 'btn', href: fileUrl(doc.id), text: 'Tải xuống' }),
+      el('a', { class: 'btn', href: fileUrl(doc.id, false, null, doc.fileBase), text: 'Tải xuống' }),
       el('button', { class: 'btn btn-primary', type: 'button', onclick: closeDialog, text: 'Đóng' }),
     ],
     false,
@@ -2504,13 +3490,13 @@ function fileField(d) {
       pick.textContent = 'Chọn tệp khác…';
       status.append(
         el('span', { class: 'muted', text: 'Đang có: ' }),
-        el('a', { href: fileUrl(d.doc.id), text: d.doc.fileName }),
+        el('a', { href: fileUrl(d.doc.id, false, null, d.doc.fileBase), text: d.doc.fileName }),
         d.doc.fileSize ? el('span', { class: 'hint', text: ' · ' + fileSize(d.doc.fileSize) }) : null,
         // Xem ngay để đối chiếu trước khi thay bằng tệp khác. Mở tab mới chứ
         // không mở khung xem: khung xem là một hộp thoại, mở lên sẽ đè mất
         // hộp thoại sửa cùng mọi thứ đang gõ dở.
         d.doc.fileViewable
-          ? el('a', { class: 'btn-link', href: fileUrl(d.doc.id, true, d.doc.fileName), target: '_blank', rel: 'noopener', text: 'Xem' })
+          ? el('a', { class: 'btn-link', href: fileUrl(d.doc.id, true, d.doc.fileName, d.doc.fileBase), target: '_blank', rel: 'noopener', text: 'Xem' })
           : null,
         el('button', {
           class: 'btn-link danger', type: 'button', text: 'Bỏ tệp này',
@@ -2544,10 +3530,10 @@ function fileField(d) {
 
 function renderDocDialog(d) {
   const f = d.form;
-  const isDi = d.kind2 === 'di';
-  // Số của sổ đi không sửa được: sửa số đã phát hành là sai nghiệp vụ, và từ
-  // 11/09/2026 sổ đi không còn đường nhập số tay nào cả.
-  const numberLocked = d.mode === 'edit' && d.doc && d.doc.book === 'di';
+  const meta = kindMeta(d.kind2);
+  // Số của sổ cấp số (đi, nội bộ) không sửa được: sửa số đã phát hành là sai
+  // nghiệp vụ, và từ 11/09/2026 các sổ này không còn đường nhập số tay nào cả.
+  const numberLocked = d.mode === 'edit' && d.doc && issuesNumber(d.doc.book);
 
   const field = (label, key, attrs) =>
     el('label', { class: 'field' + (attrs && attrs.full ? ' full' : '') },
@@ -2628,7 +3614,7 @@ function renderDocDialog(d) {
       if (res.numberChange) {
         // Số lệch so với dự kiến: bắt người dùng xác nhận bằng hộp thoại, đừng
         // dùng toast — toast tự tắt và văn thư có thể đã ghi số cũ lên bản giấy.
-        showNumberChanged(res.numberChange);
+        showNumberChanged(Object.assign({ bookName: d.bookName || meta.book }, res.numberChange));
       } else if (res.issued) {
         toast('Đã cấp số ' + res.document.soVanBan + ' và ghi vào sổ.', 'ok');
       } else {
@@ -2699,12 +3685,12 @@ function renderDocDialog(d) {
       )
       : d.mode === 'issue'
         ? null
-        : field('Số văn bản', 'soVanBan', {
+        : field(meta.numberLabel || 'Số văn bản', 'soVanBan', {
           mono: true,
-          placeholder: 'VD: 2145/UBND-VP',
-          hint: 'Giữ nguyên số của cơ quan gửi',
+          placeholder: meta.numberPlaceholder || '',
+          hint: meta.numberHint || '',
         }),
-    field('Ngày gửi', 'ngayGui', { type: 'date' }),
+    field(meta.date, 'ngayGui', { type: 'date' }),
     field('Tên văn bản', 'tenVanBan', { full: true, placeholder: 'Trích yếu nội dung văn bản' }),
     // Trường riêng của sổ, đúng thứ tự quản trị đã xếp.
     liveFields(book).map(fieldInput),
@@ -2725,7 +3711,7 @@ function renderDocDialog(d) {
 
   // Tên sổ đứng ngay trên hộp thoại: với nhiều sổ đi, "Lấy số văn bản đi" không
   // còn đủ để biết số sắp cấp thuộc sổ nào.
-  const eyebrow = (d.mode === 'issue' ? 'Lấy số · ' : '') + (d.bookName || (isDi ? 'Sổ văn bản đi' : 'Sổ văn bản đến'));
+  const eyebrow = (d.mode === 'issue' ? 'Lấy số · ' : '') + (d.bookName || meta.book);
   const title = d.mode === 'edit' ? 'Sửa thông tin văn bản'
     : d.mode === 'issue' ? 'Cấp số cho văn bản gửi đi' : 'Ghi văn bản vào sổ';
 
@@ -2956,7 +3942,7 @@ function renderNumberChangedDialog(d) {
       : 'Trong lúc bạn nhập, số ' + c.expected +
       ' đã bị lấy mất — hệ thống chuyển sang số trống kế tiếp để không cấp trùng.';
 
-  return dialogShell('Sổ văn bản đi', 'Số thứ tự khác với dự kiến',
+  return dialogShell(c.bookName || 'Sổ văn bản đi', 'Số thứ tự khác với dự kiến',
     [
       el('div', { class: 'full num-change' },
         el('div', { class: 'num-change-cell' },
@@ -3032,7 +4018,7 @@ function docBookName(doc) {
   if (doc.bookName) return doc.bookName;
   const b = bookById(doc.bookId);
   if (b) return b.name;
-  return doc.book === 'den' ? 'Sổ văn bản đến' : 'Sổ văn bản đi';
+  return kindMeta(doc.book).book;
 }
 
 function confirmDelete(doc) {
@@ -3040,7 +4026,7 @@ function confirmDelete(doc) {
     eyebrow: docBookName(doc),
     title: 'Xóa văn bản khỏi sổ?',
     message:
-      'Xóa “' + doc.soVanBan + ' — ' + doc.tenVanBan + '” khỏi sổ. ' +
+      'Xóa “' + (doc.soVanBan ? doc.soVanBan + ' — ' : '') + doc.tenVanBan + '” khỏi sổ. ' +
       (doc.seq !== null
         ? 'Số ' + doc.soVanBan + ' được trả lại cho sổ — người lấy số tiếp theo có thể nhận đúng số này. ' +
         'Nếu sau đó khôi phục văn bản mà số đã có chủ, hệ thống sẽ cấp cho nó một số khác. '
@@ -3051,7 +4037,7 @@ function confirmDelete(doc) {
     onConfirm: async () => {
       await api('DELETE', '/api/documents/' + doc.id);
       closeDialog();
-      toast('Đã xóa ' + doc.soVanBan + ' khỏi sổ.', 'ok');
+      toast('Đã xóa ' + soLabel(doc) + ' khỏi sổ.', 'ok');
       refresh();
     },
   });
@@ -3062,13 +4048,13 @@ function confirmRestore(doc) {
     eyebrow: docBookName(doc),
     title: 'Khôi phục văn bản về sổ?',
     message:
-      '“' + doc.soVanBan + ' — ' + doc.tenVanBan + '” trở lại sổ' +
+      '“' + (doc.soVanBan ? doc.soVanBan + ' — ' : '') + doc.tenVanBan + '” trở lại sổ' +
       (doc.fileName ? ', kèm file đính kèm ' + doc.fileName : '') + '. ' +
       (doc.numberFree === false
         ? 'Số ' + doc.soVanBan + ' nay đã thuộc về một văn bản khác nên không trả lại được — ' +
         'văn bản này sẽ nhận số mới ' + (doc.nextNumber || 'kế tiếp') +
         '. Nếu đã ghi số cũ lên bản giấy thì phải sửa lại. '
-        : 'Số cũ ' + doc.soVanBan + ' vẫn còn trống nên văn bản giữ nguyên số của mình. ') +
+        : doc.soVanBan ? 'Số cũ ' + doc.soVanBan + ' vẫn còn trống nên văn bản giữ nguyên số của mình. ' : '') +
       'Việc khôi phục được ghi vào nhật ký.',
     confirmLabel: 'Khôi phục về sổ',
     onConfirm: async () => {
@@ -3079,7 +4065,7 @@ function confirmRestore(doc) {
         (r
           ? 'Đã khôi phục về sổ với số MỚI ' + r.to + ' — số cũ ' + r.from +
           ' nay thuộc về văn bản khác' + (r.takenBy ? ' (“' + r.takenBy + '”)' : '') + '.'
-          : 'Đã khôi phục ' + doc.soVanBan + ' về sổ.') +
+          : 'Đã khôi phục ' + soLabel(doc) + ' về sổ.') +
         (data.fileMissing ? ' Lưu ý: file đính kèm không còn trên máy chủ.' : ''),
         r || data.fileMissing ? 'err' : 'ok'
       );
@@ -3141,6 +4127,7 @@ function renderDialogs() {
   else if (d.kind === 'temp-password') host.append(renderTempPasswordDialog(d));
   else if (d.kind === 'confirm') host.append(renderConfirmDialog(d));
   else if (d.kind === 'number-changed') host.append(renderNumberChangedDialog(d));
+  else if (d.kind === 'award') host.append(renderAwardDialog(d));
   restoreFocus(saved);
 }
 
@@ -3176,8 +4163,11 @@ function render() {
       state.settingsTab === 'so' ? renderBooksPage()
         : state.settingsTab === 'taikhoan' ? renderUsersPage()
           : state.settingsTab === 'sonam' ? renderYearsPage()
-            : renderAuditPage();
+            : state.settingsTab === 'khenthuong' ? renderAwardSettingsPage()
+              : renderAuditPage();
     content = [renderSettingsTabs(), inner];
+  } else if (state.page === 'khenthuong') {
+    content = renderAwardsPage();
   } else {
     // Không phải quản trị mà lạc vào trang cài đặt: đưa về sổ.
     if (state.page === 'settings') state.page = 'so';
