@@ -203,7 +203,7 @@ const vt = await session('vanthu');
   check('vào được sổ', await page.locator('.brand-name').isVisible());
   check('hiện tên và vai trò', (await page.locator('.topbar-right').innerText()).includes('Nhân viên'));
   check('KHÔNG có mục Cài đặt', (await page.locator('.booknav-item:has-text("Cài đặt")').count()) === 0);
-  check('cột sổ liệt kê cả ba sổ', (await page.locator('.booknav-item').count()) === 3,
+  check('cột sổ liệt kê cả bốn sổ', (await page.locator('.booknav-item:not(:has-text("Khen thưởng"))').count()) === 4,
     String(await page.locator('.booknav-item').count()));
   check('mở sẵn sổ đến', (await page.locator('.booknav-item.active').innerText()).includes('Văn bản đến'));
   // Sổ đến không cấp số: nút ở đây là ghi tay, nút lấy số chỉ có ở sổ đi.
@@ -314,6 +314,38 @@ const vt = await session('vanthu');
   const soTrongSo = await page.locator('tbody tr:has-text("Nhận số kế tiếp qua giao diện") .cell-num').innerText();
   check('văn bản vào sổ đúng số đã báo', soTrongSo === soThat, soTrongSo + ' vs ' + soThat);
   await pKhac.close();
+
+  // Sổ nội bộ: nhóm riêng ở cột trái, KHÔNG cấp số, nhãn ngày là ngày ban hành.
+  check('cột trái có nhóm Sổ nội bộ', (await page.locator('.booknav-group:has-text("Sổ nội bộ")').count()) === 1);
+  await page.click('.booknav-item:has-text("Văn bản nội bộ")');
+  await page.waitForSelector('.bookhead .badge-green');
+  check('đầu sổ nội bộ mang huy hiệu riêng', (await page.locator('.bookhead .badge-green').innerText()) === 'Văn bản nội bộ');
+  check('bảng sổ nội bộ gọi cột ngày là ngày ban hành',
+    (await page.locator('thead th').allInnerTexts()).some((x) => /ngày ban hành/i.test(x)));
+  check('bảng sổ nội bộ hiện cột Tình trạng',
+    (await page.locator('thead th').allInnerTexts()).some((x) => /tình trạng/i.test(x)));
+  check('sổ nội bộ KHÔNG có nút lấy số', (await page.locator('button:has-text("Lấy số ở sổ này")').count()) === 0);
+  check('sổ nội bộ KHÔNG có ô số kế tiếp', (await page.locator('.nextbox').count()) === 0);
+  check('văn bản không số hiện gạch ngang',
+    (await page.locator('tbody tr:has-text("Thông báo lịch trực") .cell-num').innerText()).trim() === '—');
+  await page.click('button:has-text("+ Ghi văn bản nội bộ")');
+  await page.waitForSelector('.dialog');
+  check('hộp thoại ghi sổ nội bộ gọi ô số là Số / ký hiệu',
+    (await page.locator('.dialog .label').allInnerTexts()).some((x) => /số \/ ký hiệu/i.test(x)));
+  check('hộp thoại ghi sổ nội bộ dùng Ngày ban hành',
+    (await page.locator('.dialog .label').allInnerTexts()).some((x) => /ngày ban hành/i.test(x)));
+  check('tình trạng điền sẵn “Còn hiệu lực”',
+    (await page.locator('.dialog [data-fk="doc-tinhTrang"]').inputValue()) === 'Còn hiệu lực');
+  await page.fill('.dialog input[placeholder="Trích yếu nội dung văn bản"]', 'Quy định giờ làm việc mùa đông');
+  await page.selectOption('.dialog [data-fk="doc-loaiVanBan"]', 'Quy định');
+  await page.screenshot({ path: SHOT + '/22-ghi-so-noi-bo.png' });
+  // Để trống ô số: văn bản nội bộ không bắt buộc có số.
+  await page.click('.dialog button.btn-primary');
+  await page.waitForSelector('.dialog', { state: 'detached' });
+  await page.waitForSelector('tbody tr:has-text("Quy định giờ làm việc mùa đông")');
+  check('văn bản nội bộ không số vào sổ',
+    (await page.locator('tbody tr:has-text("Quy định giờ làm việc mùa đông") .cell-num').innerText()).trim() === '—');
+  await page.screenshot({ path: SHOT + '/23-so-noi-bo.png', fullPage: true });
 }
 
 // -------------------------------------------------------------------- chỉ xem
@@ -385,6 +417,19 @@ const ad = await session('admin');
   await page.waitForTimeout(600);
   check('xóa xong về như ban đầu', (await bookRows.count()) === soBanDau,
     String(await bookRows.count()));
+
+  // Form tạo sổ có loại thứ ba; chọn nó là đổi sang bộ trường của sổ nội bộ.
+  await page.click('button:has-text("+ Tạo sổ mới")');
+  await page.waitForSelector('.book-form');
+  await page.click('.book-form .toggle button:has-text("Văn bản nội bộ")');
+  check('chọn loại nội bộ hiện ghi chú riêng',
+    (await page.locator('.book-form .note').first().innerText()).includes('ban hành trong đơn vị'));
+  check('sổ nội bộ KHÔNG có phần đánh số', (await page.locator('.book-form .book-preview-num').count()) === 0);
+  check('bộ trường mặc định của sổ nội bộ có Tình trạng',
+    await page.locator('.book-form input').evaluateAll((xs) => xs.some((x) => x.value === 'Tình trạng')));
+  await page.screenshot({ path: SHOT + '/24-tao-so-noi-bo.png', fullPage: true });
+  await page.click('.book-form button:has-text("Hủy")');
+  await page.waitForSelector('.book-form', { state: 'detached' });
 
   // sửa hậu tố của một sổ đã có văn bản
   await page.click('tbody tr:has-text("Đảng ủy") button:has-text("Sửa")');
@@ -534,7 +579,7 @@ console.log('\n== sổ theo năm và nhật ký ==');
   check('nhật ký ghi việc sửa sổ', nk.includes('Sửa sổ'));
   check('nhật ký ghi việc tạo và xóa sổ', nk.includes('Tạo sổ') && nk.includes('Xóa sổ'));
   check('nhật ký ghi việc đặt lại bộ đếm', nk.includes('Đặt lại bộ đếm'));
-  check('nhật ký ghi việc cấp số', nk.includes('Cấp số văn bản đi'));
+  check('nhật ký ghi việc cấp số', nk.includes('Cấp số văn bản'));
   check('nhật ký ghi ai làm', nk.includes('admin') && nk.includes('hant'));
   await page.screenshot({ path: SHOT + '/15-nhat-ky.png', fullPage: true });
 }
@@ -1006,6 +1051,95 @@ console.log('\n== tiện ích chặn quảng cáo chặn request ==');
   check('vẫn còn đường tải xuống khi không dựng được',
     await page.locator('.dialog-foot a:has-text("Tải xuống")').count() === 1);
   await page.unroute('**/*');
+}
+
+console.log('\n== khen thưởng: tự khai → Quản trị duyệt → tổng hợp ==');
+{
+  const navKt = '.booknav-item:has-text("Khen thưởng")';
+  const pdf = { name: 'QĐ khen thưởng 77.pdf', mimeType: 'application/pdf', buffer: pdfThat(1) };
+
+  const x = await session('khen-thuong-xem');
+  await login(x.page, 'minhtv', 'chixem@123');
+  await x.page.waitForSelector('.topbar');
+  await x.page.click(navKt);
+  await x.page.waitForSelector('.award-head');
+  check('Chỉ xem: không có tab Chờ duyệt', await x.page.locator('.award-tabs .tab:has-text("Chờ duyệt")').count() === 0);
+  await x.page.click('button:has-text("+ Khai báo khen thưởng")');
+  await x.page.waitForSelector('.dialog');
+  check('Chỉ xem: không chọn người, chỉ khai cho mình',
+    await x.page.locator('.chip-picker').count() === 0 &&
+    (await x.page.locator('.dialog input[disabled]').first().inputValue()) === 'Trần Văn Minh');
+  await x.page.selectOption('[data-fk="aw-hinhThuc"]', 'Giấy khen');
+  await x.page.fill('[data-fk="aw-soQd"]', '77/QĐ-UI');
+  await x.page.fill('[data-fk="aw-ngayQd"]', '05/09/2026');
+  await x.page.press('[data-fk="aw-ngayQd"]', 'Tab');
+  const [fc] = await Promise.all([x.page.waitForEvent('filechooser'), x.page.click('.file-drop .btn-pick')]);
+  await fc.setFiles(pdf);
+  await x.page.click('.dialog button:has-text("Gửi khai báo")');
+  await x.page.waitForSelector('.overlay', { state: 'detached' });
+  const row = x.page.locator('.award-table tr:has-text("77/QĐ-UI")');
+  await row.waitFor();
+  check('bản khai hiện ở Của tôi, trạng thái Chờ duyệt', (await row.innerText()).includes('Chờ duyệt'));
+  check('tên tệp quyết định tiếng Việt giữ nguyên', (await row.locator('.file-open').innerText()).includes('QĐ khen thưởng 77.pdf'));
+  await x.page.screenshot({ path: SHOT + '/20-khen-thuong-cua-toi.png', fullPage: true });
+
+  const a = await session('khen-thuong-admin');
+  await login(a.page, 'admin', 'admin@2026');
+  await a.page.waitForSelector('.topbar');
+  // Số chờ duyệt tải sau thanh trên: chờ nó hiện, đừng đọc ngay (từng hỏng ngẫu nhiên).
+  check('Quản trị thấy số chờ duyệt trên cột sổ',
+    await a.page.locator(navKt + ' .booknav-hot').waitFor({ timeout: 5000 }).then(() => true, () => false));
+  await a.page.click(navKt);
+  await a.page.click('.award-tabs .tab:has-text("Chờ duyệt")');
+  const card = a.page.locator('.award-card:has-text("77/QĐ-UI")');
+  await card.waitFor();
+  await card.locator('.file-open').click();
+  await a.page.waitForSelector('.dialog-wide .pdf-wrap canvas');
+  check('Quản trị xem được tệp quyết định ngay trên web', await a.page.locator('.dialog-wide .pdf-wrap canvas').count() >= 1);
+  await a.page.click('.dialog button:has-text("Đóng")');
+  await a.page.screenshot({ path: SHOT + '/21-khen-thuong-cho-duyet.png', fullPage: true });
+  await card.locator('button:has-text("Duyệt")').click();
+  await card.waitFor({ state: 'detached' });
+  check('duyệt xong thẻ rời hàng chờ', await a.page.locator('.award-card:has-text("77/QĐ-UI")').count() === 0);
+  await a.page.click('.award-tabs .tab:has-text("Tổng hợp")');
+  await a.page.waitForSelector('.award-matrix');
+  const minh = a.page.locator('.award-matrix tbody tr:has-text("Trần Văn Minh")');
+  check('tổng hợp đếm bản vừa duyệt', (await minh.locator('.award-total').innerText()).trim() !== '—');
+  await a.page.screenshot({ path: SHOT + '/22-khen-thuong-tong-hop.png', fullPage: true });
+
+  await x.page.reload({ waitUntil: 'networkidle' });
+  await x.page.click(navKt);
+  const done = x.page.locator('.award-table tr:has-text("77/QĐ-UI")');
+  await done.waitFor();
+  check('người khai thấy Đã duyệt và dòng đã khóa',
+    (await done.innerText()).includes('Đã duyệt') && await done.locator('button:has-text("Sửa")').count() === 0);
+  await x.ctx.close();
+  await a.ctx.close();
+}
+
+console.log('\n== cài đặt danh mục danh hiệu, cấp khen là chữ ==');
+{
+  const { page, ctx } = await session('khen-thuong-cai-dat');
+  await login(page, 'admin', 'admin@2026');
+  await page.waitForSelector('.topbar');
+  await page.click('.booknav-item:has-text("Cài đặt")');
+  await page.click('.subtab:has-text("Khen thưởng")');
+  await page.waitForSelector('[data-fk="awf-0"]');
+  check('tab Khen thưởng liệt kê danh mục mặc định', await page.locator('[data-fk^="awf-"]').count() === 5);
+  await page.click('button:has-text("+ Thêm danh hiệu")');
+  await page.fill('[data-fk="awf-5"]', 'Chiến sĩ thi đua cấp tỉnh');
+  await page.press('[data-fk="awf-5"]', 'Tab');
+  await page.click('button:has-text("Lưu danh mục")');
+  await page.waitForSelector('.savebar-status:has-text("Đã lưu")');
+  await page.screenshot({ path: SHOT + '/23-khen-thuong-danh-muc.png', fullPage: true });
+
+  await page.click('.booknav-item:has-text("Khen thưởng")');
+  await page.click('button:has-text("+ Khai báo")');
+  await page.waitForSelector('.dialog');
+  const opts = await page.locator('[data-fk="aw-hinhThuc"] option').allInnerTexts();
+  check('hộp thoại có danh hiệu vừa thêm', opts.includes('Chiến sĩ thi đua cấp tỉnh'), opts.join(' | '));
+  check('cấp khen là ô nhập chữ', await page.locator('input[data-fk="aw-cap"]').count() === 1);
+  await ctx.close();
 }
 
 console.log('\n== màn hình hẹp (điện thoại) ==');

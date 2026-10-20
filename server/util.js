@@ -48,7 +48,7 @@ const AUDIT_ACTION_LABEL = {
   dang_nhap: 'Đăng nhập',
   dang_xuat: 'Đăng xuất',
   doi_mat_khau: 'Đổi mật khẩu',
-  cap_so: 'Cấp số văn bản đi',
+  cap_so: 'Cấp số văn bản',
   ghi_so: 'Ghi văn bản vào sổ',
   sua_van_ban: 'Sửa văn bản',
   xoa_van_ban: 'Xóa văn bản',
@@ -66,12 +66,41 @@ const AUDIT_ACTION_LABEL = {
   mo_khoa_tai_khoan: 'Mở khóa tài khoản',
   dat_lai_mat_khau: 'Đặt lại mật khẩu',
   xoa_tai_khoan: 'Xóa tài khoản',
+  khai_khen_thuong: 'Khai báo khen thưởng',
+  sua_khen_thuong: 'Sửa khen thưởng',
+  rut_khen_thuong: 'Rút / xóa khen thưởng',
+  duyet_khen_thuong: 'Duyệt khen thưởng',
+  tra_khen_thuong: 'Trả lại khen thưởng',
+  xuat_khen_thuong: 'Xuất tổng hợp khen thưởng',
+  cai_dat_khen_thuong: 'Cài đặt khen thưởng',
   init_admin_create: 'Tạo quản trị từ dòng lệnh',
   init_admin_reset: 'Cấp lại mật khẩu quản trị từ dòng lệnh',
 };
 
 const SECURITY_LEVELS = ['Thường', 'Mật', 'Tối Mật', 'Tuyệt Mật'];
 const ROLES = ['admin', 'vanthu', 'xem'];
+
+/**
+ * Loại sổ. Ba loại, khác nhau ở chỗ ai đặt số văn bản:
+ *   'den'   — số do cơ quan gửi ghi, văn thư nhập lại nguyên văn, bắt buộc
+ *   'di'    — hệ thống cấp số, văn bản gửi ra ngoài
+ *   'noibo' — văn bản ban hành trong đơn vị, không gửi đi đâu (16/10/2026).
+ *             KHÔNG cấp số: nhiều văn bản nội bộ (biên bản, kế hoạch) không
+ *             đánh số, nên ô số/ký hiệu ghi tay và được để trống.
+ *
+ * Mọi chỗ cần hỏi “sổ này có cấp số không” gọi issuesNumber, và “số có được
+ * để trống không” gọi numberOptional — đừng so `kind` trực tiếp.
+ */
+const BOOK_KINDS = ['den', 'di', 'noibo'];
+const KIND_LABEL = { den: 'văn bản đến', di: 'văn bản đi', noibo: 'văn bản nội bộ' };
+
+function issuesNumber(kind) {
+  return kind === 'di';
+}
+
+function numberOptional(kind) {
+  return kind === 'noibo';
+}
 const ROLE_LABEL = { admin: 'Quản trị', vanthu: 'Nhân viên', xem: 'Chỉ xem' };
 
 /** Chuẩn hóa chuỗi người dùng nhập: gộp khoảng trắng, cắt hai đầu, chặn độ dài. */
@@ -116,5 +145,9 @@ module.exports = {
   SECURITY_LEVELS,
   ROLES,
   ROLE_LABEL,
+  BOOK_KINDS,
+  KIND_LABEL,
+  issuesNumber,
+  numberOptional,
   AUDIT_ACTION_LABEL,
 };

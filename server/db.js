@@ -88,6 +88,75 @@ function addMissingColumns() {
 }
 
 /**
+ * Nới ràng buộc loại sổ cho cơ sở dữ liệu có từ trước 16/10/2026.
+ *
+ * books.kind và documents.book mang CHECK (... IN ('den', 'di')). Sổ nội bộ
+ * cần thêm 'noibo', mà SQLite không sửa được CHECK của bảng đã có — cách duy
+ * nhất được tài liệu SQLite khuyên là dựng lại bảng: tạo bảng mới cùng định
+ * nghĩa (chỉ khác CHECK), chép dữ liệu, bỏ bảng cũ, đổi tên, dựng lại index.
+ *
+ * Định nghĩa bảng mới lấy từ CHÍNH câu CREATE đang lưu trong sqlite_master
+ * chứ không lấy từ schema.sql: cơ sở dữ liệu cũ có các cột thêm bằng ALTER
+ * nằm ở cuối, thứ tự cột khác schema.sql, và `INSERT ... SELECT *` chỉ đúng
+ * khi hai bảng y hệt nhau. Không khớp được mẫu CHECK thì dừng khởi động —
+ * dựng lại bảng theo một định nghĩa đoán mò là cách chắc chắn nhất để hỏng sổ.
+ *
+ * Giữ lại giá trị sqlite_sequence: documents.id là AUTOINCREMENT, và id của
+ * văn bản đã bị xóa hẳn khỏi bảng không được cấp lại cho văn bản mới (nhật ký
+ * còn trỏ vào id cũ qua doc_id).
+ *
+ * Khóa ngoại phải TẮT trong lúc làm (documents trỏ vào books, bỏ books là vi
+ * phạm), và PRAGMA foreign_keys không đổi được bên trong transaction — nên tắt
+ * ngoài, làm trong transaction, soát foreign_key_check trước khi chốt, bật lại.
+ */
+const KIND_CHECKS = [
+  ['books', /CHECK\s*\(\s*kind\s+IN\s*\(\s*'den'\s*,\s*'di'\s*\)\s*\)/, "CHECK (kind IN ('den', 'di', 'noibo'))"],
+  ['documents', /CHECK\s*\(\s*book\s+IN\s*\(\s*'den'\s*,\s*'di'\s*\)\s*\)/, "CHECK (book IN ('den', 'di', 'noibo'))"],
+];
+
+function kindsMigration() {
+  const todo = [];
+  for (const [table, re, widened] of KIND_CHECKS) {
+    const row = db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`).get(table);
+    if (row.sql.includes("'noibo'")) continue;
+    if (!re.test(row.sql)) {
+      throw new Error('Không nhận ra ràng buộc loại sổ của bảng ' + table + ' — dừng để khỏi dựng lại bảng sai.');
+    }
+    todo.push({ table, sql: row.sql.replace(re, widened) });
+  }
+  if (todo.length === 0) return null;
+
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      for (const t of todo) {
+        const tmp = t.table + '_kinds_new';
+        const indexes = db
+          .prepare(`SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL`)
+          .all(t.table)
+          .map((r) => r.sql);
+        const seq = db.prepare(`SELECT seq FROM sqlite_sequence WHERE name = ?`).get(t.table);
+
+        db.exec(t.sql.replace(/^CREATE TABLE\s+"?\w+"?/, 'CREATE TABLE ' + tmp));
+        db.exec(`INSERT INTO ${tmp} SELECT * FROM ${t.table}`);
+        db.exec(`DROP TABLE ${t.table}`);
+        db.exec(`ALTER TABLE ${tmp} RENAME TO ${t.table}`);
+        indexes.forEach((sql) => db.exec(sql));
+        db.prepare(`DELETE FROM sqlite_sequence WHERE name = ?`).run(t.table);
+        if (seq) db.prepare(`INSERT INTO sqlite_sequence (name, seq) VALUES (?, ?)`).run(t.table, seq.seq);
+      }
+      const broken = db.pragma('foreign_key_check');
+      if (broken.length > 0) {
+        throw new Error('Dựng lại bảng làm hỏng ' + broken.length + ' khóa ngoại — đã cuộn lại, sổ không đổi gì.');
+      }
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+  return todo.map((t) => t.table);
+}
+
+/**
  * Cột tìm kiếm của một dòng nhật ký.
  *
  * Có cả tên tiếng Việt của việc, không chỉ mã: người dùng gõ đúng chữ họ nhìn
@@ -128,6 +197,12 @@ function backfillAuditSearch() {
 }
 
 const migrated = addMissingColumns();
+// Ngay sau khi đủ cột, trước mọi migration khác: chúng chỉ đọc ghi dữ liệu,
+// còn bước này thay hẳn bảng.
+const widenedKinds = kindsMigration();
+if (widenedKinds) {
+  console.log('  cập nhật    : thêm loại sổ “nội bộ” — dựng lại bảng ' + widenedKinds.join(', '));
+}
 const backfilled = backfillAuditSearch();
 // Khai báo hàm nên gọi được trước chỗ định nghĩa bên dưới.
 const remapped = migrateNumberingSetting();
@@ -395,6 +470,7 @@ module.exports = {
   migrateNumberingSetting,
   splitBooksMigration,
   fieldsMigration,
+  kindsMigration,
   getSetting,
   setSetting,
   audit,

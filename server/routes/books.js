@@ -6,7 +6,7 @@ const { db, audit } = require('../db');
 const auth = require('../auth');
 const books = require('../books');
 const numbering = require('../numbering');
-const { badRequest } = require('../util');
+const { badRequest, issuesNumber } = require('../util');
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ function currentYear() {
  */
 function decorate(book, countMap, year) {
   const out = Object.assign({}, book, { count: countMap.get(book.id) || 0 });
-  if (book.kind === 'di') {
+  if (issuesNumber(book.kind)) {
     const next = numbering.peekNext(book, year);
     out.next = { seq: next.seq, soVanBan: next.soVanBan, skipped: next.skipped };
   } else {
@@ -99,7 +99,7 @@ router.delete('/:id', ...adminOnly, (req, res, next) => {
 router.post('/:id/reset-counter', ...adminOnly, (req, res, next) => {
   try {
     const book = books.require(req.params.id, false);
-    if (book.kind !== 'di') throw badRequest('Sổ đến không có bộ đếm.', 'no_counter');
+    if (!issuesNumber(book.kind)) throw badRequest('Sổ “' + book.name + '” không có bộ đếm.', 'no_counter');
     const year = currentYear();
     const effective = numbering.resetCounter(book, year, req.body && req.body.nextSeq);
     audit(
@@ -127,7 +127,7 @@ router.post('/:id/reset-counter', ...adminOnly, (req, res, next) => {
 router.get('/:id/counter', ...adminOnly, (req, res, next) => {
   try {
     const book = books.require(req.params.id, false);
-    if (book.kind !== 'di') return res.json({ counter: null });
+    if (!issuesNumber(book.kind)) return res.json({ counter: null });
     const year = currentYear();
     const scope = numbering.scopeFor(book, year);
     const row = db.prepare(`SELECT next_seq FROM counters WHERE scope = ?`).get(scope);

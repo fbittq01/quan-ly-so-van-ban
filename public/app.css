@@ -23,6 +23,10 @@
   --blue-tint: #eaf0f5;
   --blue-edge: #c3d3df;
 
+  --green: #2f6b45;
+  --green-tint: #e8f3ec;
+  --green-edge: #bfdcc9;
+
   --red: #cc0000;
   --red-tint: #fbe9e9;
   --red-edge: #f0c7c7;
@@ -158,6 +162,7 @@ a:hover { color: var(--orange); text-decoration: underline; }
 .badge-orange { color: var(--orange-dark); background: var(--orange-tint); border-color: var(--orange-edge); }
 .badge-blue { color: var(--blue); background: var(--blue-tint); border-color: var(--blue-edge); }
 .badge-red { color: var(--red); background: var(--red-tint); border-color: var(--red-edge); }
+.badge-green { color: var(--green); background: var(--green-tint); border-color: var(--green-edge); }
 
 .note {
   display: flex;
@@ -1076,3 +1081,193 @@ tbody tr:hover { background: var(--bg); }
 .check input { width: 15px; height: 15px; margin: 0; accent-color: var(--slate); }
 /* Ô “có/không” trong hộp thoại văn bản cao bằng ô nhập bên cạnh. */
 .check-tall { height: var(--control-h); }
+
+/* ---------------------------------------------------------- khen thưởng */
+
+.booknav-hot {
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--orange-dark);
+  color: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.award-head { padding-bottom: 0; gap: 14px; }
+.award-head-row { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.award-intro { max-width: 680px; line-height: 1.55; }
+.award-tabs { display: flex; gap: 28px; border-top: 1px solid var(--line); overflow-x: auto; }
+/* Số bản chờ duyệt trên tab: nền đậm để Quản trị không bỏ sót. */
+.tab-hot {
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--orange-dark);
+  color: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.award-person { font-weight: 600; color: var(--ink); }
+.award-sub { font-size: 12px; color: var(--ink-3); }
+.award-issuer { font-family: var(--font-sans); }
+.award-nofile { margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--red); }
+.award-reason { margin-top: 6px; font-size: 13px; color: var(--red); line-height: 1.45; }
+.award-table td .hint { margin-top: 4px; }
+.award-table .cell-file { margin-top: 4px; }
+
+.award-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.award-card-main { flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.award-card-who { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.award-card-name { font-size: 16px; font-weight: 700; color: var(--black); }
+.award-card-form { font-size: 15px; font-weight: 600; color: var(--ink); }
+.award-card-meta { display: flex; gap: 6px 18px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+.award-card-badge { align-self: flex-start; }
+.award-card-note { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; white-space: pre-line; }
+.award-card-actions { flex: 1 1 260px; display: flex; gap: 10px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.award-return {
+  flex: 1 1 100%;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.award-return-label { color: var(--red); }
+.award-return-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.award-return-actions .hint { margin-right: auto; }
+
+.award-matrix { table-layout: fixed; min-width: 860px; }
+.award-matrix th.award-num { text-align: center; letter-spacing: 0.06em; white-space: normal; font-family: var(--font-sans); font-size: 11px; color: var(--slate); }
+.award-num { text-align: center; font-family: var(--font-mono); font-size: 14px; color: var(--ink); vertical-align: middle; }
+.award-num.zero { color: var(--ink-4); }
+.award-total { font-weight: 700; color: var(--black); background: #fafafb; }
+.award-matrix tfoot tr { background: var(--bg); }
+.award-matrix tfoot th { color: var(--black); }
+.award-grand { font-weight: 700; font-size: 15px; color: var(--orange-dark); background: #fff3eb; }
+
+.award-people { border: none; margin: 0; padding: 0; min-width: 0; }
+.award-people legend { padding: 0; margin-bottom: 8px; }
+/* Ô chip + menu chọn người được khen. */
+.chip-picker { position: relative; }
+.chip-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--control-h);
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: text;
+}
+.chip-picker.open .chip-box { border-color: var(--slate); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 2px 0 10px;
+  border: 1px solid var(--orange-edge);
+  border-radius: 14px;
+  background: #fff3eb;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 100%;
+}
+.chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--orange-dark);
+  cursor: pointer;
+}
+.chip-x:hover { background: var(--orange-tint); }
+.chip-input {
+  flex: 1 1 160px;
+  min-width: 120px;
+  height: 28px;
+  border: none;
+  outline: none;
+  padding: 0 4px;
+  font-size: 14px;
+  color: var(--ink);
+  background: transparent;
+}
+.chip-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.chip-menu[hidden] { display: none; }
+.chip-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.chip-menu-head .hint { margin-right: auto; }
+.chip-list { max-height: 280px; overflow-y: auto; }
+.chip-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.chip-opt:hover, .chip-opt.active { background: var(--bg); }
+.chip-tick {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--surface);
+}
+.chip-opt.on .chip-tick { border-color: var(--orange); background: var(--orange); }
+.chip-opt-name { font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.chip-opt-title { min-width: 0; font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-empty { padding: 14px 12px; }
+.chip-empty[hidden] { display: none; }
+.award-people > .hint { margin-top: 6px; }
+
+.award-matrix th.award-num.off { color: var(--ink-3); font-style: italic; }
+.award-forms td { vertical-align: middle; padding-top: 9px; padding-bottom: 9px; }
+.award-form-name { width: 100%; max-width: 560px; }
+.award-form-rename { margin-top: 4px; color: var(--orange-dark); }
+.award-orphans { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; }
+.award-orphan { display: inline-flex; align-items: baseline; gap: 8px; }
+
+.w70 { width: 70px; }
+.w90 { width: 90px; }
+.w220 { width: 220px; }
+.award-table { min-width: 1040px; }

@@ -30,9 +30,13 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 -- tùy ý (hai sổ đi song song là ca có thật: sổ chính quyền và sổ Đảng ủy).
 --
 -- kind quyết định cách đánh số và không đổi được khi sổ đã có văn bản:
---   'den' — số do cơ quan gửi ghi, hệ thống không cấp số, không có bộ đếm
---   'di'  — hệ thống cấp số; prefix/suffix/start_seq/reset_yearly là của
---           RIÊNG sổ này, mỗi sổ một bộ đếm không dính gì nhau
+--   'den'   — số do cơ quan gửi ghi, hệ thống không cấp số, không có bộ đếm
+--   'di'    — hệ thống cấp số; prefix/suffix/start_seq/reset_yearly là của
+--             RIÊNG sổ này, mỗi sổ một bộ đếm không dính gì nhau
+--   'noibo' — văn bản ban hành nội bộ (16/10/2026): KHÔNG cấp số, không bộ
+--             đếm; số/ký hiệu ghi tay và được để trống. Cơ sở dữ liệu có từ
+--             trước ngày đó mang CHECK cũ chỉ có hai loại — kindsMigration
+--             trong db.js dựng lại bảng để nới nó ra.
 --
 -- hidden = ngừng dùng: sổ biến khỏi danh sách của văn thư và không cấp số nữa,
 -- nhưng văn bản trong đó còn nguyên và quản trị vẫn tra cứu được. Đó là thứ
@@ -41,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 CREATE TABLE IF NOT EXISTS books (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   name         TEXT    NOT NULL,
-  kind         TEXT    NOT NULL CHECK (kind IN ('den', 'di')),
+  kind         TEXT    NOT NULL CHECK (kind IN ('den', 'di', 'noibo')),
   prefix       TEXT    NOT NULL DEFAULT '',
   suffix       TEXT    NOT NULL DEFAULT '',
   start_seq    INTEGER NOT NULL DEFAULT 1,
@@ -69,11 +73,12 @@ CREATE TABLE IF NOT EXISTS documents (
   -- LOẠI sổ, không phải sổ nào. Sổ cụ thể nằm ở book_id (thêm trong db.js).
   -- Giữ lại cột này thay vì dựng lại bảng chỉ để bỏ ràng buộc CHECK: mọi cơ sở
   -- dữ liệu đang chạy đều có nó, và 'den' | 'di' vẫn đúng với mọi hàng vì đó
-  -- là kind của sổ chứa hàng đó. Truy vấn theo loại (thống kê đến/đi) đọc cột
-  -- này; truy vấn theo sổ đọc book_id.
-  book         TEXT    NOT NULL CHECK (book IN ('den', 'di')),
+  -- là kind của sổ chứa hàng đó. Truy vấn theo loại (thống kê đến/đi/nội bộ)
+  -- đọc cột này; truy vấn theo sổ đọc book_id.
+  book         TEXT    NOT NULL CHECK (book IN ('den', 'di', 'noibo')),
   so_van_ban   TEXT    NOT NULL,
-  -- seq/seq_scope chỉ có với văn bản đi do hệ thống cấp số.
+  -- seq/seq_scope chỉ có với văn bản đi do hệ thống cấp số. so_van_ban = ''
+  -- là văn bản nội bộ không đánh số.
   -- seq_scope = '2026' khi reset đầu năm, 'all' khi tăng liên tục.
   seq          INTEGER,
   seq_scope    TEXT,
@@ -143,3 +148,45 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
 -- idx_audit_doc tạo trong db.js, cùng lý do như idx_documents_deleted.
+
+-- Khen thưởng (16/10/2026). Bảng RIÊNG, không phải một sổ: ai cũng tự khai được,
+-- mỗi dòng gắn với một người được khen, và phải qua Quản trị duyệt — ba thứ sổ
+-- văn bản không có. Lý do đầy đủ ở đầu routes/awards.js.
+--
+-- Một quyết định khen nhiều người = nhiều dòng (mỗi người một dòng) dùng chung
+-- một file_path; tệp chỉ bị xóa khỏi đĩa khi không còn dòng nào trỏ tới.
+--
+-- status: 'cho'   chờ Quản trị duyệt, chưa tính vào tổng hợp
+--         'duyet' đã duyệt, tính vào tổng hợp, khóa với người khai
+--         'tra'   Quản trị trả lại kèm ly_do_tra; người khai sửa rồi gửi lại
+CREATE TABLE IF NOT EXISTS awards (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  -- Không ON DELETE: tài khoản có khen thưởng thì khóa chứ không xóa
+  -- (routes/users.js chặn trước), mất người là mất luôn dòng tổng hợp.
+  user_id      INTEGER NOT NULL REFERENCES users(id),
+  hinh_thuc    TEXT    NOT NULL,
+  cap          TEXT    NOT NULL DEFAULT '',
+  -- Năm thi đua, có thể khác năm ký quyết định (LĐTT năm 2025 ký tháng 1/2026).
+  nam          INTEGER NOT NULL,
+  so_qd        TEXT    NOT NULL,
+  ngay_qd      TEXT    NOT NULL,
+  co_quan      TEXT    NOT NULL DEFAULT '',
+  ghi_chu      TEXT    NOT NULL DEFAULT '',
+  file_name    TEXT,
+  file_path    TEXT,
+  file_size    INTEGER,
+  status       TEXT    NOT NULL CHECK (status IN ('cho', 'duyet', 'tra')),
+  ly_do_tra    TEXT    NOT NULL DEFAULT '',
+  created_at   TEXT    NOT NULL,
+  created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at   TEXT,
+  updated_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at  TEXT,
+  reviewed_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  -- Xóa mềm (rút bản khai / Quản trị xóa). Mọi đường đọc lọc deleted_at IS NULL.
+  deleted_at   TEXT,
+  deleted_by   INTEGER REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_awards_user ON awards(user_id, nam);
+CREATE INDEX IF NOT EXISTS idx_awards_status ON awards(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_awards_file ON awards(file_path) WHERE file_path IS NOT NULL;

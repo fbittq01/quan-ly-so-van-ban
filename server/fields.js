@@ -57,6 +57,7 @@ function newKey() {
  * định” cũng vậy — nên tên trường trên giao diện và trong kiểm thử không đổi.
  */
 function defaultFields(kind) {
+  if (kind === 'noibo') return internalFields();
   return [
     {
       key: 'nguoiGui',
@@ -76,6 +77,40 @@ function defaultFields(kind) {
       hidden: false,
     },
     { key: 'ghiChu', label: 'Ghi chú', type: 'textarea', required: false, table: true, hidden: false },
+  ];
+}
+
+// Danh mục chọn sẵn của sổ nội bộ. Quản trị sửa được ở Cài đặt → Sổ như mọi
+// trường chọn một khác; đây chỉ là bộ điền sẵn lúc tạo sổ.
+const INTERNAL_TYPES = ['Quyết định', 'Thông báo', 'Quy chế', 'Quy định', 'Kế hoạch', 'Biên bản', 'Tờ trình', 'Khác'];
+const INTERNAL_STATUS = ['Còn hiệu lực', 'Hết hiệu lực', 'Bị thay thế', 'Bị bãi bỏ'];
+
+/**
+ * Bộ trường mặc định của sổ nội bộ (16/10/2026).
+ *
+ * Chỗ khác thật của văn bản nội bộ so với văn bản đi là VÒNG ĐỜI: quy chế,
+ * quy định, quyết định phân công còn áp dụng cho tới khi bị thay thế. Nên có
+ * “Tình trạng” kiểu chọn một — lọc theo nó (?f.tinhTrang=Còn hiệu lực) là ra
+ * danh mục văn bản đang áp dụng, không cần màn hình riêng — và “Thay thế văn
+ * bản số” để lần ngược.
+ *
+ * Khóa đặt tên có nghĩa thay vì mã ngẫu nhiên, cùng lý do như bộ của sổ đến/đi:
+ * kiểm thử và giao diện gọi được đúng tên. Bốn trường lên bảng — đúng trần
+ * MAX_TABLE.
+ */
+function internalFields() {
+  const f = (key, label, type, table, extra) =>
+    Object.assign({ key, label, type, required: false, table, hidden: false }, extra || {});
+  return [
+    f('loaiVanBan', 'Loại văn bản', 'select', true, { options: INTERNAL_TYPES.slice() }),
+    f('nguoiKy', 'Người ký', 'text', true),
+    f('donViSoan', 'Đơn vị soạn thảo', 'text', false),
+    f('noiNhan', 'Phạm vi / nơi nhận nội bộ', 'textarea', false),
+    f('ngayHieuLuc', 'Ngày có hiệu lực', 'date', false),
+    f('tinhTrang', 'Tình trạng', 'select', true, { options: INTERNAL_STATUS.slice() }),
+    f('thayThe', 'Thay thế văn bản số', 'text', false),
+    f('doBaoMat', 'Độ bảo mật', 'select', true, { options: SECURITY_LEVELS.slice() }),
+    f('ghiChu', 'Ghi chú', 'textarea', false),
   ];
 }
 
@@ -300,6 +335,7 @@ module.exports = {
   MAX_TABLE,
   KEY_RE,
   defaultFields,
+  INTERNAL_STATUS,
   parseDefs,
   parseExtra,
   normalizeDefs,

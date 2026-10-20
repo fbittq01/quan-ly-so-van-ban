@@ -219,13 +219,32 @@ Từ 18/09/2026 sổ là **dữ liệu**, không còn là hai hằng số `den` 
 trong mã. Một phòng mở bao nhiêu sổ cũng được — ca có thật là hai sổ đi song
 song: sổ chính quyền và sổ Đảng ủy, mỗi sổ một dãy số riêng.
 
-Mỗi sổ có **loại** (`đến` hoặc `đi`) và, nếu là sổ đi, **tiền tố, hậu tố, "bắt
+Mỗi sổ có **loại** (`đến`, `đi` hoặc `nội bộ`) và, nếu là sổ cấp số, **tiền tố, hậu tố, "bắt
 đầu từ", cách reset và bộ đếm của riêng nó**. Hai sổ đi không bao giờ giành số
 của nhau: phạm vi đếm là `(sổ, năm)` chứ không còn chỉ là năm. Số 12 ở sổ này và
 số 12 ở sổ kia là hai văn bản khác nhau, cùng tồn tại bình thường.
 
 Quản trị quản lý sổ ở **Cài đặt → Sổ**. Mục "Lấy số" cũ không còn: cấu hình đánh
 số nay nằm trong từng sổ.
+
+### Sổ nội bộ
+
+Từ 16/10/2026 có loại sổ thứ ba, **nội bộ** (`noibo`), cho văn bản ban hành
+trong đơn vị mà không gửi ra ngoài: quyết định phân công, thông báo, quy chế,
+quy định, kế hoạch, biên bản. Sổ nội bộ **cấp số y như sổ đi** (bộ đếm riêng,
+tiền tố/hậu tố, không nhập số tay, số đã cấp không sửa được); khác ở ba chỗ:
+
+- cột ngày gọi là **Ngày ban hành**, huy hiệu xanh, nhóm "Sổ nội bộ" ở cột trái;
+- bộ trường mặc định: Loại văn bản · Người ký · Đơn vị soạn thảo · Phạm vi / nơi
+  nhận nội bộ · Ngày có hiệu lực · **Tình trạng** (Còn hiệu lực / Hết hiệu lực /
+  Bị thay thế / Bị bãi bỏ) · Thay thế văn bản số · Độ bảo mật · Ghi chú. Lọc
+  theo Tình trạng là ra danh mục văn bản đang áp dụng;
+- trang Sổ theo năm có cột Nội bộ riêng, không gộp vào văn bản đi.
+
+Muốn số chạy riêng theo loại (`…/QĐ-P1`, `…/TB-P1`) thì mở mỗi loại một sổ nội
+bộ. Cơ sở dữ liệu có từ trước ngày này được tự dựng lại hai bảng `books` và
+`documents` lúc khởi động để nới ràng buộc loại sổ (`kindsMigration` trong
+`server/db.js`) — sao lưu trước khi cập nhật.
 
 **Sổ đã có văn bản thì không xóa được, chỉ *ngừng dùng*.** Sổ ngừng dùng biến
 khỏi cột bên trái của văn thư và máy chủ từ chối mọi lệnh ghi vào nó, nhưng văn
@@ -260,6 +279,35 @@ vẫn tìm được, hiện chỉ đọc khi sửa văn bản. Ba cột cũ `ngu
 `ghi_chu` đã chuyển vào `extra` dưới khóa `nguoiGui`, `doBaoMat`, `ghiChu` lúc
 khởi động lần đầu sau bản này (`fieldsMigration` trong `db.js`); cột vẫn còn trong
 bảng nhưng không đọc không ghi nữa.
+
+## Khen thưởng
+
+Từ 16/10/2026 phòng quản lý khen thưởng ngay trong ứng dụng, ở mục **Khen
+thưởng** cuối cột bên trái. Đây **không phải một sổ** dù cũng là "quyết định có
+số": ai cũng tự khai được, mỗi dòng gắn với đúng một người được khen, và phải qua
+Quản trị duyệt. Nên nó có bảng `awards` và đường `/api/awards` riêng, chỉ dùng
+chung tài khoản, đính kèm, nhật ký và sao lưu với sổ.
+
+| | Quản trị | Nhân viên (`vanthu`) | Chỉ xem |
+| --- | --- | --- | --- |
+| Khai báo khen thưởng của mình | có | có | có |
+| Nhập hộ người khác (một QĐ cho nhiều người) | có | có | không |
+| Sửa / rút bản khai chưa duyệt (của mình hoặc mình nhập hộ) | có | có | có |
+| **Duyệt hoặc trả lại** | **có** | không | không |
+| Sửa / xóa bản đã duyệt | **có** | không | không |
+| Xem tổng hợp cả phòng | có | có | tùy Quản trị bật/tắt |
+| Xuất tổng hợp ra Excel (CSV) | có | có | không |
+
+Vòng đời một dòng: **Chờ duyệt** → Quản trị **Duyệt** (tính vào tổng hợp, khóa
+với người khai) hoặc **Trả lại** kèm lý do bắt buộc (người khai sửa rồi gửi lại,
+dòng quay về Chờ duyệt). Quản trị tự ghi thì vào thẳng Đã duyệt.
+
+- Một quyết định khen nhiều người tạo **mỗi người một dòng**, dùng chung một tệp
+  quyết định. Cùng người + cùng danh hiệu + cùng số QĐ thì bị chặn là trùng.
+- **Năm thi đua** tách khỏi ngày quyết định (LĐTT năm 2025 thường ký tháng
+  1/2026); tổng hợp lọc theo năm thi đua.
+- Tổng hợp **chỉ đếm bản đã duyệt** và báo riêng số bản đang chờ.
+- Tài khoản đã có khen thưởng (được khen hoặc đã nhập) chỉ khóa được, không xóa.
 
 ## Cấp số văn bản đi
 
@@ -388,7 +436,8 @@ server/
   fields.js       bộ trường riêng của từng sổ: định nghĩa, kiểm tra giá trị
   numbering.js    ghép số, bộ đếm của từng sổ, chiếm số nguyên tử
   convert.js      chuyển đính kèm .docx sang PDF để xem trong trình duyệt
-  routes/         auth · books · docs · settings · users
+  files.js        đính kèm dùng chung: tải lên, xem trên web, tải xuống
+  routes/         auth · awards · books · docs · settings · users
   bin/            init-admin · backup · seed-demo
 public/
   index.html      vỏ trang
